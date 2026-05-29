@@ -1,0 +1,32 @@
+# Build / install artifacts (keep latest two zips locally; do not commit)
+dist/*.zip
+tradsimp-*.zip
+chinese_text_conversion-*.zip
+chinese_text_v*_plugin.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Cursor / local debug
+.cursor/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
