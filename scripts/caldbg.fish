@@ -1,17 +1,24 @@
 # tradsimp — Calibre 本地调试（fish）
-# 用法：source scripts/caldbg.fish
+# 用法（任选其一）：
+#   source scripts/caldbg.fish
+#   soufish                    # 若已在 ~/.config/fish/config.fish 中 source 本文件
+#   ~/tradsimp/bin/caldbg-tsc-ag   # 任意 shell 可直接运行
 
 if not type -q calibre-customize
     if test -d /Applications/calibre.app/Contents/MacOS
         fish_add_path /Applications/calibre.app/Contents/MacOS
+    else if test -x /opt/calibre/calibre-customize
+        fish_add_path /opt/calibre
     end
 end
 
-set -l _caldbg_fish (status --current-filename)
-if test -n "$_caldbg_fish"
-    set -gx TRADSIMP_ROOT (path dirname -- (path dirname -- $_caldbg_fish))
+function __tradsimp_caldbg_anchor; end
+set -l _caldbg_fish (functions --details __tradsimp_caldbg_anchor)
+functions -e __tradsimp_caldbg_anchor
+if test -f "$_caldbg_fish"
+    set -gx TRADSIMP_ROOT (path dirname -- (path dirname -- (path resolve -- $_caldbg_fish)))
 else
-    set -gx TRADSIMP_ROOT (pwd)
+    set -gx TRADSIMP_ROOT (path resolve -- .)
 end
 
 function __tradsimp_check_dir
@@ -29,20 +36,21 @@ end
 function __tradsimp_install_plugin
     __tradsimp_check_dir; or return 1
     calibre-customize -r "Chinese Text Conversion" 2>/dev/null
-    calibre-customize -b "$TRADSIMP_ROOT"
+    calibre-customize -b "$TRADSIMP_ROOT"; or return 1
     set -l lines (calibre-customize -l 2>/dev/null | string match '*Chinese Text Conversion*')
-    for line in $lines
-        echo $line
-        if string match -q '*User interface action*' -- $line
-            echo "OK: User interface action — 在 Toolbars & menus 搜索 Chinese / Chinese Conversion"
-            return 0
-        else if string match -q '*Edit book tool*' -- $line
-            echo "警告: 仍是 Edit book tool，不会出现在 The main toolbar"
-            return 1
-        end
+    if test (count $lines) -eq 0
+        echo "警告: calibre-customize -l 中未找到 Chinese Text Conversion"
+        return 1
     end
-    echo "警告: calibre-customize -l 中未找到 Chinese Text Conversion"
-    return 1
+    set -l line $lines[1]
+    echo $line
+    # Edit book tool（en / zh / zh-TW）— 不会出现在主工具栏
+    if string match -qr '(?i)edit book tool|编辑书籍|編輯書籍' -- $line
+        echo "警告: 仍是 Edit book tool，不会出现在 The main toolbar"
+        return 1
+    end
+    echo "OK: 插件已安装 — 在 Toolbars & menus 搜索 Chinese / Chinese Conversion"
+    return 0
 end
 
 function caldbg-tsc

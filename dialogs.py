@@ -370,6 +370,7 @@ class ConversionDialog(Dialog):
             self.prefs.get('ui_language', detect_calibre_ui_language()))
         if self.prefs.get('conversion_type', 0) == 0:
             self._apply_conversion_direction_for_ui_language(ui_lang)
+            self._apply_language_style_defaults_for_ui_language(ui_lang)
         if self.prefs.get('quotation_type', 0) == 0:
             self._apply_quotation_for_ui_language(ui_lang)
         self.about_btn.setText(_('About'))
@@ -634,31 +635,15 @@ class ConversionDialog(Dialog):
             self.quotation_no_conversion_button.setChecked(True)
 
         self.text_dir_combo.setCurrentIndex(self.prefs['output_orientation'])
-        if self.text_dir_combo.currentIndex() == 0:
-            self.update_punctuation.setChecked(False)
-        else:
-            self.update_punctuation.setChecked(self.prefs['update_punctuation'])
+        self.update_punctuation.setChecked(self.prefs['update_punctuation'])
 
         self.block_signals(False)
 
 
     def direction_changed(self):
         # callback when text direction changes
-        self.update_punctuation.blockSignals(True)
-        self.punc_settings_btn.blockSignals(True)
-
-        if self.text_dir_combo.currentIndex() == 0:    # no direction change
-            self.update_punctuation.setChecked(False)
-            self.update_punctuation.setEnabled(False)
-            self.punc_settings_btn.setEnabled(False)
-
-        else:
-            self.update_punctuation.setChecked(True)
-            self.update_punctuation.setEnabled(True)
-            self.punc_settings_btn.setEnabled(True)
-
-        self.punc_settings_btn.blockSignals(False)
-        self.update_punctuation.blockSignals(False)
+        # punctuation toggle is independent from text direction.
+        self.update_gui()
 
     def update_gui(self):
         # callback to update other gui items when one changes
@@ -702,15 +687,9 @@ class ConversionDialog(Dialog):
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
 
-        if self.text_dir_combo.currentIndex() == 0:
-            self.update_punctuation.blockSignals(True)
-            self.update_punctuation.setChecked(False)
-            self.update_punctuation.setEnabled(False)
-            self.update_punctuation.blockSignals(False)
-        else:
-            self.update_punctuation.blockSignals(True)
-            self.update_punctuation.setEnabled(True)
-            self.update_punctuation.blockSignals(False)
+        self.update_punctuation.blockSignals(True)
+        self.update_punctuation.setEnabled(True)
+        self.update_punctuation.blockSignals(False)
 
         if self.update_punctuation.isChecked():
             self.punc_settings_btn.setEnabled(True)
