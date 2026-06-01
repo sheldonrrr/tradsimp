@@ -7,32 +7,40 @@
       "file": "TSPhrases.txt"
     }
   },
-  "conversion_chain": [{
-    "dict": {
-      "type": "group",
-      "dicts": [{
-        "type": "txt",
-        "file": "TWVariantsRevPhrases.txt"
-      }, {
-        "type": "txt",
-        "file": "TWVariantsRev.txt"
-      }]
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "TWPhrasesRev.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TWVariantsRevPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TWVariantsRev.txt"
+          }
+        ]
+      }
+    },
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "TSPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TSCharacters.txt"
+          }
+        ]
+      }
     }
-  }, {
-    "dict": {
-      "type": "txt",
-      "file": "TWPhrasesRev.txt"
-    }
-  }, {
-    "dict": {
-      "type": "group",
-      "dicts": [{
-        "type": "txt",
-        "file": "TSPhrases.txt"
-      }, {
-        "type": "txt",
-        "file": "TSCharacters.txt"
-      }]
-    }
-  }]
+  ]
 }

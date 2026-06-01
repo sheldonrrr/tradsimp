@@ -7,19 +7,25 @@
       "file": "JPShinjitaiPhrases.txt"
     }
   },
-  "conversion_chain": [{
-    "dict": {
-      "type": "group",
-      "dicts": [{
-        "type": "txt",
-        "file": "JPShinjitaiPhrases.txt"
-      }, {
-        "type": "txt",
-        "file": "JPShinjitaiCharacters.txt"
-      }, {
-        "type": "txt",
-        "file": "JPVariantsRev.txt"
-      }]
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "JPShinjitaiPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "JPShinjitaiCharacters.txt"
+          },
+          {
+            "type": "txt",
+            "file": "JPVariantsRev.txt"
+          }
+        ]
+      }
     }
-  }]
+  ]
 }

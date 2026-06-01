@@ -454,9 +454,12 @@ def prepare_prefs(prefs):
         prefs['conversion_type'] = 0
         prefs['input_locale'] = 0
         prefs['output_locale'] = 0
+        prefs['input_locale_user_set'] = False
+        prefs['output_locale_user_set'] = False
         prefs['use_target_phrases'] = True
         prefs['quotation_type'] = 0
         prefs['output_orientation'] = 0
+        prefs['output_orientation_user_set'] = False
         prefs['update_punctuation'] = False
         prefs['punc_omits'] = PUNC_OMITS
         prefs['ui_language'] = detect_calibre_ui_language()
@@ -467,9 +470,12 @@ def prepare_prefs(prefs):
     prefs.defaults['conversion_type'] = 0
     prefs.defaults['input_locale'] = 0
     prefs.defaults['output_locale'] = 0
+    prefs.defaults['input_locale_user_set'] = False
+    prefs.defaults['output_locale_user_set'] = False
     prefs.defaults['use_target_phrases'] = True
     prefs.defaults['quotation_type'] = 0
     prefs.defaults['output_orientation'] = 0
+    prefs.defaults['output_orientation_user_set'] = False
     prefs.defaults['update_punctuation'] = False
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['ui_language'] = detect_calibre_ui_language()

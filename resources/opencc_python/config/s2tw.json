@@ -7,21 +7,27 @@
       "file": "STPhrases.txt"
     }
   },
-  "conversion_chain": [{
-    "dict": {
-      "type": "group",
-      "dicts": [{
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "STPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "STCharacters.txt"
+          }
+        ]
+      }
+    },
+    {
+      "dict": {
         "type": "txt",
-        "file": "STPhrases.txt"
-      }, {
-        "type": "txt",
-        "file": "STCharacters.txt"
-      }]
+        "file": "TWVariants.txt"
+      }
     }
-  }, {
-    "dict": {
-      "type": "txt",
-      "file": "TWVariants.txt"
-    }
-  }]
+  ]
 }

@@ -155,7 +155,10 @@ class OpenCC:
                         converted_data = bytes.decode("utf-8")
                         converted_data_list = converted_data.splitlines()
                         for line in converted_data_list:
-                            key, value = line.strip().split('\t')
+                            line = line.strip()
+                            if not line or line.startswith('#'):
+                                continue
+                            key, value = line.split('\t', 1)
                             map_dict[key] = value
                             if len(key) > max_len:
                                 max_len = len(key)

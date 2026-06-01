@@ -23,7 +23,7 @@ from calibre_plugins.chinese_text_conversion import PLUGIN_VERSION
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, apply_ui_language_from_prefs, detect_calibre_ui_language,
     normalize_ui_language, ui_language_combo_items,
-    UI_LANG_EN, UI_LANG_ZH_CN, TRADITIONAL_UI_LANGS,
+    UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
 )
 
 '''
@@ -181,6 +181,9 @@ class ConversionDialog(Dialog):
 
         apply_ui_language_from_prefs(self.prefs)
         self._init_quote_strings()
+        self.input_locale_user_set = bool(self.prefs.get('input_locale_user_set', False))
+        self.output_locale_user_set = bool(self.prefs.get('output_locale_user_set', False))
+        self.output_orientation_user_set = bool(self.prefs.get('output_orientation_user_set', False))
 
         # Create layout for entire dialog
         layout = QVBoxLayout(self)
@@ -260,6 +263,7 @@ class ConversionDialog(Dialog):
         self.input_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
         self.input_combo.setToolTip(_('Select the origin region of the input'))
         self.input_combo.currentIndexChanged.connect(self.update_gui)
+        self.input_combo.activated.connect(self._mark_input_locale_user_set)
 
         output_layout = QHBoxLayout()
         style_group_box_layout.addLayout(output_layout)
@@ -270,6 +274,7 @@ class ConversionDialog(Dialog):
         self.output_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
         self.output_combo.setToolTip(_('Select the desired region of the output'))
         self.output_combo.currentIndexChanged.connect(self.update_gui)
+        self.output_combo.activated.connect(self._mark_output_locale_user_set)
 
         self.use_target_phrases = QCheckBox(_('Use output target phrases if possible'))
         style_group_box_layout.addWidget(self.use_target_phrases)
@@ -313,6 +318,7 @@ class ConversionDialog(Dialog):
         self.text_dir_combo.addItems([_('No Change'), _('Horizontal'), _('Vertical')])
         self.text_dir_combo.setToolTip(_('Select the desired text orientation'))
         self.text_dir_combo.currentIndexChanged.connect(self.direction_changed)
+        self.text_dir_combo.activated.connect(self._mark_output_orientation_user_set)
 
         punctuation_layout = QHBoxLayout()
         other_group_box_layout.addLayout(punctuation_layout)
@@ -393,9 +399,55 @@ class ConversionDialog(Dialog):
             return
         self.block_signals(True)
         direction_button.setChecked(True)
-        self.input_combo.setCurrentIndex(0)
-        self.output_combo.setCurrentIndex(0)
         self.block_signals(False)
+        self.update_gui()
+
+    def _ui_output_locale(self, lang_index):
+        if lang_index == UI_LANG_ZH_CN:
+            return 0  # Mainland
+        if lang_index == UI_LANG_ZH_TW:
+            return 2  # Taiwan
+        if lang_index == UI_LANG_ZH_HK:
+            return 1  # Hong Kong
+        return None
+
+    def _apply_language_style_defaults_for_ui_language(self, lang_index):
+        '''仅在用户未手动改动时按界面语言给出输入/输出默认建议。'''
+        changed = False
+        self.block_signals(True)
+        if lang_index == UI_LANG_ZH_CN:
+            if not self.input_locale_user_set:
+                self.input_combo.setCurrentIndex(2)   # Taiwan
+                changed = True
+            if not self.output_locale_user_set:
+                self.output_combo.setCurrentIndex(0)  # Mainland
+                changed = True
+        elif lang_index in TRADITIONAL_UI_LANGS:
+            output_locale = self._ui_output_locale(lang_index)
+            if not self.input_locale_user_set:
+                self.input_combo.setCurrentIndex(0)   # Mainland
+                changed = True
+            if (output_locale is not None) and (not self.output_locale_user_set):
+                self.output_combo.setCurrentIndex(output_locale)
+                changed = True
+        self.block_signals(False)
+        if changed:
+            self.update_gui()
+
+    def _apply_output_orientation_default_for_ui_language(self, lang_index):
+        '''仅在用户未手动改动时按界面语言给出文字方向默认建议。'''
+        if self.output_orientation_user_set:
+            return
+        if lang_index == UI_LANG_ZH_CN:
+            target_idx = 1  # Horizontal
+        elif lang_index in TRADITIONAL_UI_LANGS:
+            target_idx = 2  # Vertical
+        else:
+            return
+        self.block_signals(True)
+        self.text_dir_combo.setCurrentIndex(target_idx)
+        self.block_signals(False)
+        self.direction_changed()
         self.update_gui()
 
     def _apply_quotation_for_ui_language(self, lang_index):
@@ -426,8 +478,19 @@ class ConversionDialog(Dialog):
         set_ui_language(lang_index)
         self.apply_translations()
         self._apply_conversion_direction_for_ui_language(lang_index)
+        self._apply_language_style_defaults_for_ui_language(lang_index)
         self._apply_quotation_for_ui_language(lang_index)
+        self._apply_output_orientation_default_for_ui_language(lang_index)
         self.update_gui()
+
+    def _mark_input_locale_user_set(self, *_args):
+        self.input_locale_user_set = True
+
+    def _mark_output_locale_user_set(self, *_args):
+        self.output_locale_user_set = True
+
+    def _mark_output_orientation_user_set(self, *_args):
+        self.output_orientation_user_set = True
 
     def apply_translations(self):
         self.setWindowTitle(_('Chinese Conversion'))
@@ -690,6 +753,8 @@ class ConversionDialog(Dialog):
             self.ui_lang_combo.currentIndex())
         self.prefs['input_locale'] = self.input_combo.currentIndex()
         self.prefs['output_locale'] = self.output_combo.currentIndex()
+        self.prefs['input_locale_user_set'] = self.input_locale_user_set
+        self.prefs['output_locale_user_set'] = self.output_locale_user_set
 
         if self.trad_to_simp_button.isChecked():
             self.prefs['conversion_type'] = 1
@@ -719,6 +784,7 @@ class ConversionDialog(Dialog):
             self.prefs['quotation_type'] = 0
 
         self.prefs['output_orientation'] = self.text_dir_combo.currentIndex()
+        self.prefs['output_orientation_user_set'] = self.output_orientation_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
 
 

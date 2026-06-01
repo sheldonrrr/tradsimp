@@ -7,10 +7,12 @@
       "file": "JPVariants.txt"
     }
   },
-  "conversion_chain": [{
-    "dict": {
-      "type": "txt",
-      "file": "JPVariants.txt"
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "JPVariants.txt"
+      }
     }
-  }]
+  ]
 }

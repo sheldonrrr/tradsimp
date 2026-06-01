@@ -7,16 +7,21 @@
       "file": "HKVariantsRevPhrases.txt"
     }
   },
-  "conversion_chain": [{
-    "dict": {
-      "type": "group",
-      "dicts": [{
-        "type": "txt",
-        "file": "HKVariantsRevPhrases.txt"
-      }, {
-        "type": "txt",
-        "file": "HKVariantsRev.txt"
-      }] 
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "HKVariantsRevPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "HKVariantsRev.txt"
+          }
+        ]
+      }
     }
-  }]
+  ]
 }
