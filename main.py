@@ -448,6 +448,7 @@ class TradSimpChinese(Tool):
 
 
 def prepare_prefs(prefs):
+    changed = False
     # Default settings for dialog widgets
     if prefs == {}:
         prefs['input_source'] = 0
@@ -460,11 +461,14 @@ def prepare_prefs(prefs):
         prefs['quotation_type'] = 0
         prefs['output_orientation'] = 0
         prefs['output_orientation_user_set'] = False
+        prefs['symbol_profile_user_set'] = False
         prefs['update_punctuation'] = False
         prefs['punc_omits'] = PUNC_OMITS
         prefs['ui_language'] = detect_calibre_ui_language()
+        prefs['profile_ui_language'] = prefs['ui_language']
+        prefs['has_user_preferences'] = False
         prefs['about_shown'] = False
-        prefs.commit()
+        changed = True
 
     prefs.defaults['input_source'] = 0
     prefs.defaults['conversion_type'] = 0
@@ -476,10 +480,25 @@ def prepare_prefs(prefs):
     prefs.defaults['quotation_type'] = 0
     prefs.defaults['output_orientation'] = 0
     prefs.defaults['output_orientation_user_set'] = False
+    prefs.defaults['symbol_profile_user_set'] = False
     prefs.defaults['update_punctuation'] = False
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
+    prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
+    prefs.defaults['has_user_preferences'] = False
     prefs.defaults['about_shown'] = True
+
+    # Legacy migration: older versions defaulted this to False.
+    # Run once so existing users align with new default behavior.
+    if not prefs.get('use_target_phrases_migrated_default_true', False):
+        if not prefs.get('use_target_phrases', False):
+            prefs['use_target_phrases'] = True
+            changed = True
+        prefs['use_target_phrases_migrated_default_true'] = True
+        changed = True
+
+    if changed:
+        prefs.commit()
 
 
 def build_criteria(prefs):

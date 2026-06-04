@@ -1,3 +1,8 @@
+value(s)	# Format: key
+(values	# Format: key
+separated	# Format: key
+by	# Format: key
+spaces)	# Format: key
 乗	乘
 乱	亂
 亘	亙
@@ -10,6 +15,7 @@
 価	價
 倹	儉
 児	兒
+兎	兔
 内	內
 両	兩
 氷	冰
@@ -50,7 +56,6 @@
 壱	壹
 寿	壽
 奥	奧
-奨	奬
 粧	妝
 嬢	孃
 学	學
@@ -187,6 +192,7 @@
 犠	犧
 状	狀
 狭	狹
+奨	獎
 独	獨
 猟	獵
 獣	獸

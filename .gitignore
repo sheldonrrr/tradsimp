@@ -1,4 +1,5 @@
 # Build / install artifacts (keep latest two zips locally; do not commit)
+dist/
 dist/*.zip
 tradsimp-*.zip
 chinese_text_conversion-*.zip

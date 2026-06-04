@@ -137,10 +137,37 @@ def confirm_chinese_books_or_cancel(gui, flagged_books):
         yes_text=_('Continue'), no_text=_('Cancel'))
 
 
+LIBRARY_PREVIEW_MAX_CHARS = 500
+
+
 def make_conversion_suffix():
-    '''Plugin name + local time (HH-MM-SS), safe for titles and filenames.'''
-    stamp = datetime.now().strftime('%H-%M-%S')
-    return '{}-{}'.format(PLUGIN_SAFE_NAME, stamp)
+    '''
+    Plugin name + local time (HH-MM-SS), safe for titles and filenames.
+    Returns (suffix_tag, generated_at) so logs can show the same instant.
+    '''
+    generated_at = datetime.now()
+    stamp = generated_at.strftime('%H-%M-%S')
+    suffix_tag = '{}-{}'.format(PLUGIN_SAFE_NAME, stamp)
+    return suffix_tag, generated_at
+
+
+def format_book_tag_log_lines(suffix_tag, generated_at):
+    '''Human-readable lines explaining the new-book title suffix (log only).'''
+    time_stamp = generated_at.strftime('%Y-%m-%d %H:%M:%S')
+    return '\n'.join([
+        _('Log book title suffix: {}').format(suffix_tag),
+        _('Log generated at (local time): {}').format(time_stamp),
+        _('Log suffix time hint'),
+    ])
+
+
+def log_section(status_dlg, begin_msg, end_msg, body_lines):
+    '''Write a bordered log block (begin line, body, end line).'''
+    status_dlg.log_result(begin_msg)
+    for line in body_lines:
+        if line is not None and line != '':
+            status_dlg.log_result(line)
+    status_dlg.log_result(end_msg)
 
 
 def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix_tag):
@@ -169,7 +196,7 @@ def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix
     return new_id, new_mi.title
 
 
-def text_preview_from_changes(container, changed_files, max_chars=1200):
+def text_preview_from_changes(container, changed_files, max_chars=LIBRARY_PREVIEW_MAX_CHARS):
     '''Plain-text excerpt from the first changed HTML-like file.'''
     html_names = sorted(
         n for n in changed_files
@@ -185,9 +212,13 @@ def text_preview_from_changes(container, changed_files, max_chars=1200):
         text = re.sub(r'<[^>]+>', '', raw)
         text = re.sub(r'\s+', ' ', text).strip()
         if text:
-            if len(text) > max_chars:
+            truncated = len(text) > max_chars
+            if truncated:
                 text = text[:max_chars] + '…'
-            return _('File: ') + name + '\n\n' + text
+            header = _('Preview length limit: {} characters').format(max_chars)
+            if truncated:
+                header = header + '\n' + _('Preview truncated hint')
+            return header + '\n\n' + _('File: ') + name + '\n\n' + text
     if changed_files:
         return _('Changed files: ') + ', '.join(sorted(changed_files)[:20])
     return _('No text excerpt available.')

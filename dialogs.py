@@ -5,7 +5,7 @@ __license__   = 'GPL v3'
 import os, re
 
 try:
-    from qt.core import (Qt, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
+    from qt.core import (Qt, QUrl, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                   QPushButton, QPlainTextEdit)
@@ -14,16 +14,25 @@ except ImportError:
                           QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                           QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                           QPushButton, QPlainTextEdit)
+    from PyQt5.QtCore import QUrl
 
 from calibre.utils.config import config_dir
 
+from calibre.gui2 import open_url
 from calibre.gui2.tweak_book.widgets import Dialog
 
-from calibre_plugins.chinese_text_conversion import PLUGIN_VERSION
+from calibre_plugins.chinese_text_conversion import (
+    PLUGIN_VERSION, PLUGIN_ABOUT_LAST_UPDATED, PLUGIN_RELEASE_THREAD_URL)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, apply_ui_language_from_prefs, detect_calibre_ui_language,
     normalize_ui_language, ui_language_combo_items,
     UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
+)
+from calibre_plugins.chinese_text_conversion.ui_style import (
+    apply_dialog_stylesheet, configure_form_label, configure_layout,
+    build_radio_group, build_section_group,
+    help_text_row, make_section_divider, polish_scroll_area, style_help_label,
+    style_subheading_label,
 )
 
 '''
@@ -41,7 +50,7 @@ Note: This code is based on the Calibre plugin Diap's Editing Toolbag
 
 
 # Default size when no saved geometry (library conversion wizard)
-LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 680)
+LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 760)
 LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 560)
 ABOUT_DIALOG_SIZE = QSize(560, 520)
 
@@ -60,11 +69,14 @@ class PluginAboutDialog(QDialog):
     def _build_ui(self):
         self.setMinimumSize(ABOUT_DIALOG_SIZE)
         layout = QVBoxLayout(self)
+        configure_layout(layout, 'dialog')
 
         scroll = QScrollArea(self)
+        polish_scroll_area(scroll)
         scroll.setWidgetResizable(True)
         content = QWidget()
         content_layout = QVBoxLayout(content)
+        configure_layout(content_layout, 'sections')
 
         self.title_label = QLabel()
         title_font = self.title_label.font()
@@ -75,6 +87,9 @@ class PluginAboutDialog(QDialog):
 
         self.version_label = QLabel()
         content_layout.addWidget(self.version_label)
+
+        self.last_updated_label = QLabel()
+        content_layout.addWidget(self.last_updated_label)
 
         self.welcome_label = QLabel()
         self.welcome_label.setWordWrap(True)
@@ -91,6 +106,7 @@ class PluginAboutDialog(QDialog):
         feat_font = self.features_heading.font()
         feat_font.setBold(True)
         self.features_heading.setFont(feat_font)
+        self.features_heading.setContentsMargins(0, 0, 0, 0)
         content_layout.addWidget(self.features_heading)
 
         self.features_label = QLabel()
@@ -109,18 +125,46 @@ class PluginAboutDialog(QDialog):
         self.lineage_label.setWordWrap(True)
         content_layout.addWidget(self.lineage_label)
 
+        self.release_heading = QLabel()
+        self.release_heading.setFont(feat_font)
+        content_layout.addWidget(self.release_heading)
+
+        self.release_label = QLabel()
+        self.release_label.setWordWrap(True)
+        content_layout.addWidget(self.release_label)
+
+        self.maintainer_heading = QLabel()
+        self.maintainer_heading.setFont(feat_font)
+        content_layout.addWidget(self.maintainer_heading)
+
+        self.maintainer_label = QLabel()
+        self.maintainer_label.setWordWrap(True)
+        content_layout.addWidget(self.maintainer_label)
+
+        self.goals_heading = QLabel()
+        self.goals_heading.setFont(feat_font)
+        content_layout.addWidget(self.goals_heading)
+
+        self.goals_label = QLabel()
+        self.goals_label.setWordWrap(True)
+        content_layout.addWidget(self.goals_label)
+
         content_layout.addStretch(1)
         scroll.setWidget(content)
         layout.addWidget(scroll)
 
+        layout.addWidget(make_section_divider(self))
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok)
         self.button_box.accepted.connect(self.accept)
         layout.addWidget(self.button_box)
+        apply_dialog_stylesheet(self)
 
     def apply_translations(self):
         self.setWindowTitle(_('About Chinese Text Conversion'))
         self.title_label.setText(_('About Chinese Text Conversion'))
         self.version_label.setText(_('Version {}').format(PLUGIN_VERSION))
+        self.last_updated_label.setText(
+            _('About last updated').format(PLUGIN_ABOUT_LAST_UPDATED))
         if self.first_run:
             self.welcome_label.setText(_('About welcome first run'))
             self.welcome_label.show()
@@ -132,6 +176,12 @@ class PluginAboutDialog(QDialog):
         self.usage_heading.setText(_('About quick start'))
         self.usage_label.setText(_('About quick start steps'))
         self.lineage_label.setText(_('About lineage'))
+        self.release_heading.setText(_('About release'))
+        self.release_label.setText(_('About release body'))
+        self.maintainer_heading.setText(_('About maintainer'))
+        self.maintainer_label.setText(_('About maintainer body'))
+        self.goals_heading.setText(_('About maintenance goals'))
+        self.goals_label.setText(_('About maintenance goals list'))
         ok_btn = self.button_box.button(QDialogButtonBox.Ok)
         if ok_btn is not None:
             ok_btn.setText(_('Got it'))
@@ -143,6 +193,17 @@ class PluginAboutDialog(QDialog):
 
 
 class ConversionDialog(Dialog):
+    # Preference behavior contract:
+    # 1) Before any successful run is saved (has_user_preferences=False),
+    #    UI language changes apply localized recommended defaults.
+    # 2) After at least one successful run (has_user_preferences=True),
+    #    switching to a different UI language shows that language's
+    #    recommended defaults (temporary preview behavior).
+    # 3) When switching back to the saved preference language
+    #    (prefs['ui_language']), the full saved preference profile is restored.
+    # 4) The saved preference profile is updated only when the user confirms
+    #    processing (savePrefs), so casual UI language browsing does not
+    #    overwrite user defaults.
     def __init__(self, parent, prefs, punc_dict, default_omitted_puncuation, force_entire_book=False):
         self.prefs = prefs
         self.parent = parent
@@ -155,7 +216,7 @@ class ConversionDialog(Dialog):
     def sizeHint(self):
         if self.force_entire_book:
             return LIBRARY_CONVERSION_DIALOG_SIZE
-        return QSize(640, 560)
+        return QSize(640, 620)
 
     def _init_quote_strings(self):
         self.quote_for_trad_target = _('Update quotes: “ ”,‘ ’ -> 「 」,『 』')
@@ -184,14 +245,18 @@ class ConversionDialog(Dialog):
         self.input_locale_user_set = bool(self.prefs.get('input_locale_user_set', False))
         self.output_locale_user_set = bool(self.prefs.get('output_locale_user_set', False))
         self.output_orientation_user_set = bool(self.prefs.get('output_orientation_user_set', False))
+        self.symbol_profile_user_set = bool(self.prefs.get('symbol_profile_user_set', False))
 
         # Create layout for entire dialog
         layout = QVBoxLayout(self)
         self.setLayout(layout)
+        configure_layout(layout, 'dialog')
 
         lang_layout = QHBoxLayout()
+        configure_layout(lang_layout, 'form')
         layout.addLayout(lang_layout)
         self.ui_lang_label = QLabel(_('Interface Language:'))
+        configure_form_label(self.ui_lang_label)
         lang_layout.addWidget(self.ui_lang_label)
         self.ui_lang_combo = QComboBox()
         self.ui_lang_combo.addItems(ui_language_combo_items())
@@ -199,138 +264,124 @@ class ConversionDialog(Dialog):
             normalize_ui_language(self.prefs.get(
                 'ui_language', detect_calibre_ui_language())))
         self.ui_lang_combo.currentIndexChanged.connect(self.on_ui_language_changed)
-        lang_layout.addWidget(self.ui_lang_combo)
+        lang_layout.addWidget(self.ui_lang_combo, 1)
 
-        #Create a scroll area for the top part of the dialog
         self.scrollArea = QScrollArea(self)
+        polish_scroll_area(self.scrollArea)
         self.scrollArea.setWidgetResizable(True)
 
-        # Create widget for all the contents of the dialog except the OK and Cancel buttons
         self.scrollContentWidget = QWidget(self.scrollArea)
         self.scrollArea.setWidget(self.scrollContentWidget)
         widgetLayout = QVBoxLayout(self.scrollContentWidget)
+        configure_layout(widgetLayout, 'sections')
+        widgetLayout.setAlignment(
+            Qt.AlignmentFlag.AlignTop if hasattr(Qt, 'AlignmentFlag') else Qt.AlignTop)
 
-        # Add scrollArea to dialog
-        layout.addWidget(self.scrollArea)
+        layout.addWidget(self.scrollArea, stretch=1)
 
-        self.operation_group_box = QGroupBox(_('Conversion Direction'))
+        # Section order: primary (direction + characters) → secondary (scope) → advanced (quotes/punctuation)
+        self.text_direction_group_box, text_direction_group_box_layout = build_section_group(
+            self, _('Text Direction:'))
+        text_direction_policy = self.text_direction_group_box.sizePolicy()
+        text_direction_policy.setVerticalPolicy(QSizePolicy.Maximum)
+        self.text_direction_group_box.setSizePolicy(text_direction_policy)
+        widgetLayout.addWidget(self.text_direction_group_box)
+        self.text_direction_group, text_direction_radio_layout, text_direction_buttons = (
+            build_radio_group(
+                self,
+                [_('No Change'), _('Horizontal'), _('Vertical')],
+                ids=[0, 1, 2],
+            )
+        )
+        text_direction_group_box_layout.addLayout(text_direction_radio_layout)
+        (self.text_dir_no_change_button,
+         self.text_dir_horizontal_button,
+         self.text_dir_vertical_button) = text_direction_buttons
+        tip = _('Select the desired text orientation')
+        self.text_direction_group_box.setToolTip(tip)
+        for btn in text_direction_buttons:
+            btn.setToolTip(tip)
+        self.text_direction_group.buttonClicked.connect(self._on_text_direction_clicked)
+
+        self.operation_group_box, operation_group_box_layout = build_section_group(
+            self, _('Conversion Direction'))
+        operation_policy = self.operation_group_box.sizePolicy()
+        operation_policy.setVerticalPolicy(QSizePolicy.Maximum)
+        self.operation_group_box.setSizePolicy(operation_policy)
         widgetLayout.addWidget(self.operation_group_box)
-        operation_group_box_layout = QVBoxLayout()
-        operation_group_box_layout.setSpacing(4)
-        self.operation_group_box.setLayout(operation_group_box_layout)
-
-        self.operation_group=QButtonGroup(self)
-        self.no_conversion_button = QRadioButton(_('No Conversion'))
-        self.operation_group.addButton(self.no_conversion_button)
-        self.trad_to_simp_button = QRadioButton(_('Traditional to Simplified'))
-        self.operation_group.addButton(self.trad_to_simp_button)
-        self.simp_to_trad_button = QRadioButton(_('Simplified to Traditional'))
-        self.operation_group.addButton(self.simp_to_trad_button)
-        self.trad_to_trad_button = QRadioButton(_('Traditional to Traditional'))
-        self.operation_group.addButton(self.trad_to_trad_button)
-
-        operation_radio_layout = QVBoxLayout()
-        operation_radio_layout.setContentsMargins(0, 0, 0, 0)
-        operation_radio_layout.setSpacing(8)
-        operation_radio_layout.addWidget(self.no_conversion_button)
-        operation_radio_layout.addWidget(self.trad_to_simp_button)
-        operation_radio_layout.addWidget(self.simp_to_trad_button)
-        operation_radio_layout.addWidget(self.trad_to_trad_button)
+        self.operation_group, operation_radio_layout, operation_buttons = build_radio_group(
+            self,
+            [
+                _('No Conversion'),
+                _('Traditional to Simplified'),
+                _('Simplified to Traditional'),
+                _('Traditional to Traditional'),
+            ],
+        )
+        (self.no_conversion_button,
+         self.trad_to_simp_button,
+         self.simp_to_trad_button,
+         self.trad_to_trad_button) = operation_buttons
         operation_group_box_layout.addLayout(operation_radio_layout)
 
         self.trad_to_trad_help = QLabel()
         self.trad_to_trad_help.setWordWrap(True)
-        self.trad_to_trad_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        trad_to_trad_help_row = QWidget()
-        trad_to_trad_help_layout = QHBoxLayout(trad_to_trad_help_row)
-        trad_to_trad_help_layout.setContentsMargins(22, 0, 0, 0)
-        trad_to_trad_help_layout.addWidget(self.trad_to_trad_help)
-        operation_group_box_layout.addWidget(trad_to_trad_help_row)
+        self.trad_to_trad_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.trad_to_trad_help)
+        self.trad_to_trad_help.setStyleSheet(
+            self.trad_to_trad_help.styleSheet() + ' padding-top: 0px; padding-bottom: 0px;')
+        self.trad_to_trad_help_row = help_text_row(self, self.trad_to_trad_help)
+        self.trad_to_trad_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        operation_group_box_layout.addWidget(self.trad_to_trad_help_row)
         self._update_trad_to_trad_help_text()
         self.operation_group.buttonClicked.connect(self.on_op_button_clicked)
 
         self.style_group_box = QGroupBox(_('Language Styles'))
+        style_group_policy = self.style_group_box.sizePolicy()
+        style_group_policy.setVerticalPolicy(QSizePolicy.Maximum)
+        self.style_group_box.setSizePolicy(style_group_policy)
         widgetLayout.addWidget(self.style_group_box)
         style_group_box_layout = QVBoxLayout()
+        configure_layout(style_group_box_layout, 'section')
         self.style_group_box.setLayout(style_group_box_layout)
 
         input_layout = QHBoxLayout()
+        configure_layout(input_layout, 'form')
         style_group_box_layout.addLayout(input_layout)
         self.input_region_label = QLabel(_('Input:'))
+        configure_form_label(self.input_region_label)
         input_layout.addWidget(self.input_region_label)
         self.input_combo = QComboBox()
-        input_layout.addWidget(self.input_combo)
+        input_layout.addWidget(self.input_combo, 1)
         self.input_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
         self.input_combo.setToolTip(_('Select the origin region of the input'))
-        self.input_combo.currentIndexChanged.connect(self.update_gui)
+        self.input_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.input_combo.activated.connect(self._mark_input_locale_user_set)
 
         output_layout = QHBoxLayout()
+        configure_layout(output_layout, 'form')
         style_group_box_layout.addLayout(output_layout)
         self.output_region_label = QLabel(_('Output:'))
+        configure_form_label(self.output_region_label)
         output_layout.addWidget(self.output_region_label)
         self.output_combo = QComboBox()
-        output_layout.addWidget(self.output_combo)
+        output_layout.addWidget(self.output_combo, 1)
         self.output_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
         self.output_combo.setToolTip(_('Select the desired region of the output'))
-        self.output_combo.currentIndexChanged.connect(self.update_gui)
+        self.output_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.output_combo.activated.connect(self._mark_output_locale_user_set)
 
         self.use_target_phrases = QCheckBox(_('Use output target phrases if possible'))
         style_group_box_layout.addWidget(self.use_target_phrases)
         self.use_target_phrases_help = QLabel()
         self.use_target_phrases_help.setWordWrap(True)
-        self.use_target_phrases_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        style_group_box_layout.addWidget(self.use_target_phrases_help)
+        self.use_target_phrases_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.use_target_phrases_help)
+        self.use_target_phrases_help_row = help_text_row(self, self.use_target_phrases_help)
+        self.use_target_phrases_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        style_group_box_layout.addWidget(self.use_target_phrases_help_row)
         self._update_target_phrases_help_text()
-        self.use_target_phrases.stateChanged.connect(self.update_gui)
-
-        self.quotation_group_box = QGroupBox(_('Quotation Marks'))
-        widgetLayout.addWidget(self.quotation_group_box)
-        quotation_group_box_layout = QVBoxLayout()
-        self.quotation_group_box.setLayout(quotation_group_box_layout)
-
-        quotation_group=QButtonGroup(self)
-        self.quotation_no_conversion_button = QRadioButton(_('No Conversion'))
-        quotation_group.addButton(self.quotation_no_conversion_button)
-        self.quotation_trad_to_simp_button = QRadioButton(self.quote_for_simp_target)
-        quotation_group.addButton(self.quotation_trad_to_simp_button)
-        self.quotation_simp_to_trad_button = QRadioButton(self.quote_for_trad_target)
-        quotation_group.addButton(self.quotation_simp_to_trad_button)
-        quotation_group_box_layout.addWidget(self.quotation_no_conversion_button)
-        quotation_group_box_layout.addWidget(self.quotation_simp_to_trad_button)
-        quotation_group_box_layout.addWidget(self.quotation_trad_to_simp_button)
-        self.quotation_no_conversion_button.toggled.connect(self.update_gui)
-        self.quotation_trad_to_simp_button.toggled.connect(self.update_gui)
-        self.quotation_simp_to_trad_button.toggled.connect(self.update_gui)
-
-        self.other_group_box = QGroupBox(_('Other Changes'))
-        widgetLayout.addWidget(self.other_group_box)
-        other_group_box_layout = QVBoxLayout()
-        self.other_group_box.setLayout(other_group_box_layout)
-
-        text_dir_layout = QHBoxLayout()
-        other_group_box_layout.addLayout(text_dir_layout)
-        self.direction_label = QLabel(_('Text Direction:'))
-        text_dir_layout.addWidget(self.direction_label)
-        self.text_dir_combo = QComboBox()
-        text_dir_layout.addWidget(self.text_dir_combo)
-        self.text_dir_combo.addItems([_('No Change'), _('Horizontal'), _('Vertical')])
-        self.text_dir_combo.setToolTip(_('Select the desired text orientation'))
-        self.text_dir_combo.currentIndexChanged.connect(self.direction_changed)
-        self.text_dir_combo.activated.connect(self._mark_output_orientation_user_set)
-
-        punctuation_layout = QHBoxLayout()
-        other_group_box_layout.addLayout(punctuation_layout)
-        self.update_punctuation = QCheckBox(_('Update punctuation'))
-        punctuation_layout.addWidget(self.update_punctuation)
-        self.update_punctuation.stateChanged.connect(self.update_gui)
-        self.punc_settings_btn = QPushButton()
-        self.punc_settings_btn.setText(_('Settings...'))
-
-        punctuation_layout.addWidget(self.punc_settings_btn)
-        self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
-        self.punctuation_dialog = None
+        self.use_target_phrases.stateChanged.connect(self._on_use_target_phrases_changed)
 
         source_group=QButtonGroup(self)
         self.book_source_button = QRadioButton(_('Entire eBook'))
@@ -342,20 +393,73 @@ class ConversionDialog(Dialog):
         source_group.addButton(self.seltext_source_button)
         self.source_group_box = QGroupBox(_('Source'))
         if not self.force_entire_book:
+            source_group_policy = self.source_group_box.sizePolicy()
+            source_group_policy.setVerticalPolicy(QSizePolicy.Maximum)
+            self.source_group_box.setSizePolicy(source_group_policy)
             widgetLayout.addWidget(self.source_group_box)
             source_group_box_layout = QVBoxLayout()
+            configure_layout(source_group_box_layout, 'radio')
             self.source_group_box.setLayout(source_group_box_layout)
             source_group_box_layout.addWidget(self.book_source_button)
             source_group_box_layout.addWidget(self.file_source_button)
             source_group_box_layout.addWidget(self.seltext_source_button)
 
+        self.advanced_group_box = QGroupBox(_('Advanced options'))
+        advanced_group_policy = self.advanced_group_box.sizePolicy()
+        advanced_group_policy.setVerticalPolicy(QSizePolicy.Maximum)
+        self.advanced_group_box.setSizePolicy(advanced_group_policy)
+        widgetLayout.addWidget(self.advanced_group_box)
+        advanced_group_box_layout = QVBoxLayout()
+        configure_layout(advanced_group_box_layout, 'section')
+        self.advanced_group_box.setLayout(advanced_group_box_layout)
+
+        self.quotation_heading = QLabel(_('Quotation Marks'))
+        style_subheading_label(self.quotation_heading)
+        self.quotation_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.quotation_heading)
+
+        quotation_group = QButtonGroup(self)
+        self.quotation_no_change_button = QRadioButton(_('No Change'))
+        quotation_group.addButton(self.quotation_no_change_button)
+        self.quotation_trad_to_simp_button = QRadioButton(self.quote_for_simp_target)
+        quotation_group.addButton(self.quotation_trad_to_simp_button)
+        self.quotation_simp_to_trad_button = QRadioButton(self.quote_for_trad_target)
+        quotation_group.addButton(self.quotation_simp_to_trad_button)
+        advanced_group_box_layout.addWidget(self.quotation_no_change_button)
+        advanced_group_box_layout.addWidget(self.quotation_simp_to_trad_button)
+        advanced_group_box_layout.addWidget(self.quotation_trad_to_simp_button)
+        self.quotation_no_change_button.toggled.connect(self.update_gui)
+        self.quotation_trad_to_simp_button.toggled.connect(self.update_gui)
+        self.quotation_simp_to_trad_button.toggled.connect(self.update_gui)
+        self.quotation_no_change_button.clicked.connect(self._mark_symbol_profile_user_set)
+        self.quotation_trad_to_simp_button.clicked.connect(self._mark_symbol_profile_user_set)
+        self.quotation_simp_to_trad_button.clicked.connect(self._mark_symbol_profile_user_set)
+
+        punctuation_layout = QHBoxLayout()
+        configure_layout(punctuation_layout, 'form')
+        advanced_group_box_layout.addLayout(punctuation_layout)
+        self.update_punctuation = QCheckBox(_('Update punctuation'))
+        punctuation_layout.addWidget(self.update_punctuation)
+        self.update_punctuation.stateChanged.connect(self.update_gui)
+        self.update_punctuation.clicked.connect(self._mark_symbol_profile_user_set)
+        self.punc_settings_btn = QPushButton()
+        self.punc_settings_btn.setText(_('Settings...'))
+        punctuation_layout.addStretch(1)
+        punctuation_layout.addWidget(self.punc_settings_btn)
+        self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
+        self.punctuation_dialog = None
+
         self.book_source_button.toggled.connect(self.on_button_toggled)
 
-        layout.addSpacing(10)
+        layout.addWidget(make_section_divider(self))
         footer_layout = QHBoxLayout()
+        configure_layout(footer_layout, 'footer')
         self.about_btn = QPushButton()
         self.about_btn.clicked.connect(self._show_about_dialog)
         footer_layout.addWidget(self.about_btn)
+        self.check_updates_btn = QPushButton()
+        self.check_updates_btn.clicked.connect(self._open_release_thread)
+        footer_layout.addWidget(self.check_updates_btn)
         footer_layout.addStretch(1)
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self._ok_clicked)
@@ -366,21 +470,27 @@ class ConversionDialog(Dialog):
         self.set_to_preferences()
         self.apply_translations()
         self.update_gui()
-        ui_lang = normalize_ui_language(
-            self.prefs.get('ui_language', detect_calibre_ui_language()))
-        if self.prefs.get('conversion_type', 0) == 0:
+        ui_lang = normalize_ui_language(self.ui_lang_combo.currentIndex())
+        if not self.prefs.get('has_user_preferences', False):
             self._apply_conversion_direction_for_ui_language(ui_lang)
-            self._apply_language_style_defaults_for_ui_language(ui_lang)
-        if self.prefs.get('quotation_type', 0) == 0:
-            self._apply_quotation_for_ui_language(ui_lang)
+            self._apply_locale_defaults_for_selected_direction(ui_lang)
+            self._apply_output_orientation_default_for_ui_language(ui_lang, force=True)
+            self._apply_symbol_profile_default(force=True)
+        else:
+            self._apply_symbol_profile_default()
         self.about_btn.setText(_('About'))
+        self.check_updates_btn.setText(_('Check for updates'))
         if not self.prefs.get('about_shown', True):
             self._show_about_dialog(first_run=True)
+        apply_dialog_stylesheet(self)
 
     def _show_about_dialog(self, first_run=False):
         dlg = PluginAboutDialog(self.parent, self.prefs, first_run=first_run)
         dlg.exec_()
         dlg.mark_first_run_complete()
+
+    def _open_release_thread(self):
+        open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
 
     def _update_target_phrases_help_text(self):
         help_text = _('Use target region phrases help')
@@ -412,43 +522,145 @@ class ConversionDialog(Dialog):
             return 1  # Hong Kong
         return None
 
-    def _apply_language_style_defaults_for_ui_language(self, lang_index):
-        '''仅在用户未手动改动时按界面语言给出输入/输出默认建议。'''
+    def _preferred_traditional_locale(self, lang_index):
+        # Traditional UI keeps output aligned with UI locale;
+        # Simplified UI defaults to Taiwan for traditional output/input.
+        if lang_index == UI_LANG_ZH_HK:
+            return 1
+        if lang_index in TRADITIONAL_UI_LANGS:
+            return 2
+        return 2
+
+    def _alternate_traditional_locale(self, locale_idx):
+        # Keep traditional locale choices mutually exclusive between HK and TW.
+        if locale_idx == 1:
+            return 2
+        if locale_idx == 2:
+            return 1
+        return 2
+
+    def _apply_locale_defaults_for_selected_direction(self, lang_index):
         changed = False
+        pref_trad = self._preferred_traditional_locale(lang_index)
+        alt_trad = self._alternate_traditional_locale(pref_trad)
+        input_idx = self.input_combo.currentIndex()
+        output_idx = self.output_combo.currentIndex()
+
+        if self.trad_to_simp_button.isChecked():
+            target_input, target_output = pref_trad, 0
+        elif self.simp_to_trad_button.isChecked():
+            target_input, target_output = 0, pref_trad
+        elif self.trad_to_trad_button.isChecked():
+            # trad->trad always keeps both sides traditional and mutually exclusive.
+            target_input, target_output = pref_trad, alt_trad
+        else:
+            target_input, target_output = -1, -1
+
         self.block_signals(True)
-        if lang_index == UI_LANG_ZH_CN:
-            if not self.input_locale_user_set:
-                self.input_combo.setCurrentIndex(2)   # Taiwan
-                changed = True
-            if not self.output_locale_user_set:
-                self.output_combo.setCurrentIndex(0)  # Mainland
-                changed = True
-        elif lang_index in TRADITIONAL_UI_LANGS:
-            output_locale = self._ui_output_locale(lang_index)
-            if not self.input_locale_user_set:
-                self.input_combo.setCurrentIndex(0)   # Mainland
-                changed = True
-            if (output_locale is not None) and (not self.output_locale_user_set):
-                self.output_combo.setCurrentIndex(output_locale)
-                changed = True
+        if input_idx != target_input:
+            self.input_combo.setCurrentIndex(target_input)
+            changed = True
+        if output_idx != target_output:
+            self.output_combo.setCurrentIndex(target_output)
+            changed = True
         self.block_signals(False)
         if changed:
             self.update_gui()
 
-    def _apply_output_orientation_default_for_ui_language(self, lang_index):
+    def _apply_output_orientation_default_for_ui_language(self, lang_index, force=False):
         '''仅在用户未手动改动时按界面语言给出文字方向默认建议。'''
-        if self.output_orientation_user_set:
+        if self.output_orientation_user_set and not force:
             return
-        if lang_index == UI_LANG_ZH_CN:
-            target_idx = 1  # Horizontal
-        elif lang_index in TRADITIONAL_UI_LANGS:
+        # Localized defaults:
+        # - zh_TW: prefer vertical
+        # - zh_HK: prefer horizontal
+        # - zh_CN: prefer horizontal
+        # - en: keep current selection (no auto switch)
+        if lang_index == UI_LANG_ZH_TW:
             target_idx = 2  # Vertical
+        elif lang_index == UI_LANG_ZH_HK:
+            target_idx = 1  # Horizontal
+        elif lang_index == UI_LANG_ZH_CN:
+            target_idx = 1  # Horizontal
         else:
             return
         self.block_signals(True)
-        self.text_dir_combo.setCurrentIndex(target_idx)
+        self._set_output_orientation_index(target_idx)
         self.block_signals(False)
         self.direction_changed()
+        self.update_gui()
+
+    def _output_orientation_index(self):
+        if self.text_dir_horizontal_button.isChecked():
+            return 1
+        if self.text_dir_vertical_button.isChecked():
+            return 2
+        return 0
+
+    def _set_output_orientation_index(self, index):
+        buttons = (
+            self.text_dir_no_change_button,
+            self.text_dir_horizontal_button,
+            self.text_dir_vertical_button,
+        )
+        if 0 <= index < len(buttons):
+            buttons[index].setChecked(True)
+
+    def _set_text_direction_enabled(self, enabled):
+        for btn in (
+            self.text_dir_no_change_button,
+            self.text_dir_horizontal_button,
+            self.text_dir_vertical_button,
+        ):
+            btn.setEnabled(enabled)
+
+    def _on_text_direction_clicked(self, _button):
+        self._mark_output_orientation_user_set()
+        self.direction_changed()
+        self._apply_symbol_profile_default()
+
+    def _on_locale_changed(self, _index):
+        self.update_gui()
+        self._apply_symbol_profile_default()
+
+    def _selected_conversion_type(self):
+        if self.trad_to_simp_button.isChecked():
+            return 1
+        if self.simp_to_trad_button.isChecked():
+            return 2
+        if self.trad_to_trad_button.isChecked():
+            return 3
+        return 0
+
+    def _suggest_symbol_profile(self):
+        orientation = self._output_orientation_index()
+        input_locale = self.input_combo.currentIndex()
+        output_locale = self.output_combo.currentIndex()
+        conversion_type = self._selected_conversion_type()
+
+        # 繁体来源 + 横排简体目标：默认采用简体横排符号体系。
+        if orientation == 1 and output_locale == 0 and (conversion_type == 1 or input_locale in (1, 2)):
+            return 1, True
+        # 简体来源 + 竖排繁体目标：默认采用繁体竖排符号体系。
+        if orientation == 2 and output_locale in (1, 2) and (conversion_type == 2 or input_locale == 0):
+            return 2, True
+        # 其余场景保持保守默认。
+        return 0, False
+
+    def _apply_symbol_profile_default(self, force=False):
+        if self.symbol_profile_user_set and not force:
+            return
+
+        quotation_type, update_punctuation = self._suggest_symbol_profile()
+        self.block_signals(True)
+        if quotation_type == 1:
+            self.quotation_trad_to_simp_button.setChecked(True)
+        elif quotation_type == 2:
+            self.quotation_simp_to_trad_button.setChecked(True)
+        else:
+            self.quotation_no_change_button.setChecked(True)
+        self.update_punctuation.setChecked(update_punctuation)
+        self.block_signals(False)
         self.update_gui()
 
     def _apply_quotation_for_ui_language(self, lang_index):
@@ -456,7 +668,7 @@ class ConversionDialog(Dialog):
         if lang_index not in (UI_LANG_ZH_CN,) and lang_index not in TRADITIONAL_UI_LANGS:
             return
         for btn in (
-            self.quotation_no_conversion_button,
+            self.quotation_no_change_button,
             self.quotation_trad_to_simp_button,
             self.quotation_simp_to_trad_button,
         ):
@@ -466,7 +678,7 @@ class ConversionDialog(Dialog):
         else:
             self.quotation_simp_to_trad_button.setChecked(True)
         for btn in (
-            self.quotation_no_conversion_button,
+            self.quotation_no_change_button,
             self.quotation_trad_to_simp_button,
             self.quotation_simp_to_trad_button,
         ):
@@ -475,13 +687,26 @@ class ConversionDialog(Dialog):
     def on_ui_language_changed(self, index):
         from calibre_plugins.chinese_text_conversion.i18n import set_ui_language
         lang_index = normalize_ui_language(index)
+        saved_pref_lang = normalize_ui_language(
+            self.prefs.get('profile_ui_language',
+                           self.prefs.get('ui_language', detect_calibre_ui_language())))
+        # Persist UI language selection immediately so reopening the dialog
+        # always uses the most recently chosen language.
         self.prefs['ui_language'] = lang_index
+        self.prefs.commit()
         set_ui_language(lang_index)
         self.apply_translations()
-        self._apply_conversion_direction_for_ui_language(lang_index)
-        self._apply_language_style_defaults_for_ui_language(lang_index)
-        self._apply_quotation_for_ui_language(lang_index)
-        self._apply_output_orientation_default_for_ui_language(lang_index)
+        has_user_preferences = bool(self.prefs.get('has_user_preferences', False))
+        if has_user_preferences and (lang_index == saved_pref_lang):
+            # Restore last successful run settings when user returns to
+            # the language tied to their saved preference profile.
+            self.set_to_preferences()
+        else:
+            self._apply_conversion_direction_for_ui_language(lang_index)
+            self._apply_locale_defaults_for_selected_direction(lang_index)
+            self._apply_output_orientation_default_for_ui_language(lang_index, force=True)
+            self._apply_symbol_profile_default(force=True)
+        self._apply_symbol_profile_default()
         self.update_gui()
 
     def _mark_input_locale_user_set(self, *_args):
@@ -492,6 +717,15 @@ class ConversionDialog(Dialog):
 
     def _mark_output_orientation_user_set(self, *_args):
         self.output_orientation_user_set = True
+
+    def _mark_symbol_profile_user_set(self, *_args):
+        self.symbol_profile_user_set = True
+
+    def _on_use_target_phrases_changed(self, _state):
+        # Persist immediately (same behavior as UI language):
+        # dialog reopen always reflects the latest user choice.
+        self.prefs['use_target_phrases'] = self.use_target_phrases.isChecked()
+        self.prefs.commit()
 
     def apply_translations(self):
         self.setWindowTitle(_('Chinese Conversion'))
@@ -531,21 +765,21 @@ class ConversionDialog(Dialog):
         self.use_target_phrases.setText(_('Use output target phrases if possible'))
         self._update_target_phrases_help_text()
 
-        self.quotation_group_box.setTitle(_('Quotation Marks'))
-        self.quotation_no_conversion_button.setText(_('No Conversion'))
+        self.text_direction_group_box.setTitle(_('Text Direction:'))
+        tip = _('Select the desired text orientation')
+        self.text_direction_group_box.setToolTip(tip)
+        self.text_dir_no_change_button.setText(_('No Change'))
+        self.text_dir_horizontal_button.setText(_('Horizontal'))
+        self.text_dir_vertical_button.setText(_('Vertical'))
+        for btn in (self.text_dir_no_change_button, self.text_dir_horizontal_button,
+                    self.text_dir_vertical_button):
+            btn.setToolTip(tip)
+
+        self.advanced_group_box.setTitle(_('Advanced options'))
+        self.quotation_heading.setText(_('Quotation Marks'))
+        self.quotation_no_change_button.setText(_('No Change'))
         self.quotation_trad_to_simp_button.setText(self.quote_for_simp_target)
         self.quotation_simp_to_trad_button.setText(self.quote_for_trad_target)
-
-        self.other_group_box.setTitle(_('Other Changes'))
-        self.direction_label.setText(_('Text Direction:'))
-        text_dir_idx = self.text_dir_combo.currentIndex()
-        self.text_dir_combo.blockSignals(True)
-        self.text_dir_combo.clear()
-        self.text_dir_combo.addItems([_('No Change'), _('Horizontal'), _('Vertical')])
-        if text_dir_idx >= 0:
-            self.text_dir_combo.setCurrentIndex(text_dir_idx)
-        self.text_dir_combo.blockSignals(False)
-        self.text_dir_combo.setToolTip(_('Select the desired text orientation'))
         self.update_punctuation.setText(_('Update punctuation'))
         self.punc_settings_btn.setText(_('Settings...'))
 
@@ -557,6 +791,7 @@ class ConversionDialog(Dialog):
         self.source_group_box.setTitle(_('Source'))
         self.ui_lang_combo.blockSignals(False)
         self.about_btn.setText(_('About'))
+        self.check_updates_btn.setText(_('Check for updates'))
         self._translate_standard_buttons(self.button_box)
 
         if self.punctuation_dialog is not None:
@@ -576,15 +811,17 @@ class ConversionDialog(Dialog):
             self.input_combo.setCurrentIndex(-1)  # blank out the entry
             self.output_combo.setCurrentIndex(-1) # blank out the entry
         else:
-            self.input_combo.setCurrentIndex(0)   # mainland
-            self.output_combo.setCurrentIndex(0)  # mainland
+            self._apply_locale_defaults_for_selected_direction(
+                normalize_ui_language(self.prefs.get('ui_language', detect_calibre_ui_language())))
         self.block_signals(False)
         self.update_gui()
+        self._apply_symbol_profile_default()
 
     def block_signals(self, state):
         # block or unblock the signals generated by these objects to avoid recursive calls
         self.input_combo.blockSignals(state)
         self.output_combo.blockSignals(state)
+        self.use_target_phrases.blockSignals(state)
         self.no_conversion_button.blockSignals(state)
         self.trad_to_simp_button.blockSignals(state)
         self.simp_to_trad_button.blockSignals(state)
@@ -594,8 +831,10 @@ class ConversionDialog(Dialog):
         self.book_source_button.blockSignals(state)
         self.quotation_trad_to_simp_button.blockSignals(state)
         self.quotation_simp_to_trad_button.blockSignals(state)
-        self.quotation_no_conversion_button.blockSignals(state)
-        self.text_dir_combo.blockSignals(state)
+        self.quotation_no_change_button.blockSignals(state)
+        self.text_dir_no_change_button.blockSignals(state)
+        self.text_dir_horizontal_button.blockSignals(state)
+        self.text_dir_vertical_button.blockSignals(state)
         self.update_punctuation.blockSignals(state)
 
 
@@ -605,6 +844,7 @@ class ConversionDialog(Dialog):
 
         self.input_combo.setCurrentIndex(self.prefs['input_locale'])
         self.output_combo.setCurrentIndex(self.prefs['output_locale'])
+        self.use_target_phrases.setChecked(bool(self.prefs.get('use_target_phrases', True)))
 
         if self.prefs['conversion_type'] == 0:
             self.no_conversion_button.setChecked(True)
@@ -632,9 +872,9 @@ class ConversionDialog(Dialog):
         elif self.prefs['quotation_type'] == 2:
             self.quotation_simp_to_trad_button.setChecked(True)
         else:
-            self.quotation_no_conversion_button.setChecked(True)
+            self.quotation_no_change_button.setChecked(True)
 
-        self.text_dir_combo.setCurrentIndex(self.prefs['output_orientation'])
+        self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
 
         self.block_signals(False)
@@ -647,12 +887,12 @@ class ConversionDialog(Dialog):
 
     def update_gui(self):
         # callback to update other gui items when one changes
+        show_trad_help = self.trad_to_trad_button.isChecked()
         if self.no_conversion_button.isChecked():
             self.input_combo.setEnabled(False)
             self.output_combo.setEnabled(False)
             self.input_combo.setToolTip(_('Valid input/output combinations:\nNot Applicable'))
             self.output_combo.setToolTip(_('Valid input/output combinations:\nNot Applicable'))
-            self.use_target_phrases.setEnabled(False)
             self.output_region_label.setEnabled(False)
             self.input_region_label.setEnabled(False)
             self.style_group_box.setEnabled(False)
@@ -672,7 +912,6 @@ class ConversionDialog(Dialog):
             self.output_combo.setEnabled(True)
             self.input_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland'))
             self.output_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland'))
-            self.use_target_phrases.setEnabled(True)
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
@@ -682,10 +921,12 @@ class ConversionDialog(Dialog):
             self.output_combo.setEnabled(True)
             self.input_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan'))
             self.output_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan'))
-            self.use_target_phrases.setEnabled(True)
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
+
+        # Keep phrase option independent from conversion-direction toggles.
+        self.use_target_phrases.setEnabled(True)
 
         self.update_punctuation.blockSignals(True)
         self.update_punctuation.setEnabled(True)
@@ -695,6 +936,9 @@ class ConversionDialog(Dialog):
             self.punc_settings_btn.setEnabled(True)
         else:
             self.punc_settings_btn.setEnabled(False)
+
+        self.trad_to_trad_help_row.setVisible(show_trad_help)
+        self.trad_to_trad_help.setVisible(show_trad_help)
 
 
     def _ok_clicked(self):
@@ -720,20 +964,24 @@ class ConversionDialog(Dialog):
         if not checked:
             # set direction to no change
             # disable text direction changes
-            self.text_dir_combo.setCurrentIndex(0)
-            self.text_dir_combo.setEnabled(False)
+            self._set_output_orientation_index(0)
+            self._set_text_direction_enabled(False)
         else:
-            # enable text direction changes
-            self.text_dir_combo.setEnabled(True)
+            self._set_text_direction_enabled(True)
 
     def savePrefs(self):
         # save the current settings into the preferences
         self.prefs['ui_language'] = normalize_ui_language(
             self.ui_lang_combo.currentIndex())
+        self.prefs['profile_ui_language'] = self.prefs['ui_language']
+        self.prefs['has_user_preferences'] = True
         self.prefs['input_locale'] = self.input_combo.currentIndex()
         self.prefs['output_locale'] = self.output_combo.currentIndex()
-        self.prefs['input_locale_user_set'] = self.input_locale_user_set
-        self.prefs['output_locale_user_set'] = self.output_locale_user_set
+        # Persist current locale choices as explicit user preferences.
+        self.input_locale_user_set = True
+        self.output_locale_user_set = True
+        self.prefs['input_locale_user_set'] = True
+        self.prefs['output_locale_user_set'] = True
 
         if self.trad_to_simp_button.isChecked():
             self.prefs['conversion_type'] = 1
@@ -762,8 +1010,12 @@ class ConversionDialog(Dialog):
         else:
             self.prefs['quotation_type'] = 0
 
-        self.prefs['output_orientation'] = self.text_dir_combo.currentIndex()
-        self.prefs['output_orientation_user_set'] = self.output_orientation_user_set
+        self.prefs['output_orientation'] = self._output_orientation_index()
+        # Once user runs conversion with current settings, persist this as
+        # recent preferred orientation and avoid language-based auto-overrides.
+        self.output_orientation_user_set = True
+        self.prefs['output_orientation_user_set'] = True
+        self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
 
 
@@ -782,6 +1034,8 @@ class LibraryConversionStatusDialog(QDialog):
         self.resize(LIBRARY_STATUS_DIALOG_SIZE)
 
         layout = QVBoxLayout(self)
+        configure_layout(layout, 'dialog')
+
         self.headline = QLabel()
         font = self.headline.font()
         font.setBold(True)
@@ -798,7 +1052,9 @@ class LibraryConversionStatusDialog(QDialog):
         self.close_btn.setEnabled(False)
         self.close_btn.setText(_('Close'))
         self.button_box.rejected.connect(self.reject)
+        layout.addWidget(make_section_divider(self))
         layout.addWidget(self.button_box)
+        apply_dialog_stylesheet(self)
 
         self.set_processing()
 
@@ -846,27 +1102,27 @@ class PuncuationDialog(Dialog):
         self.punc_setting = {}
         self.checkbox_dict = {}
 
-        # Create layout for entire dialog
         layout = QVBoxLayout(self)
         self.setLayout(layout)
+        configure_layout(layout, 'dialog')
 
-        #Create a scroll area for the top part of the dialog
         self.scrollArea = QScrollArea(self)
+        polish_scroll_area(self.scrollArea)
         self.scrollArea.setWidgetResizable(True)
 
-        # Create widget for all the contents of the dialog except the buttons
         self.scrollContentWidget = QWidget(self.scrollArea)
         self.scrollArea.setWidget(self.scrollContentWidget)
         widgetLayout = QVBoxLayout(self.scrollContentWidget)
+        configure_layout(widgetLayout, 'sections')
 
-        # Add scrollArea to dialog
-        layout.addWidget(self.scrollArea)
+        layout.addWidget(self.scrollArea, stretch=1)
 
         self.punctuation_group_box = QGroupBox(_('Punctuation'))
         widgetLayout.addWidget(self.punctuation_group_box)
 
 
         self.punctuation_group_box_layout = QVBoxLayout()
+        configure_layout(self.punctuation_group_box_layout, 'section')
         self.punctuation_group_box.setLayout(self.punctuation_group_box_layout)
 
         for x in self.punc_dict:
@@ -890,10 +1146,12 @@ class PuncuationDialog(Dialog):
         self.button_box_settings.clicked.connect(self._action_clicked)
         layout.addWidget(self.button_box_settings)
 
+        layout.addWidget(make_section_divider(self))
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.accepted.connect(self._ok_clicked)
         self.button_box.rejected.connect(self._reject_clicked)
         layout.addWidget(self.button_box)
+        apply_dialog_stylesheet(self)
         self.apply_translations()
 
     def apply_translations(self):

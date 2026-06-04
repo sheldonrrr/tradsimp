@@ -1,3 +1,8 @@
+value(s)	# Format: key
+(values	# Format: key
+separated	# Format: key
+by	# Format: key
+spaces)	# Format: key
 偽	僞
 啟	啓
 吃	喫
@@ -5,7 +10,6 @@
 媯	嬀
 峰	峯
 么	幺
-抬	擡
 稜	棱
 簷	檐
 汙	污

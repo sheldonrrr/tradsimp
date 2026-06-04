@@ -8,7 +8,7 @@
 
 本仓库在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 插件基础上继续开发与维护。
 
-**当前版本：3.2.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
+**当前版本：3.3.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
 
 ---
 
@@ -67,10 +67,10 @@ calibre-customize -r "Chinese Text Conversion"
 python3 setup.py -b
 ```
 
-会在 `dist/` 下生成 `chinese_text_conversion-{version}.zip`（例如 `dist/chinese_text_conversion-3.2.0.zip`）。安装方式：
+会在 `dist/` 下生成 `chinese_text_conversion-{version}.zip`（例如 `dist/chinese_text_conversion-3.3.0.zip`）。安装方式：
 
 ```bash
-calibre-customize -a "dist/chinese_text_conversion-3.2.0.zip"
+calibre-customize -a "dist/chinese_text_conversion-3.3.0.zip"
 ```
 
 其他常用命令：

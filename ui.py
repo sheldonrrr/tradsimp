@@ -17,7 +17,8 @@ from calibre_plugins.chinese_text_conversion import PLUGIN_NAME
 from calibre_plugins.chinese_text_conversion.icons import apply_action_icon
 from calibre_plugins.chinese_text_conversion.i18n import _, ngettext, apply_ui_language_from_prefs
 from calibre_plugins.chinese_text_conversion.library_flow import (
-    make_conversion_suffix, import_converted_book_as_new,
+    make_conversion_suffix, format_book_tag_log_lines,
+    import_converted_book_as_new, log_section,
     text_preview_from_changes, convert_book_to_temp_copy,
     languages_from_metadata, books_with_non_chinese_language,
     confirm_chinese_books_or_cancel,
@@ -46,7 +47,7 @@ class ChineseTextAction(InterfaceAction):
         _('Convert traditional/simplified Chinese in selected books'),
         ('Ctrl+Shift+Alt+C',),
     )
-    action_shortcut_name = _('Chinese Text Conversion')
+    action_shortcut_name = _('Chinese Conversion')
     action_type = 'current'
 
     def genesis(self):
@@ -152,7 +153,7 @@ class ChineseTextAction(InterfaceAction):
             total = len(work)
             for index, (book_id, path, fmt) in enumerate(work, start=1):
                 title = db.title(book_id, index_is_id=True)
-                suffix = make_conversion_suffix()
+                suffix, generated_at = make_conversion_suffix()
                 status_dlg.log_processing(
                     _('Processing ({}/{}): {}').format(index, total, title))
                 QApplication.processEvents()
@@ -172,11 +173,22 @@ class ChineseTextAction(InterfaceAction):
                         db, book_id, temp_path, fmt, suffix)
                     new_book_ids.append(new_id)
                     created.append(new_title)
-                    status_dlg.log_result(_('—— {} ——').format(_('Result preview')))
-                    status_dlg.log_result(
-                        _('Source: {}\nNew book: {}\nLibrary id: {}\nFormat: {}\nSuffix: {}').format(
-                            title, new_title, new_id, fmt, suffix))
-                    status_dlg.log_result(excerpt)
+                    book_info = _('Source: {}\nNew book: {}\nLibrary id: {}\nFormat: {}').format(
+                        title, new_title, new_id, fmt)
+                    book_info = book_info + '\n' + format_book_tag_log_lines(
+                        suffix, generated_at)
+                    log_section(
+                        status_dlg,
+                        _('----Log book info begin----'),
+                        _('----Log book info end----'),
+                        [book_info])
+                    status_dlg.log_result('')
+                    log_section(
+                        status_dlg,
+                        _('----Log preview begin----'),
+                        _('----Log preview end----'),
+                        [excerpt])
+                    status_dlg.log_result('')
                 except Exception:
                     failed.append((title, traceback.format_exc()))
                     status_dlg.log_processing(
@@ -200,9 +212,13 @@ class ChineseTextAction(InterfaceAction):
             if failed:
                 summary.append(_('Failed:') + ' ' + ', '.join(t for t, _ in failed))
             if summary:
-                status_dlg.log_result('\n'.join(summary))
-            if new_book_ids:
+                log_section(
+                    status_dlg,
+                    _('----Log summary begin----'),
+                    _('----Log summary end----'),
+                    ['\n'.join(summary)])
                 status_dlg.log_result('')
+            if new_book_ids:
                 if len(new_book_ids) == 1:
                     status_dlg.log_result(_(
                         'Conversion succeeded. The new book is already in your library. Open the library and check the most recently added book (sort by Date).'))

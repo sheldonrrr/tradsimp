@@ -1,3 +1,8 @@
+value(s)	# Format: key
+(values	# Format: key
+separated	# Format: key
+by	# Format: key
+spaces)	# Format: key
 偽	僞
 兑	兌
 叁	叄
@@ -16,7 +21,6 @@
 户	戶
 捝	挩
 揾	搵
-抬	擡
 敚	敓
 敍	敘
 敘	敘

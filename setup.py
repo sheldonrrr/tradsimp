@@ -33,6 +33,7 @@ PLUGIN_FILES = [
     'ui.py',
     'library_flow.py',
     'icons.py',
+    'ui_style.py',
     'dialogs.py',
     'i18n.py',
     'main.py',
@@ -43,12 +44,20 @@ PLUGIN_FILES = [
 # Never pack these (macOS metadata, caches, dev trees).
 SKIP_DIR_NAMES = frozenset({
     '__pycache__', '__MACOSX', '.git', '.cursor', '.idea', '.vscode',
-    'dist', 'scripts', '.pytest_cache', 'venv', '.venv', 'env',
+    'dist', 'scripts', 'bin', '.pytest_cache', 'venv', '.venv', 'env',
+    'agent-transcripts', 'terminals',
 })
 SKIP_FILE_NAMES = frozenset({
     '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes',
+    'setup.py',
 })
 SKIP_FILE_SUFFIXES = ('.pyc', '.pyo', '.pyd', '.po', '.pot', '.po~')
+# Root-only dev docs (not used when walking resources/; listed for clarity).
+SKIP_ROOT_DOC_BASENAMES = frozenset({
+    'README.md', 'README.zh-CN.md', 'README.zh-TW.md',
+})
+SKIP_BASENAME_PREFIXES = ('mobileread', '._')
+PACKAGE_VERSION_FILE = 'package-version.txt'
 
 
 def _read_init_py():
@@ -72,10 +81,25 @@ def find_zip_slug():
     return 'chinese_text_conversion'
 
 
-VERS_INFO = find_version()
-ZIP_SLUG = find_zip_slug()
-ZIP_BASENAME = '{}-{}.zip'.format(ZIP_SLUG, VERS_INFO)
-PLUGIN_ZIP = os.path.join(DIST_DIR, ZIP_BASENAME)
+def plugin_zip_basename(version=None):
+    slug = find_zip_slug()
+    ver = version if version is not None else find_version()
+    return '{}-{}.zip'.format(slug, ver)
+
+
+def plugin_zip_path(version=None):
+    return os.path.join(DIST_DIR, plugin_zip_basename(version))
+
+
+def package_version_payload(version=None):
+    ver = version if version is not None else find_version()
+    slug = find_zip_slug()
+    lines = (
+        'name={}\n'.format(slug),
+        'version={}\n'.format(ver),
+        'zip={}\n'.format(plugin_zip_basename(ver)),
+    )
+    return ''.join(lines)
 
 
 def should_skip_archive_name(name):
@@ -83,10 +107,12 @@ def should_skip_archive_name(name):
     if not name:
         return False
     base = os.path.basename(name)
-    if base in SKIP_FILE_NAMES:
+    if base in SKIP_FILE_NAMES or base in SKIP_ROOT_DOC_BASENAMES:
         return True
-    if base.startswith('._') or base == '.DS_Store':
-        return True
+    lower_base = base.lower()
+    for prefix in SKIP_BASENAME_PREFIXES:
+        if lower_base.startswith(prefix):
+            return True
     if base.endswith(SKIP_FILE_SUFFIXES):
         return True
     parts = name.replace('\\', '/').split('/')
@@ -98,6 +124,8 @@ def should_skip_archive_name(name):
         if part.startswith('._'):
             return True
         if part == '.DS_Store':
+            return True
+        if part == '.cursor' or part.startswith('.cursor'):
             return True
     return False
 
@@ -139,7 +167,7 @@ def zip_up_dir(myzip, base_dir, local_name):
 
 def _zip_version_key(path):
     match = re.search(
-        r'{}-([\d.]+)\.zip$'.format(re.escape(ZIP_SLUG)), os.path.basename(path))
+        r'{}-([\d.]+)\.zip$'.format(re.escape(find_zip_slug())), os.path.basename(path))
     if not match:
         return (0, 0, 0)
     try:
@@ -151,7 +179,7 @@ def _zip_version_key(path):
 def prune_dist_versions(keep=2):
     '''Keep only the newest `keep` plugin zips in dist/ (latest + second-latest).'''
     os.makedirs(DIST_DIR, exist_ok=True)
-    zips = glob.glob(os.path.join(DIST_DIR, ZIP_SLUG + '-*.zip'))
+    zips = glob.glob(os.path.join(DIST_DIR, find_zip_slug() + '-*.zip'))
     for legacy in (glob.glob(os.path.join(DIST_DIR, 'tradsimp-*.zip')) +
                    glob.glob(os.path.join(DIST_DIR, 'chinese_text_v*_plugin.zip'))):
         try:
@@ -180,11 +208,19 @@ def remove_legacy_root_zips():
             pass
 
 
-def build_zip():
+def build_zip(keep=2):
+    version = find_version()
+    zip_slug = find_zip_slug()
+    zip_path = plugin_zip_path(version)
+    zip_basename = plugin_zip_basename(version)
     os.makedirs(DIST_DIR, exist_ok=True)
     remove_legacy_root_zips()
-    print('Creating {} ...'.format(os.path.join('dist', ZIP_BASENAME)))
-    with zipfile.ZipFile(PLUGIN_ZIP, 'w') as outzip:
+    print('Version {} -> dist/{}'.format(version, zip_basename))
+    print('Creating {} ...'.format(os.path.join('dist', zip_basename)))
+    with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as outzip:
+        outzip.writestr(
+            PACKAGE_VERSION_FILE,
+            package_version_payload(version).encode('utf-8'))
         for entry in sorted(os.listdir(SCRIPT_DIR)):
             filepath = os.path.join(SCRIPT_DIR, entry)
             if os.path.isfile(filepath) and entry in PLUGIN_FILES:
@@ -193,14 +229,15 @@ def build_zip():
                 outzip.write(filepath, entry, zipfile.ZIP_DEFLATED)
             elif os.path.isdir(filepath) and entry in PLUGIN_DIRS:
                 zip_up_dir(outzip, SCRIPT_DIR, entry)
-    prune_dist_versions(keep=2)
-    print('Plugin zip: {}'.format(PLUGIN_ZIP))
-    remaining = sorted(glob.glob(os.path.join(DIST_DIR, ZIP_SLUG + '-*.zip')),
+    prune_dist_versions(keep=keep)
+    print('Plugin zip: {}'.format(zip_path))
+    print('Embedded: {} ({})'.format(PACKAGE_VERSION_FILE, version))
+    remaining = sorted(glob.glob(os.path.join(DIST_DIR, zip_slug + '-*.zip')),
                        key=_zip_version_key, reverse=True)
     if remaining:
         print('dist/ retains {} file(s): {}'.format(
             len(remaining), ', '.join(os.path.basename(z) for z in remaining)))
-    return PLUGIN_ZIP
+    return zip_path
 
 
 def install_and_launch(debug_from_source=False):
@@ -243,4 +280,4 @@ if __name__ == '__main__':
         sys.exit(install_and_launch(debug_from_source=True))
 
     build_zip()
-    print('Done. Install with: calibre-customize -a "{}"'.format(PLUGIN_ZIP))
+    print('Done. Install with: calibre-customize -a "{}"'.format(plugin_zip_path()))

@@ -1,3 +1,13 @@
+Upstream data source
+    Dictionary text files in this folder are synced from:
+    https://github.com/BYVoid/OpenCC (commit 5d1eadd)
+
+    Notes:
+    - Upstream OpenCC runtime configs now use ocd2 dictionaries.
+    - This plugin keeps txt dictionaries for compatibility with opencc_python/opencc.py.
+    - Reverse dictionaries (*Rev.txt) are regenerated locally via reverse.py
+      after syncing upstream txt files.
+
 merge.py
     for merging dictionary files into a single file
 

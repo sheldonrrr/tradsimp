@@ -25,8 +25,17 @@
     },
     {
       "dict": {
-        "type": "txt",
-        "file": "TWVariants.txt"
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "TWVariantsPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TWVariants.txt"
+          }
+        ]
       }
     }
   ]

@@ -18,9 +18,12 @@ PLUGIN_DESCRIPTION = ' — '.join((
     PLUGIN_DESCRIPTION_ZH_CN,
     PLUGIN_DESCRIPTION_ZH_TW,
 ))
-PLUGIN_VERSION_TUPLE = (3, 2, 0)
+PLUGIN_VERSION_TUPLE = (3, 3, 0)
 PLUGIN_VERSION = '.'.join([str(x) for x in PLUGIN_VERSION_TUPLE])
-PLUGIN_AUTHORS = 'Hopkins'
+PLUGIN_ABOUT_LAST_UPDATED = '2026-06-04'
+PLUGIN_RELEASE_THREAD_URL = (
+    'https://www.mobileread.com/forums/showthread.php?t=373788')
+PLUGIN_AUTHORS = 'Sheldon'
 
 
 class ChineseTextPlugin(InterfaceActionBase):

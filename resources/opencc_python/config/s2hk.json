@@ -25,8 +25,17 @@
     },
     {
       "dict": {
-        "type": "txt",
-        "file": "HKVariants.txt"
+        "type": "group",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "HKVariantsPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "HKVariants.txt"
+          }
+        ]
       }
     }
   ]

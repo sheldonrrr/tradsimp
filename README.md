@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese in your Calibre library on your own m
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.2.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.3.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -18,7 +18,7 @@ Download the latest `chinese_text_conversion-x.y.z.zip` from this repository’s
 
 1. Open **Preferences → Plugins → Load plugin from file** and select the zip.
 2. Restart Calibre when prompted.
-3. Open **Preferences → Toolbars & menus → The main toolbar**, search for **Chinese Conversion** (中文转换), and add it to the toolbar.
+3. Open **Preferences → Toolbars & menus → The main toolbar**, search for **Chinese Conversion** (简繁中文转换). The plugin is registered as **Chinese Text Conversion** in Preferences → Plugins.
 
 The **About** panel appears the first time you open the conversion dialog. You can open it again anytime from **About** in the lower-left corner of that window.
 
@@ -50,7 +50,7 @@ Conversion runs entirely on your computer using the plugin’s bundled OpenCC da
 ## Using the plugin (library)
 
 1. Select one or more books in the Calibre library (EPUB or AZW3).
-2. Click **Chinese Conversion** / **中文转换** on the toolbar.
+2. Click **Chinese Conversion** / **简繁中文转换** on the toolbar.
 3. Choose conversion direction, regional style, and other options in the dialog (see **About** in the lower-left corner).
 4. Start the job and wait for it to finish.
 5. Sort by date or search the library for the **new book** whose title includes a time suffix—the original remains unchanged.
@@ -64,13 +64,14 @@ Default keyboard shortcut: `Ctrl+Shift+Alt+C` (customizable under Calibre **Pref
 From the repository root:
 
 ```bash
-python3 setup.py -b
+python3 scripts/build_plugin_zip.py
+# or: python3 setup.py -b
 ```
 
-This writes `dist/chinese_text_conversion-{version}.zip` (for example `dist/chinese_text_conversion-3.2.0.zip`). Install it with:
+This reads the version from `__init__.py` and writes `dist/chinese_text_conversion-{version}.zip` (for example `dist/chinese_text_conversion-3.3.0.zip`). The zip includes `package-version.txt` and excludes dev files (`.cursor`, `__pycache__`, `mobileread-*.md`, README copies, etc.). Install it with:
 
 ```bash
-calibre-customize -a "dist/chinese_text_conversion-3.2.0.zip"
+calibre-customize -a "dist/chinese_text_conversion-3.3.0.zip"
 ```
 
 Other useful commands:
