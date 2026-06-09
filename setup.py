@@ -75,9 +75,9 @@ def find_version():
 
 def find_zip_slug():
     '''Zip basename prefix; matches PLUGIN_SAFE_NAME in __init__.py.'''
-    match = re.search(r'PLUGIN_NAME\s*=\s*["\']([^"\']+)["\']', _read_init_py())
+    match = re.search(r'PLUGIN_SAFE_NAME\s*=\s*["\']([^"\']+)["\']', _read_init_py())
     if match:
-        return match.group(1).strip().lower().replace(' ', '_')
+        return match.group(1).strip()
     return 'chinese_text_conversion'
 
 

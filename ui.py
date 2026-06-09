@@ -39,7 +39,7 @@ class ChineseTextAction(InterfaceAction):
     Add to "The main toolbar" via Preferences → Toolbars & menus.
     '''
 
-    name = 'Chinese Text Conversion'
+    name = PLUGIN_NAME
     # Icon path in action_spec is for Calibre built-in icons only; set plugin icon in genesis().
     action_spec = (
         _('Chinese Conversion'),

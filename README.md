@@ -2,7 +2,7 @@
 
 # tradsimp
 
-**Chinese Text Conversion** · for Calibre
+**Chinese Conversion · 简繁转换** · for Calibre
 
 Convert Simplified and Traditional Chinese in your Calibre library on your own machine. The plugin uses the built-in **OpenCC** dictionaries and rules—**no network access, no AI**—so your books never leave your computer.
 
@@ -18,14 +18,14 @@ Download the latest `chinese_text_conversion-x.y.z.zip` from this repository’s
 
 1. Open **Preferences → Plugins → Load plugin from file** and select the zip.
 2. Restart Calibre when prompted.
-3. Open **Preferences → Toolbars & menus → The main toolbar**, search for **Chinese Conversion** (简繁中文转换). The plugin is registered as **Chinese Text Conversion** in Preferences → Plugins.
+3. Open **Preferences → Toolbars & menus → The main toolbar**, search for **Chinese Conversion** (简繁中文转换). The plugin is registered as **Chinese Conversion · 简繁转换** in Preferences → Plugins.
 
 The **About** panel appears the first time you open the conversion dialog. You can open it again anytime from **About** in the lower-left corner of that window.
 
 If the toolbar button is missing after an upgrade, or you are upgrading from the old import name (`chinese_text`), remove the previous plugin before installing the new zip:
 
 ```text
-calibre-customize -r "Chinese Text Conversion"
+calibre-customize -r "Chinese Conversion · 简繁转换"
 ```
 
 Then install again via **Load plugin from file**.

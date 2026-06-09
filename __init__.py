@@ -4,8 +4,8 @@ __docformat__ = 'restructuredtext en'
 
 from calibre.customize import InterfaceActionBase
 
-PLUGIN_NAME = "Chinese Text Conversion"
-PLUGIN_SAFE_NAME = PLUGIN_NAME.strip().lower().replace(' ', '_')
+PLUGIN_NAME = "Chinese Conversion · 简繁转换"
+PLUGIN_SAFE_NAME = "chinese_text_conversion"
 PLUGIN_DESCRIPTION_EN = (
     'Convert traditional and simplified Chinese in your ebooks (offline OpenCC)')
 PLUGIN_DESCRIPTION_ZH_CN = (
@@ -53,6 +53,6 @@ class ChineseTextPlugin(InterfaceActionBase):
         return ac
 
     def cli_main(self, argv):
-        # calibre-debug --run-plugin "Chinese Text Conversion" -- -h
+        # calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- -h
         from calibre_plugins.chinese_text_conversion.main import main as plugin_main
         plugin_main(argv[1:], self.version, usage='%prog --run-plugin '+'\"'+self.name+'\"'+' --')

@@ -1102,7 +1102,7 @@ def main(argv, plugin_version, usage=None):
 
     parser = argparse.ArgumentParser(description=_(
         'Convert Chinese characters between traditional/simplified types and/or change text style.\n'
-        'Generally run as: calibre-debug --run-plugin "Chinese Text Conversion" -- [options] ebook-filepath\n'
+        'Generally run as: calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- [options] ebook-filepath\n'
         'Plugin Version: ') + str(plugin_version[0]) + '.' + str(plugin_version[1]) + '.' + str(plugin_version[2]))
     parser.add_argument('-il', '--input-locale', dest='orig_opt', default='cn',
                         help=_('Set to the ebook origin locale if known (Default: cn)'), choices=list_of_locales)

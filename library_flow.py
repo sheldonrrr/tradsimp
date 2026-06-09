@@ -179,7 +179,7 @@ def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix
     new_mi = mi.deepcopy_metadata()
     base_title = (mi.title or '').strip() or _('Unknown')
     new_mi.title = '{} {}'.format(base_title, suffix_tag).strip()
-    note = _('Created as a new library book by Chinese Text Conversion (source book id: {}).').format(
+    note = _('Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).').format(
         source_book_id)
     if new_mi.comments:
         new_mi.comments = new_mi.comments + '\n\n' + note

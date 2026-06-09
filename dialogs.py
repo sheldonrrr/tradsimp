@@ -160,8 +160,8 @@ class PluginAboutDialog(QDialog):
         apply_dialog_stylesheet(self)
 
     def apply_translations(self):
-        self.setWindowTitle(_('About Chinese Text Conversion'))
-        self.title_label.setText(_('About Chinese Text Conversion'))
+        self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
+        self.title_label.setText(_('About Chinese Conversion · 简繁转换'))
         self.version_label.setText(_('Version {}').format(PLUGIN_VERSION))
         self.last_updated_label.setText(
             _('About last updated').format(PLUGIN_ABOUT_LAST_UPDATED))

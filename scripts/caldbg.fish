@@ -35,11 +35,11 @@ end
 
 function __tradsimp_install_plugin
     __tradsimp_check_dir; or return 1
-    calibre-customize -r "Chinese Text Conversion" 2>/dev/null
+    calibre-customize -r "Chinese Conversion · 简繁转换" 2>/dev/null
     calibre-customize -b "$TRADSIMP_ROOT"; or return 1
-    set -l lines (calibre-customize -l 2>/dev/null | string match '*Chinese Text Conversion*')
+    set -l lines (calibre-customize -l 2>/dev/null | string match '*Chinese Conversion · 简繁转换*')
     if test (count $lines) -eq 0
-        echo "警告: calibre-customize -l 中未找到 Chinese Text Conversion"
+        echo "警告: calibre-customize -l 中未找到 Chinese Conversion · 简繁转换"
         return 1
     end
     set -l line $lines[1]
@@ -73,12 +73,12 @@ function caldbg-tsc-p
         echo "未找到 dist/chinese_text_conversion-*.zip"
         return 1
     end
-    calibre-customize -r "Chinese Text Conversion" 2>/dev/null
+    calibre-customize -r "Chinese Conversion · 简繁转换" 2>/dev/null
     if not string match -q '/*' -- $zip
         set zip "$TRADSIMP_ROOT/$zip"
     end
     calibre-customize -a "$zip"
-    calibre-customize -l 2>/dev/null | string match '*Chinese Text Conversion*'
+    calibre-customize -l 2>/dev/null | string match '*Chinese Conversion · 简繁转换*'
     calibre-debug --gui
 end
 

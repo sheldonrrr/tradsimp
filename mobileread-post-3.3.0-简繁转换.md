@@ -2,7 +2,7 @@
 
 [b]Updates & downloads:[/b] [url=[https://www.mobileread.com/forums/showthread.php?t=373788]This](https://www.mobileread.com/forums/showthread.php?t=373788]This) thread[/url] · Hopkins original: [url=[https://www.mobileread.com/forums/showthread.php?t=275572]275572[/url]](https://www.mobileread.com/forums/showthread.php?t=275572]275572[/url])
 
-Community fork by Sheldon (Jun 2026). OpenCC, fully offline. Toolbar: [b]Chinese Conversion[/b] / [b]简繁中文转换[/b] (Preferences lists [i]Chinese Text Conversion[/i]). Not in the official calibre catalog yet — install from the zip below.
+Community fork by Sheldon (Jun 2026). OpenCC, fully offline. Toolbar: [b]Chinese Conversion[/b] / [b]简繁中文转换[/b] (Preferences lists [i]Chinese Conversion · 简繁转换[/i]). Not in the official calibre catalog yet — install from the zip below.
 
 [b]3.3.0 highlights[/b]
 
@@ -13,7 +13,7 @@ Community fork by Sheldon (Jun 2026). OpenCC, fully offline. Toolbar: [b]Chinese
 
 [b]Install[/b]
 
-1. Optional: [code]calibre-customize -r "Chinese Text Conversion"[/code]
+1. Optional: [code]calibre-customize -r "Chinese Conversion · 简繁转换"[/code]
 2. Preferences → Plugins → Load from file → [b]chinese_text_conversion-3.3.0.zip[/b]
 3. Restart calibre; add the toolbar button if needed.
 

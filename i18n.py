@@ -261,10 +261,10 @@ _MESSAGES = {
     'Changed files: ': _T('Changed files: ', '已更改文件：', '已變更檔案：'),
     'No text excerpt available.': _T(
         'No text excerpt available.', '无文字预览。', '無文字預覽。'),
-    'Created as a new library book by Chinese Text Conversion (source book id: {}).': _T(
-        'Created as a new library book by Chinese Conversion (source book id: {}).',
-        '由「简繁中文转换」插件新建入库（来源书籍编号：{}）。',
-        '由「簡繁中文轉換」外掛新建入庫（來源書籍編號：{}）。'),
+    'Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).': _T(
+        'Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).',
+        '由「Chinese Conversion · 简繁转换」插件新建入库（来源书籍编号：{}）。',
+        '由「Chinese Conversion · 簡繁轉換」外掛新建入庫（來源書籍編號：{}）。'),
     'Unknown': _T('Unknown', '未知', '未知'),
     'No changes (originals kept):': _T(
         'No changes (originals kept):', '无更改（保留原书）：', '無變更（保留原書）：'),
@@ -317,16 +317,16 @@ _MESSAGES = {
         'Output file basename suffix: ', '输出文件主名后缀：', '輸出檔案主檔名後綴：'),
     ' File(s) will be converted:': _T(' File(s) will be converted:', ' 个文件将被转换：', ' 個檔案將被轉換：'),
     'Convert Chinese characters between traditional/simplified types and/or change text style.\n'
-    'Generally run as: calibre-debug --run-plugin "Chinese Text Conversion" -- [options] ebook-filepath\n'
+    'Generally run as: calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- [options] ebook-filepath\n'
     'Plugin Version: ': _T(
         'Convert Chinese characters between traditional/simplified types and/or change text style.\n'
-        'Generally run as: calibre-debug --run-plugin "Chinese Text Conversion" -- [options] ebook-filepath\n'
+        'Generally run as: calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- [options] ebook-filepath\n'
         'Plugin Version: ',
         '在繁体/简体中文及其他文字样式之间转换。\n'
-        '通常运行：calibre-debug --run-plugin "Chinese Text Conversion" -- [选项] 电子书路径\n'
+        '通常运行：calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- [选项] 电子书路径\n'
         '插件版本：',
         '在繁體/簡體中文及其他文字樣式之間轉換。\n'
-        '通常執行：calibre-debug --run-plugin "Chinese Text Conversion" -- [選項] 電子書路徑\n'
+        '通常執行：calibre-debug --run-plugin "Chinese Conversion · 简繁转换" -- [選項] 電子書路徑\n'
         '外掛版本：'),
     'Set to the ebook origin locale if known (Default: cn)': _T(
         'Set to the ebook origin locale if known (Default: cn)',
@@ -413,8 +413,8 @@ _MESSAGES = {
     '   --- TEST MODE - No Changes Written': _T(
         '   --- TEST MODE - No Changes Written', '   --- 测试模式——未写入更改', '   --- 測試模式——未寫入變更'),
     '   Saving file to: ': _T('   Saving file to: ', '   正在保存到：', '   正在儲存到：'),
-    'Chinese Text Conversion': _T(
-        'Chinese Conversion', '简繁中文转换', '簡繁中文轉換'),
+    'Chinese Conversion · 简繁转换': _T(
+        'Chinese Conversion · 简繁转换', 'Chinese Conversion · 简繁转换', 'Chinese Conversion · 簡繁轉換'),
     'No library open': _T('No library open', '未打开书库', '未開啟書庫'),
     'Open a calibre library first.': _T(
         'Open a calibre library first.', '请先打开 Calibre 书库。', '請先開啟 Calibre 書庫。'),
@@ -451,8 +451,10 @@ _MESSAGES = {
         '所選輸出設定不受支援。\n請使用其他輸入/輸出語言風格組合。'),
     'About': _T('About', '关于', '關於'),
     'Check for updates': _T('Check for updates ↗', '检查更新 ↗', '檢查更新 ↗'),
-    'About Chinese Text Conversion': _T(
-        'About Chinese Conversion', '关于简繁中文转换', '關於簡繁中文轉換'),
+    'About Chinese Conversion · 简繁转换': _T(
+        'About Chinese Conversion · 简繁转换',
+        '关于 Chinese Conversion · 简繁转换',
+        '關於 Chinese Conversion · 簡繁轉換'),
     'Version {}': _T('Version {}', '版本 {}', '版本 {}'),
     'About last updated': _T(
         'Last updated: {}',

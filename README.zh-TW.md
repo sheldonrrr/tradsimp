@@ -2,7 +2,7 @@
 
 # tradsimp
 
-**繁簡中文轉換（Chinese Text Conversion）** · 適用於 Calibre
+**Chinese Conversion · 简繁转换** · 適用於 Calibre
 
 面向 Calibre 書庫的繁簡中文轉換外掛：在本地完成字形與地區用詞轉換，**無需連網、不使用 AI**，全部依賴內建 **OpenCC** 離線字庫。
 
@@ -25,7 +25,7 @@
 若升級後工具列找不到按鈕，或從舊版 import 名稱（`chinese_text`）升級，請先移除舊版再安裝：
 
 ```text
-calibre-customize -r "Chinese Text Conversion"
+calibre-customize -r "Chinese Conversion · 简繁转换"
 ```
 
 再透過 **從檔案安裝外掛** 安裝新 zip。
