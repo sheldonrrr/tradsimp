@@ -35,9 +35,11 @@ end
 
 function __tradsimp_install_plugin
     __tradsimp_check_dir; or return 1
-    calibre-customize -r "Chinese Conversion · 简繁转换" 2>/dev/null
+    set -l plugin_name "Chinese Conversion · 简繁转换"
+    calibre-customize -r "$plugin_name" 2>/dev/null
     calibre-customize -b "$TRADSIMP_ROOT"; or return 1
-    set -l lines (calibre-customize -l 2>/dev/null | string match '*Chinese Conversion · 简繁转换*')
+    set -l list_output (calibre-customize -l 2>/dev/null)
+    set -l lines (string match '*Chinese Conversion · 简繁转换*' -- $list_output)
     if test (count $lines) -eq 0
         echo "警告: calibre-customize -l 中未找到 Chinese Conversion · 简繁转换"
         return 1
