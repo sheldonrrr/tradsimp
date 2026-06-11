@@ -54,10 +54,36 @@ def _finalize_message_catalog():
 # English msgid -> per-language string
 _MESSAGES = {
     'Chinese Conversion': _T('Chinese Conversion', '简繁中文转换', '簡繁中文轉換'),
+    # Plugin catalog metadata (English defaults; mirrors __init__.py for Calibre / MobileRead)
+    'Plugin catalog name': _T(
+        'Chinese Conversion',
+        'Chinese Conversion · 简繁转换',
+        'Chinese Conversion · 簡繁轉換'),
+    'Plugin catalog description': _T(
+        'Fully offline conversion between Simplified and Traditional Chinese. '
+        'Community-maintained version powered by OpenCC.',
+        '简体与繁体中文之间的完全离线转换。基于 OpenCC 的社区维护版本。',
+        '簡體與繁體中文之間的完全離線轉換。基於 OpenCC 的社群維護版本。'),
+    'Plugin catalog author': _T(
+        'Sheldon (community fork of Hopkins1)',
+        'Sheldon（Hopkins1 社区分支维护）',
+        'Sheldon（Hopkins1 社群分支維護）'),
+    'Plugin catalog released': _T(
+        'Released: 08 Jun, 2026',
+        '发布：2026年6月8日',
+        '發佈：2026年6月8日'),
+    'Plugin catalog calibre requirement': _T(
+        'Requires calibre 6.0.0 or later',
+        '需要 calibre 6.0.0 或更高版本',
+        '需要 calibre 6.0.0 或更高版本'),
+    'Plugin catalog platforms': _T(
+        'Platforms: linux, osx, windows',
+        '平台：linux、osx、windows',
+        '平台：linux、osx、windows'),
     'Brand dialog tagline': _T(
-        'Offline OpenCC conversion for your Calibre library',
-        '为 Calibre 书库提供离线 OpenCC 简繁转换',
-        '為 Calibre 書庫提供離線 OpenCC 簡繁轉換'),
+        'Fully offline conversion between Simplified and Traditional Chinese',
+        '简体与繁体中文完全离线转换',
+        '簡體與繁體中文完全離線轉換'),
     'Chinese Punctuation': _T('Chinese Punctuation', '中文标点', '中文標點'),
     'Interface Language:': _T('Interface Language:', '界面语言：', '介面語言：'),
     'English': _T('English', 'English', 'English'),
@@ -473,10 +499,9 @@ _MESSAGES = {
         '（不僅限於編輯書籍模式）。轉換全程離線（OpenCC），以新增書籍方式入庫，不修改原書。'
         '請向下捲動查看發佈資訊、維護者與維護目標。之後可在轉換視窗左下角「關於」再次開啟。'),
     'About offline highlight': _T(
-        'Offline by design: conversions use the OpenCC word lists shipped inside the plugin. '
-        'No AI, no cloud service, and no internet connection is required.',
-        '全程离线：使用插件内置的 OpenCC 字库进行转换，无需人工智能、无需联网。',
-        '全程離線：使用外掛內建的 OpenCC 字庫進行轉換，無需人工智慧、無需連線。'),
+        'Fully offline conversion powered by OpenCC — no AI, no cloud, no internet required.',
+        '完全离线转换，基于 OpenCC — 无需 AI、无需云端、无需联网。',
+        '完全離線轉換，基於 OpenCC — 無需 AI、無需雲端、無需連線。'),
     'About features': _T(
         'About features',
         '主要功能',
@@ -537,21 +562,15 @@ _MESSAGES = {
         '索引狀態：暫未進入 calibre 外掛索引。'),
     'About maintainer': _T('Maintainer', '维护者', '維護者'),
     'About maintainer body': _T(
-        'Current maintainer: Sheldon.\n'
+        'Sheldon (community fork of Hopkins1).\n'
         'Also maintains Ask AI Plugin — '
-        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202\n'
-        'Ask AI Plugin lets you query your books with AI; bring your own API keys (BYOK) '
-        'or use the maintainer’s free AI inquiry service.',
-        '当前跟进开发者：Sheldon。\n'
+        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202',
+        'Sheldon（Hopkins1 社区分支维护）。\n'
         '同时在维护：Ask AI Plugin — '
-        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202\n'
-        '该插件支持对书籍进行 AI 问询；可使用自己的密钥配置（BYOK），'
-        '也可使用开发者维护的免费 AI 问询服务。',
-        '目前跟進開發者：Sheldon。\n'
+        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202',
+        'Sheldon（Hopkins1 社群分支維護）。\n'
         '同時在維護：Ask AI Plugin — '
-        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202\n'
-        '該外掛支援對書籍進行 AI 問詢；可使用自己的金鑰設定（BYOK），'
-        '也可使用開發者維護的免費 AI 問詢服務。'),
+        'https://www.mobileread.com/forums/showthread.php?p=4547202#post4547202'),
     'About maintenance goals': _T(
         'Maintenance goals', '维护目标', '維護目標'),
     'About maintenance goals list': _T(

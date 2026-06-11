@@ -4,26 +4,21 @@ __docformat__ = 'restructuredtext en'
 
 from calibre.customize import InterfaceActionBase
 
-PLUGIN_NAME = "Chinese Conversion · 简繁转换"
-PLUGIN_SAFE_NAME = "chinese_text_conversion"
-PLUGIN_DESCRIPTION_EN = (
-    'Convert traditional and simplified Chinese in your ebooks (offline OpenCC)')
-PLUGIN_DESCRIPTION_ZH_CN = (
-    '简繁中文转换：在电子书中转换简体与繁体中文（离线 OpenCC）')
-PLUGIN_DESCRIPTION_ZH_TW = (
-    '繁簡中文轉換：在電子書中轉換簡體與繁體中文（離線 OpenCC）')
-# Calibre exposes a single description string for plugin list search/display.
-PLUGIN_DESCRIPTION = ' — '.join((
-    PLUGIN_DESCRIPTION_EN,
-    PLUGIN_DESCRIPTION_ZH_CN,
-    PLUGIN_DESCRIPTION_ZH_TW,
-))
+PLUGIN_NAME = 'Chinese Conversion · 简繁转换'
+PLUGIN_NAME_EN = 'Chinese Conversion'
+PLUGIN_SAFE_NAME = 'chinese_text_conversion'
+# Calibre catalog static parser: must be a plain string literal, not join()/computed.
+PLUGIN_DESCRIPTION = 'Fully offline conversion between Simplified and Traditional Chinese. Community-maintained version powered by OpenCC.'
 PLUGIN_VERSION_TUPLE = (3, 3, 0)
-PLUGIN_VERSION = '.'.join([str(x) for x in PLUGIN_VERSION_TUPLE])
-PLUGIN_ABOUT_LAST_UPDATED = '2026-06-04'
+PLUGIN_VERSION = '3.3.0'
+PLUGIN_MINIMUM_CALIBRE_VERSION = (6, 0, 0)
+PLUGIN_RELEASED = '08 Jun, 2026'
+PLUGIN_ABOUT_LAST_UPDATED = '2026-06-08'
 PLUGIN_RELEASE_THREAD_URL = (
     'https://www.mobileread.com/forums/showthread.php?t=373788')
-PLUGIN_AUTHORS = 'Sheldon'
+PLUGIN_AUTHOR = 'Sheldon (community fork of Hopkins1)'
+PLUGIN_ACTUAL_PLUGIN = (
+    'calibre_plugins.chinese_text_conversion.ui:ChineseTextAction')
 
 
 class ChineseTextPlugin(InterfaceActionBase):
@@ -31,14 +26,14 @@ class ChineseTextPlugin(InterfaceActionBase):
     name = PLUGIN_NAME
     description = PLUGIN_DESCRIPTION
     supported_platforms = ['windows', 'osx', 'linux']
-    author = PLUGIN_AUTHORS
+    author = PLUGIN_AUTHOR
     version = PLUGIN_VERSION_TUPLE
-    minimum_calibre_version = (6, 0, 0)
+    minimum_calibre_version = PLUGIN_MINIMUM_CALIBRE_VERSION
 
     #: Shown in Preferences → Plugins; also used for toolbar icon lookup
     icon = 'images/TradSimpIcon.png'
 
-    actual_plugin = 'calibre_plugins.chinese_text_conversion.ui:ChineseTextAction'
+    actual_plugin = PLUGIN_ACTUAL_PLUGIN
 
     def is_customizable(self):
         return False

@@ -88,6 +88,10 @@ class PluginAboutDialog(QDialog):
         self.version_label = QLabel()
         content_layout.addWidget(self.version_label)
 
+        self.catalog_info_label = QLabel()
+        self.catalog_info_label.setWordWrap(True)
+        content_layout.addWidget(self.catalog_info_label)
+
         self.last_updated_label = QLabel()
         content_layout.addWidget(self.last_updated_label)
 
@@ -163,6 +167,13 @@ class PluginAboutDialog(QDialog):
         self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
         self.title_label.setText(_('About Chinese Conversion · 简繁转换'))
         self.version_label.setText(_('Version {}').format(PLUGIN_VERSION))
+        self.catalog_info_label.setText('\n'.join([
+            _('Plugin catalog description'),
+            _('Plugin catalog released'),
+            _('Plugin catalog author'),
+            _('Plugin catalog calibre requirement'),
+            _('Plugin catalog platforms'),
+        ]))
         self.last_updated_label.setText(
             _('About last updated').format(PLUGIN_ABOUT_LAST_UPDATED))
         if self.first_run:
