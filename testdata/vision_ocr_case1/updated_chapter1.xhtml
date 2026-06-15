@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><title>OCR Test</title></head>
+  <body>
+    <h1>Vision OCR 测试页</h1>
+    <p>图1：无 alt，无 figcaption，应触发 OCR 并补全 alt。</p>
+    <img src="../images/img_no_alt.png"  alt="簡體中文 圖片一OCR測試"/>
+
+    <p>图2：已有 alt，应保持不变。</p>
+    <img src="../images/img_with_alt.png" alt="已有说明文字" />
+
+    <p>图3：figure + figcaption，应跳过 OCR。</p>
+    <figure>
+      <img src="../images/img_with_figcaption.png" />
+      <figcaption>已有图注，不应覆盖</figcaption>
+    </figure>
+  </body>
+</html>

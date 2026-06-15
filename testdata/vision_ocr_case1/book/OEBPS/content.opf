@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Vision OCR Test Book</dc:title>
+    <dc:language>zh-CN</dc:language>
+    <dc:identifier id="BookId">vision-ocr-test-001</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="chapter1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="img1" href="images/img_no_alt.png" media-type="image/png"/>
+    <item id="img2" href="images/img_with_alt.png" media-type="image/png"/>
+    <item id="img3" href="images/img_with_figcaption.png" media-type="image/png"/>
+  </manifest>
+  <spine>
+    <itemref idref="chapter1"/>
+  </spine>
+</package>

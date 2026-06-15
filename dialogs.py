@@ -34,6 +34,7 @@ from calibre_plugins.chinese_text_conversion.ui_style import (
     help_text_row, make_section_divider, polish_scroll_area, style_help_label,
     style_subheading_label,
 )
+from calibre_plugins.chinese_text_conversion.vision_ocr import is_vision_ocr_supported
 
 '''
 ConversionDialog
@@ -460,6 +461,10 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
         self.punctuation_dialog = None
 
+        self.enable_vision_ocr_enhancement = QCheckBox(_('Enable Vision OCR image enhancement'))
+        self.enable_vision_ocr_enhancement.setVisible(is_vision_ocr_supported())
+        advanced_group_box_layout.addWidget(self.enable_vision_ocr_enhancement)
+
         self.book_source_button.toggled.connect(self.on_button_toggled)
 
         layout.addWidget(make_section_divider(self))
@@ -793,6 +798,7 @@ class ConversionDialog(Dialog):
         self.quotation_simp_to_trad_button.setText(self.quote_for_trad_target)
         self.update_punctuation.setText(_('Update punctuation'))
         self.punc_settings_btn.setText(_('Settings...'))
+        self.enable_vision_ocr_enhancement.setText(_('Enable Vision OCR image enhancement'))
 
         self.book_source_button.setText(_('Entire eBook'))
         self.file_source_button.setText(_('Current File'))
@@ -847,6 +853,7 @@ class ConversionDialog(Dialog):
         self.text_dir_horizontal_button.blockSignals(state)
         self.text_dir_vertical_button.blockSignals(state)
         self.update_punctuation.blockSignals(state)
+        self.enable_vision_ocr_enhancement.blockSignals(state)
 
 
     def set_to_preferences(self):
@@ -887,6 +894,8 @@ class ConversionDialog(Dialog):
 
         self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
+        self.enable_vision_ocr_enhancement.setChecked(bool(self.prefs.get('enable_vision_ocr_enhancement', False)))
+        self.enable_vision_ocr_enhancement.setVisible(is_vision_ocr_supported())
 
         self.block_signals(False)
 
@@ -1028,6 +1037,7 @@ class ConversionDialog(Dialog):
         self.prefs['output_orientation_user_set'] = True
         self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
+        self.prefs['enable_vision_ocr_enhancement'] = self.enable_vision_ocr_enhancement.isChecked()
 
 
     def getRegex(self):

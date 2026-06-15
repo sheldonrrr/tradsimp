@@ -16,7 +16,7 @@ except ImportError:
 
 from calibre.gui2.tweak_book.plugin import Tool
 from calibre.gui2.tweak_book import editor_name
-from calibre.gui2 import error_dialog, info_dialog
+from calibre.gui2 import error_dialog, info_dialog, question_dialog
 from calibre.ebooks.oeb.polish.container import OEB_DOCS, OEB_STYLES, get_container
 try:
     from calibre.ebooks.oeb.polish.toc import get_toc, find_existing_ncx_toc, commit_toc
@@ -26,6 +26,11 @@ except:
 from calibre_plugins.chinese_text_conversion.__init__ import (PLUGIN_NAME, PLUGIN_SAFE_NAME)
 from calibre_plugins.chinese_text_conversion.i18n import _, apply_ui_language_from_prefs, detect_calibre_ui_language
 from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc import OpenCC
+from calibre_plugins.chinese_text_conversion.vision_ocr import (
+    is_vision_ocr_supported, enrich_images_with_ocr,
+    get_preferred_ocr_languages, get_missing_ocr_language_notice,
+    format_ocr_language_notice_message,
+)
 
 '''
 TradSimpChinese
@@ -67,6 +72,8 @@ OUTPUT_ORIENTATION = 6     # 0=No change, 1=Horizontal, 2=Vertical
 UPDATE_PUNCTUATION = 7     # True/False
 PUNC_DICT = 8              # punctuation swapping dictionary based on settings, may be None
 PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, may be None
+ENABLE_VISION_OCR = 10     # True/False
+_LAST_OCR_PREVIEW_SAMPLES = []
 
 
 #<!--PI_SELTEXT_START-->
@@ -357,6 +364,20 @@ class TradSimpChinese(Tool):
                 return
 
             criteria = self.getCriteria()
+            if criteria[ENABLE_VISION_OCR]:
+                notice = get_missing_ocr_language_notice(criteria[INPUT_LOCALE])
+                if notice:
+                    proceed = question_dialog(
+                        self.gui,
+                        _('Vision OCR language notice'),
+                        _('Vision OCR language notice summary'),
+                        det_msg=format_ocr_language_notice_message(notice),
+                        default_yes=False,
+                        yes_text=_('Continue'),
+                        no_text=_('Cancel'),
+                    )
+                    if not proceed:
+                        return
             # Ensure any in progress editing the user is doing is present in the container
             self.boss.commit_all_editors_to_container()
             self.boss.add_savepoint(_('Before: Text Conversion'))
@@ -439,6 +460,10 @@ class TradSimpChinese(Tool):
                 cancelled_msg = ' (cancelled)'
             self.filesChanged = self.filesChanged or (not d.clean) or direction_changed
             self.changed_files.extend(d.changed_files)
+            ocr_changed_files, _ocr_samples = maybe_enrich_images_with_vision_ocr(container, criteria, self.converter)
+            if ocr_changed_files:
+                self.filesChanged = True
+                self.changed_files.extend(ocr_changed_files)
 
     def prefsPrep(self):
         prepare_prefs(self.prefs)
@@ -464,6 +489,7 @@ def prepare_prefs(prefs):
         prefs['symbol_profile_user_set'] = False
         prefs['update_punctuation'] = False
         prefs['punc_omits'] = PUNC_OMITS
+        prefs['enable_vision_ocr_enhancement'] = False
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -483,6 +509,7 @@ def prepare_prefs(prefs):
     prefs.defaults['symbol_profile_user_set'] = False
     prefs.defaults['update_punctuation'] = False
     prefs.defaults['punc_omits'] = PUNC_OMITS
+    prefs.defaults['enable_vision_ocr_enhancement'] = False
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -526,7 +553,8 @@ def build_criteria(prefs):
     return (
         prefs['input_source'], prefs['conversion_type'], prefs['input_locale'],
         prefs['output_locale'], prefs['use_target_phrases'], prefs['quotation_type'],
-        prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex)
+        prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
+        prefs.get('enable_vision_ocr_enhancement', False))
 
 
 def getPrefs():
@@ -606,6 +634,44 @@ def get_language_code(criteria):
             #hk -> hk and tw -> tw does nothing
             language_code = 'None'
     return language_code
+
+
+def maybe_enrich_images_with_vision_ocr(container, criteria, converter):
+    if not criteria[ENABLE_VISION_OCR] or not is_vision_ocr_supported():
+        return [], []
+
+    changed_files = []
+    ocr_cache = {}
+    preview_samples = []
+    preferred_languages = get_preferred_ocr_languages(criteria[INPUT_LOCALE])
+    file_list = [i[0] for i in container.mime_map.items() if i[1] in OEB_DOCS]
+
+    for name in file_list:
+        data = container.raw_data(name)
+        htmlstr, changed, samples = enrich_images_with_ocr(
+            container,
+            name,
+            data,
+            converter,
+            ocr_cache=ocr_cache,
+            preferred_languages=preferred_languages,
+        )
+        if changed and htmlstr != data:
+            container.dirty(name)
+            container.open(name, 'w').write(htmlstr)
+            changed_files.append(name)
+        for sample in samples:
+            if len(preview_samples) >= 3:
+                break
+            preview_samples.append(sample)
+    return changed_files, preview_samples
+
+
+def consume_last_ocr_preview_samples():
+    global _LAST_OCR_PREVIEW_SAMPLES
+    samples = list(_LAST_OCR_PREVIEW_SAMPLES)
+    _LAST_OCR_PREVIEW_SAMPLES = []
+    return samples
 
 
 def set_metadata_toc(container, language, criteria, changed_files, converter):
@@ -997,11 +1063,14 @@ def cli_get_criteria(args):
     criteria = (
         input_source, output_mode, input_locale,
         output_locale, use_target_phrase, quote_type,
-        text_direction, update_punctuation, punc_dict, punc_regex)
+        text_direction, update_punctuation, punc_dict, punc_regex,
+        bool(prefs.get('enable_vision_ocr_enhancement', False)))
 
     return criteria
 
 def cli_process_files(criteria, container, converter, parser):
+    global _LAST_OCR_PREVIEW_SAMPLES
+    _LAST_OCR_PREVIEW_SAMPLES = []
     lang = get_language_code(criteria)
     if lang != "None":
         language = 'lang=\"' + lang + '\"'
@@ -1030,6 +1099,12 @@ def cli_process_files(criteria, container, converter, parser):
             container.open(name, 'w').write(htmlstr)
             changed_files.append(name)
             clean = False
+
+    ocr_changed_files, ocr_samples = maybe_enrich_images_with_vision_ocr(container, criteria, converter)
+    _LAST_OCR_PREVIEW_SAMPLES = list(ocr_samples)
+    for changed_name in ocr_changed_files:
+        if changed_name not in changed_files:
+            changed_files.append(changed_name)
 
     return(changed_files)
 

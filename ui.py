@@ -11,7 +11,7 @@ except ImportError:
     from PyQt5.Qt import QApplication, QCursor, Qt
 
 from calibre.gui2.actions import InterfaceAction
-from calibre.gui2 import error_dialog, info_dialog
+from calibre.gui2 import error_dialog, info_dialog, question_dialog
 from calibre.ebooks.oeb.polish.container import get_container
 from calibre_plugins.chinese_text_conversion import PLUGIN_NAME
 from calibre_plugins.chinese_text_conversion.icons import apply_action_icon
@@ -19,14 +19,17 @@ from calibre_plugins.chinese_text_conversion.i18n import _, ngettext, apply_ui_l
 from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
-    text_preview_from_changes, convert_book_to_temp_copy,
+    text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     languages_from_metadata, books_with_non_chinese_language,
     confirm_chinese_books_or_cancel,
 )
 from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
-    get_configuration, get_language_code, get_resource_file,
+    get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR, INPUT_LOCALE,
     HTML_TextProcessor, OpenCC,
+)
+from calibre_plugins.chinese_text_conversion.vision_ocr import (
+    get_missing_ocr_language_notice, format_ocr_language_notice_message,
 )
 
 
@@ -96,6 +99,20 @@ class ChineseTextAction(InterfaceAction):
             return
 
         criteria = build_criteria(prefs)
+        if criteria[ENABLE_VISION_OCR]:
+            notice = get_missing_ocr_language_notice(criteria[INPUT_LOCALE])
+            if notice:
+                proceed = question_dialog(
+                    self.gui,
+                    _('Vision OCR language notice'),
+                    _('Vision OCR language notice summary'),
+                    det_msg=format_ocr_language_notice_message(notice),
+                    default_yes=False,
+                    yes_text=_('Continue'),
+                    no_text=_('Cancel'),
+                )
+                if not proceed:
+                    return
         if criteria[1] == 0 and criteria[5] == 0 and criteria[6] == 0:
             return info_dialog(
                 self.gui, _('No Changes'),
@@ -159,7 +176,7 @@ class ChineseTextAction(InterfaceAction):
                 QApplication.processEvents()
                 tmpdir = None
                 try:
-                    tmpdir, temp_path, changed_files = convert_book_to_temp_copy(
+                    tmpdir, temp_path, changed_files, ocr_samples = convert_book_to_temp_copy(
                         path, fmt, criteria, converter, parser)
                     if not changed_files:
                         unchanged.append(title)
@@ -169,6 +186,10 @@ class ChineseTextAction(InterfaceAction):
 
                     container = get_container(temp_path)
                     excerpt = text_preview_from_changes(container, changed_files)
+                    excerpt = excerpt + '\n\n' + ocr_preview_from_samples(
+                        ocr_samples,
+                        ocr_enabled=bool(criteria[ENABLE_VISION_OCR]),
+                    )
                     new_id, new_title = import_converted_book_as_new(
                         db, book_id, temp_path, fmt, suffix)
                     new_book_ids.append(new_id)

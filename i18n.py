@@ -160,6 +160,66 @@ _MESSAGES = {
         '选择从左到右或从上到下的阅读顺序',
         '選擇從左到右或從上到下的閱讀順序'),
     'Update punctuation': _T('Update punctuation', '更新标点', '更新標點'),
+    'Enable Vision OCR image enhancement': _T(
+        'Enable Vision OCR image enhancement',
+        '启用 Vision OCR 的图片增强功能',
+        '啟用 Vision OCR 的圖片增強功能'),
+    'Vision OCR language notice': _T(
+        'Vision OCR Language Notice',
+        'Vision OCR 语言支持提醒',
+        'Vision OCR 語言支援提醒'),
+    'Vision OCR language notice summary': _T(
+        'The preferred OCR language is not currently available on this macOS device.',
+        '当前设备缺少本次 OCR 识别所需的优先语言支持。',
+        '目前裝置缺少本次 OCR 辨識所需的優先語言支援。'),
+    'OCR language missing problem': _T(
+        'Preferred OCR language ({}) is missing on this system.',
+        '由于识别语言（{}）缺失，OCR 识别结果可能不稳定。',
+        '由於辨識語言（{}）缺失，OCR 辨識結果可能不穩定。'),
+    'OCR language missing suggestion': _T(
+        'It is recommended to disable Vision OCR enhancement for this conversion.',
+        '建议本次不要勾选 OCR 识别增强功能。',
+        '建議本次不要勾選 OCR 辨識增強功能。'),
+    'OCR language missing action': _T(
+        'Open macOS Settings > General > Language & Region, add/download the required language pack, then retry OCR.',
+        '前往 macOS「系统设置 > 通用 > 语言与地区」，添加并下载对应语言支持后再开启 OCR。',
+        '前往 macOS「系統設定 > 一般 > 語言與地區」，新增並下載對應語言支援後再啟用 OCR。'),
+    'OCR notice problem line': _T(
+        'Problem: {}',
+        '问题：{}',
+        '問題：{}'),
+    'OCR notice suggestion line': _T(
+        'Suggestion: {}',
+        '建议：{}',
+        '建議：{}'),
+    'OCR notice action line': _T(
+        'Action: {}',
+        'Action：{}',
+        'Action：{}'),
+    'OCR disabled preview': _T(
+        'OCR is disabled; no recognition preview is available.',
+        'OCR 没有开启，暂无识别结果预览',
+        'OCR 未啟用，暫無辨識結果預覽'),
+    'OCR enabled but no preview': _T(
+        'Vision OCR ran but no image text sample was captured.',
+        'Vision OCR 已开启，但暂无可展示的识别样本。',
+        'Vision OCR 已啟用，但暫無可顯示的辨識樣本。'),
+    'OCR preview header': _T(
+        'Recent OCR samples (latest 3):',
+        '最近 3 条图片 OCR 结果：',
+        '最近 3 筆圖片 OCR 結果：'),
+    'OCR preview item': _T(
+        '[{}] Image: {}',
+        '[{}] 图片：{}',
+        '[{}] 圖片：{}'),
+    'OCR preview recognized': _T(
+        'Recognized: {}',
+        '识别结果：{}',
+        '辨識結果：{}'),
+    'OCR preview converted': _T(
+        'Converted: {}',
+        '转换结果：{}',
+        '轉換結果：{}'),
     'Settings...': _T('Settings...', '设置…', '設定…'),
     'Entire eBook': _T('Entire eBook', '整本电子书', '整本電子書'),
     'Current File': _T('Current File', '当前文件', '目前檔案'),

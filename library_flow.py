@@ -224,6 +224,22 @@ def text_preview_from_changes(container, changed_files, max_chars=LIBRARY_PREVIE
     return _('No text excerpt available.')
 
 
+def ocr_preview_from_samples(ocr_samples, ocr_enabled):
+    if not ocr_enabled:
+        return _('OCR disabled preview')
+
+    samples = list(ocr_samples or [])[:3]
+    if not samples:
+        return _('OCR enabled but no preview')
+
+    lines = [_('OCR preview header')]
+    for idx, sample in enumerate(samples, start=1):
+        lines.append(_('OCR preview item').format(idx, sample.get('image', '')))
+        lines.append(_('OCR preview recognized').format(sample.get('recognized', '')))
+        lines.append(_('OCR preview converted').format(sample.get('converted', '')))
+    return '\n'.join(lines)
+
+
 def convert_book_to_temp_copy(src_path, fmt, criteria, converter, parser):
     '''
     Copy format to a temp file, convert in place, return (tmpdir, temp_path, changed_files).
@@ -234,10 +250,12 @@ def convert_book_to_temp_copy(src_path, fmt, criteria, converter, parser):
     temp_path = os.path.join(tmpdir, 'converted.{}'.format(ext))
     shutil.copy2(src_path, temp_path)
     from calibre.ebooks.oeb.polish.container import get_container
-    from calibre_plugins.chinese_text_conversion.main import cli_process_files
+    from calibre_plugins.chinese_text_conversion.main import (
+        cli_process_files, consume_last_ocr_preview_samples)
 
     container = get_container(temp_path)
     changed_files = cli_process_files(criteria, container, converter, parser)
+    ocr_samples = consume_last_ocr_preview_samples()
     if changed_files:
         container.commit()
-    return tmpdir, temp_path, changed_files or []
+    return tmpdir, temp_path, changed_files or [], ocr_samples
