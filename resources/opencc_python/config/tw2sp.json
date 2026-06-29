@@ -1,5 +1,13 @@
 {
-  "name": "Traditional Chinese (Taiwan standard) to Simplified Chinese (with phrases)",
+  "name": "Traditional Chinese (Taiwan Standard) to Simplified Chinese (Mainland China Phrases)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
+    }
+  ],
   "segmentation": {
     "type": "mmseg",
     "dict": {
@@ -11,6 +19,7 @@
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",
@@ -30,6 +39,7 @@
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",

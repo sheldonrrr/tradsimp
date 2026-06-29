@@ -620,19 +620,17 @@ def get_language_code(criteria):
         elif input_type == 1:
             if output_type == 0:
                 language_code = 'zh-Hant-CN'
+            elif output_type == 2:
+                language_code = 'zh-Hant-TW'
             else:
-                #only TW trad -> mainland
                 language_code = 'None'
         elif input_type == 2:
             if output_type == 0:
                 language_code = 'zh-Hant-CN'
+            elif output_type == 1:
+                language_code = 'zh-Hant-HK'
             else:
-                #only HK trad -> mainland
                 language_code = 'None'
-        else:
-            #hk -> tw and tw -> hk not currently set up
-            #hk -> hk and tw -> tw does nothing
-            language_code = 'None'
     return language_code
 
 
@@ -873,7 +871,7 @@ def get_configuration(criteria):
     """
     :param criteria: the description of the desired conversion
     :return a tuple of the conversion direction and the output format:
-      1) 'hk2s', 'hk2t', 'jp2t', 's2hk', 's2t', 's2tw', 's2twp', 't2hk', 't2hkp', 't2jp', 't2s', 't2tw', 'tw2s', 'tw2sp', 'tw2t', 'no_conversion', or 'unsupported_conversion'
+      1) 'hk2s', 'hk2t', 'hk2tw', 'jp2t', 's2hk', 's2t', 's2tw', 's2twp', 't2hk', 't2hkp', 't2jp', 't2s', 't2tw', 'tw2hk', 'tw2s', 'tw2sp', 'tw2t', 'no_conversion', or 'unsupported_conversion'
     """
     conversion_mode = criteria[CONVERSION_TYPE]
     input_type = criteria[INPUT_LOCALE]
@@ -900,6 +898,8 @@ def get_configuration(criteria):
                 configuration = 'unsupported_conversion'
             else:
                 configuration = 'hk2s'
+                if use_target_phrasing:
+                    configuration = 'hk2sp'
         elif input_type == 2:       # Taiwan
             if output_type != 0:    # not mainland
                 configuration = 'unsupported_conversion'
@@ -918,6 +918,8 @@ def get_configuration(criteria):
                 configuration = 's2t'
             elif output_type == 1:      # Hong Kong
                 configuration = 's2hk'
+                if use_target_phrasing:
+                    configuration += 'p'
             elif output_type == 2:       # Taiwan
                 configuration = 's2tw'
                 if use_target_phrasing:
@@ -952,16 +954,18 @@ def get_configuration(criteria):
                 configuration = 'hk2t'
             elif output_type == 1:        # Hong Kong
                 configuration = 'no_conversion' # does nothing
+            elif output_type == 2:      # Taiwan
+                configuration = 'hk2tw'
             else:
-                #HK trad -> TW trad not supported, Japan is invalid
                 configuration = 'unsupported_conversion'
         elif input_type == 2:           # Taiwan
             if output_type == 0:
                 configuration = 'tw2t'
+            elif output_type == 1:        # Hong Kong
+                configuration = 'tw2hk'
             elif output_type == 2:        # Taiwan
                 configuration = 'no_conversion' # does nothing
             else:
-                #TW trad -> HK trad not supported, Japan is invalid
                 configuration = 'unsupported_conversion'
         else:
             #JP is simplified kanji only

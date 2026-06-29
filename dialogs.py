@@ -22,7 +22,7 @@ from calibre.gui2 import open_url
 from calibre.gui2.tweak_book.widgets import Dialog
 
 from calibre_plugins.chinese_text_conversion import (
-    PLUGIN_VERSION, PLUGIN_ABOUT_LAST_UPDATED, PLUGIN_RELEASE_THREAD_URL)
+    PLUGIN_VERSION, PLUGIN_RELEASE_THREAD_URL)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, apply_ui_language_from_prefs, detect_calibre_ui_language,
     normalize_ui_language, ui_language_combo_items,
@@ -32,7 +32,7 @@ from calibre_plugins.chinese_text_conversion.ui_style import (
     apply_dialog_stylesheet, configure_form_label, configure_layout,
     build_radio_group, build_section_group,
     help_text_row, make_section_divider, polish_scroll_area, style_help_label,
-    style_subheading_label,
+    style_recommend_card, style_subheading_label,
 )
 from calibre_plugins.chinese_text_conversion.vision_ocr import is_vision_ocr_supported
 
@@ -53,11 +53,15 @@ Note: This code is based on the Calibre plugin Diap's Editing Toolbag
 # Default size when no saved geometry (library conversion wizard)
 LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 760)
 LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 560)
-ABOUT_DIALOG_SIZE = QSize(560, 520)
+ABOUT_DIALOG_SIZE = QSize(560, 480)
+
+NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
+NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
+NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
 
 
 class PluginAboutDialog(QDialog):
-    '''User-facing introduction: features, offline conversion, quick start.'''
+    '''User-facing introduction: quick start, plugin summary, related plugins.'''
 
     def __init__(self, parent, prefs, first_run=False):
         super().__init__(parent)
@@ -89,70 +93,86 @@ class PluginAboutDialog(QDialog):
         self.version_label = QLabel()
         content_layout.addWidget(self.version_label)
 
-        self.catalog_info_label = QLabel()
-        self.catalog_info_label.setWordWrap(True)
-        content_layout.addWidget(self.catalog_info_label)
+        self.first_run_intro_label = QLabel()
+        self.first_run_intro_label.setWordWrap(True)
+        content_layout.addWidget(self.first_run_intro_label)
 
-        self.last_updated_label = QLabel()
-        content_layout.addWidget(self.last_updated_label)
+        self.description_label = QLabel()
+        self.description_label.setWordWrap(True)
+        content_layout.addWidget(self.description_label)
 
-        self.welcome_label = QLabel()
-        self.welcome_label.setWordWrap(True)
-        content_layout.addWidget(self.welcome_label)
+        self.mobile_read_link_label = QLabel()
+        self.mobile_read_link_label.setWordWrap(True)
+        self.mobile_read_link_label.setTextFormat(Qt.RichText)
+        self.mobile_read_link_label.setOpenExternalLinks(False)
+        self.mobile_read_link_label.linkActivated.connect(
+            lambda _url: self._open_plugin_release())
+        content_layout.addWidget(self.mobile_read_link_label)
 
-        self.offline_label = QLabel()
-        self.offline_label.setWordWrap(True)
-        offline_font = self.offline_label.font()
-        offline_font.setBold(True)
-        self.offline_label.setFont(offline_font)
-        content_layout.addWidget(self.offline_label)
+        self.section_divider_label = QLabel()
+        self.section_divider_label.setAlignment(Qt.AlignLeft)
+        content_layout.addWidget(self.section_divider_label)
 
-        self.features_heading = QLabel()
-        feat_font = self.features_heading.font()
+        feat_font = self.title_label.font()
         feat_font.setBold(True)
-        self.features_heading.setFont(feat_font)
-        self.features_heading.setContentsMargins(0, 0, 0, 0)
-        content_layout.addWidget(self.features_heading)
 
-        self.features_label = QLabel()
-        self.features_label.setWordWrap(True)
-        content_layout.addWidget(self.features_label)
+        self.recommend_heading_label = QLabel()
+        self.recommend_heading_label.setFont(feat_font)
+        content_layout.addWidget(self.recommend_heading_label)
 
-        self.usage_heading = QLabel()
-        self.usage_heading.setFont(feat_font)
-        content_layout.addWidget(self.usage_heading)
+        self.recommend_markdown_card = QWidget()
+        style_recommend_card(self.recommend_markdown_card)
+        markdown_layout = QHBoxLayout(self.recommend_markdown_card)
+        markdown_layout.setContentsMargins(12, 10, 12, 10)
+        markdown_layout.setSpacing(12)
+        markdown_text_layout = QVBoxLayout()
+        markdown_text_layout.setContentsMargins(0, 0, 0, 0)
+        markdown_text_layout.setSpacing(2)
+        self.recommend_markdown_title = QLabel()
+        self.recommend_markdown_title.setFont(feat_font)
+        markdown_text_layout.addWidget(self.recommend_markdown_title)
+        self.recommend_markdown_desc = QLabel()
+        self.recommend_markdown_desc.setWordWrap(True)
+        markdown_text_layout.addWidget(self.recommend_markdown_desc)
+        markdown_layout.addLayout(markdown_text_layout, 1)
+        self.recommend_markdown_btn = QPushButton()
+        self.recommend_markdown_btn.setCursor(Qt.PointingHandCursor)
+        self.recommend_markdown_btn.clicked.connect(self._open_markdown_plugin)
+        markdown_layout.addWidget(
+            self.recommend_markdown_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+        content_layout.addWidget(self.recommend_markdown_card)
 
-        self.usage_label = QLabel()
-        self.usage_label.setWordWrap(True)
-        content_layout.addWidget(self.usage_label)
+        self.recommend_askai_card = QWidget()
+        style_recommend_card(self.recommend_askai_card)
+        askai_layout = QHBoxLayout(self.recommend_askai_card)
+        askai_layout.setContentsMargins(12, 10, 12, 10)
+        askai_layout.setSpacing(12)
+        askai_text_layout = QVBoxLayout()
+        askai_text_layout.setContentsMargins(0, 0, 0, 0)
+        askai_text_layout.setSpacing(2)
+        self.recommend_askai_title = QLabel()
+        self.recommend_askai_title.setFont(feat_font)
+        askai_text_layout.addWidget(self.recommend_askai_title)
+        self.recommend_askai_desc = QLabel()
+        self.recommend_askai_desc.setWordWrap(True)
+        askai_text_layout.addWidget(self.recommend_askai_desc)
+        askai_layout.addLayout(askai_text_layout, 1)
+        self.recommend_askai_btn = QPushButton()
+        self.recommend_askai_btn.setCursor(Qt.PointingHandCursor)
+        self.recommend_askai_btn.clicked.connect(self._open_askai_plugin)
+        askai_layout.addWidget(
+            self.recommend_askai_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+        content_layout.addWidget(self.recommend_askai_card)
 
-        self.lineage_label = QLabel()
-        self.lineage_label.setWordWrap(True)
-        content_layout.addWidget(self.lineage_label)
+        self.recommend_note_label = QLabel()
+        self.recommend_note_label.setWordWrap(True)
+        content_layout.addWidget(self.recommend_note_label)
 
-        self.release_heading = QLabel()
-        self.release_heading.setFont(feat_font)
-        content_layout.addWidget(self.release_heading)
-
-        self.release_label = QLabel()
-        self.release_label.setWordWrap(True)
-        content_layout.addWidget(self.release_label)
-
-        self.maintainer_heading = QLabel()
-        self.maintainer_heading.setFont(feat_font)
-        content_layout.addWidget(self.maintainer_heading)
-
-        self.maintainer_label = QLabel()
-        self.maintainer_label.setWordWrap(True)
-        content_layout.addWidget(self.maintainer_label)
-
-        self.goals_heading = QLabel()
-        self.goals_heading.setFont(feat_font)
-        content_layout.addWidget(self.goals_heading)
-
-        self.goals_label = QLabel()
-        self.goals_label.setWordWrap(True)
-        content_layout.addWidget(self.goals_label)
+        self.recommend_site_link_label = QLabel()
+        self.recommend_site_link_label.setWordWrap(True)
+        self.recommend_site_link_label.setTextFormat(Qt.RichText)
+        self.recommend_site_link_label.setOpenExternalLinks(True)
+        content_layout.addWidget(self.recommend_site_link_label)
 
         content_layout.addStretch(1)
         scroll.setWidget(content)
@@ -167,36 +187,46 @@ class PluginAboutDialog(QDialog):
     def apply_translations(self):
         self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
         self.title_label.setText(_('About Chinese Conversion · 简繁转换'))
-        self.version_label.setText(_('Version {}').format(PLUGIN_VERSION))
-        self.catalog_info_label.setText('\n'.join([
-            _('Plugin catalog description'),
-            _('Plugin catalog released'),
-            _('Plugin catalog author'),
-            _('Plugin catalog calibre requirement'),
-            _('Plugin catalog platforms'),
-        ]))
-        self.last_updated_label.setText(
-            _('About last updated').format(PLUGIN_ABOUT_LAST_UPDATED))
-        if self.first_run:
-            self.welcome_label.setText(_('About welcome first run'))
-            self.welcome_label.show()
-        else:
-            self.welcome_label.hide()
-        self.offline_label.setText(_('About offline highlight'))
-        self.features_heading.setText(_('About features'))
-        self.features_label.setText(_('About features list'))
-        self.usage_heading.setText(_('About quick start'))
-        self.usage_label.setText(_('About quick start steps'))
-        self.lineage_label.setText(_('About lineage'))
-        self.release_heading.setText(_('About release'))
-        self.release_label.setText(_('About release body'))
-        self.maintainer_heading.setText(_('About maintainer'))
-        self.maintainer_label.setText(_('About maintainer body'))
-        self.goals_heading.setText(_('About maintenance goals'))
-        self.goals_label.setText(_('About maintenance goals list'))
+        self.version_label.setText(_('Version: {}').format(PLUGIN_VERSION))
+        self.first_run_intro_label.setText(_('About welcome first run'))
+        self.description_label.setText(_('Plugin description'))
+        self.mobile_read_link_label.setText(
+            _('About MobileRead link').format(url=PLUGIN_RELEASE_THREAD_URL))
+        self.section_divider_label.setText(_('About section divider'))
+        self.recommend_heading_label.setText(_('About recommendations heading'))
+        self.recommend_markdown_title.setText(_('About recommendation Markdown title'))
+        self.recommend_markdown_desc.setText(_('About recommendation Markdown desc'))
+        self.recommend_markdown_btn.setText(_('About recommendation Open button'))
+        self.recommend_askai_title.setText(_('About recommendation Ask AI title'))
+        self.recommend_askai_desc.setText(_('About recommendation Ask AI desc'))
+        self.recommend_askai_btn.setText(_('About recommendation Open button'))
+        self.recommend_note_label.setText(_('About MobileRead note'))
+        self.recommend_site_link_label.setText(
+            _('About recommendations site link').format(url=NOWTINY_SITE_URL))
+        style_recommend_card(self.recommend_markdown_card)
+        style_recommend_card(self.recommend_askai_card)
+        show_full_about = not self.first_run
+        self.first_run_intro_label.setVisible(self.first_run)
+        self.description_label.setVisible(show_full_about)
+        self.mobile_read_link_label.setVisible(show_full_about)
+        self.section_divider_label.setVisible(show_full_about)
+        self.recommend_heading_label.setVisible(show_full_about)
+        self.recommend_markdown_card.setVisible(show_full_about)
+        self.recommend_askai_card.setVisible(show_full_about)
+        self.recommend_note_label.setVisible(show_full_about)
+        self.recommend_site_link_label.setVisible(show_full_about)
         ok_btn = self.button_box.button(QDialogButtonBox.Ok)
         if ok_btn is not None:
             ok_btn.setText(_('Got it'))
+
+    def _open_plugin_release(self):
+        open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
+
+    def _open_markdown_plugin(self):
+        open_url(QUrl(NOWTINY_PLUGIN_MARKDOWN_URL))
+
+    def _open_askai_plugin(self):
+        open_url(QUrl(NOWTINY_PLUGIN_ASKAI_URL))
 
     def mark_first_run_complete(self):
         if self.first_run:
@@ -635,6 +665,13 @@ class ConversionDialog(Dialog):
         self.direction_changed()
         self._apply_symbol_profile_default()
 
+    def _is_hk_tw_cross_conversion(self):
+        if not self.trad_to_trad_button.isChecked():
+            return False
+        input_locale = self.input_combo.currentIndex()
+        output_locale = self.output_combo.currentIndex()
+        return (input_locale == 1 and output_locale == 2) or (input_locale == 2 and output_locale == 1)
+
     def _on_locale_changed(self, _index):
         self.update_gui()
         self._apply_symbol_profile_default()
@@ -939,14 +976,29 @@ class ConversionDialog(Dialog):
         elif self.trad_to_trad_button.isChecked():
             self.input_combo.setEnabled(True)
             self.output_combo.setEnabled(True)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan'))
+            trad_trad_tooltip = _(
+                'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\n'
+                'Taiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\n'
+                'Taiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong')
+            self.input_combo.setToolTip(trad_trad_tooltip)
+            self.output_combo.setToolTip(trad_trad_tooltip)
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
 
-        # Keep phrase option independent from conversion-direction toggles.
-        self.use_target_phrases.setEnabled(True)
+        # Keep phrase option independent from conversion-direction toggles,
+        # except Hong Kong ↔ Taiwan trad-to-trad (variant-only chain).
+        if self._is_hk_tw_cross_conversion():
+            self.use_target_phrases.blockSignals(True)
+            self.use_target_phrases.setEnabled(False)
+            self.use_target_phrases.setChecked(False)
+            self.use_target_phrases.setToolTip(_(
+                'Target phrases not available for Hong Kong ↔ Taiwan conversion. '
+                'Only character variants are adjusted; regional wording is not swapped.'))
+            self.use_target_phrases.blockSignals(False)
+        else:
+            self.use_target_phrases.setEnabled(True)
+            self.use_target_phrases.setToolTip('')
 
         self.update_punctuation.blockSignals(True)
         self.update_punctuation.setEnabled(True)

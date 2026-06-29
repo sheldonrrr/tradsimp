@@ -138,6 +138,25 @@ def confirm_chinese_books_or_cancel(gui, flagged_books):
 
 
 LIBRARY_PREVIEW_MAX_CHARS = 500
+LIBRARY_REPLACEMENT_SAMPLE_LIMIT = 20
+
+
+def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMPLE_LIMIT):
+    counts = converter.get_replacement_counts()
+    if not counts:
+        return _('No OpenCC replacements recorded for this book.')
+    total = sum(counts.values())
+    unique = len(counts)
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
+    lines = [
+        _('OpenCC replacements: {} hits, {} unique pairs').format(total, unique),
+    ]
+    for (old, new), n in ranked[:max_samples]:
+        lines.append('  {} → {} (×{})'.format(old, new, n))
+    remaining = unique - min(unique, max_samples)
+    if remaining > 0:
+        lines.append(_('… and {} more unique pairs not shown').format(remaining))
+    return '\n'.join(lines)
 
 
 def make_conversion_suffix():
@@ -245,6 +264,7 @@ def convert_book_to_temp_copy(src_path, fmt, criteria, converter, parser):
     Copy format to a temp file, convert in place, return (tmpdir, temp_path, changed_files).
     Caller must shutil.rmtree(tmpdir) when done.
     '''
+    converter.clear_replacement_counts()
     tmpdir = tempfile.mkdtemp(prefix='chinese_text_conversion_')
     ext = fmt.lower()
     temp_path = os.path.join(tmpdir, 'converted.{}'.format(ext))

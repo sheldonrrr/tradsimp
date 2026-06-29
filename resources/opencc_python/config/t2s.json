@@ -1,16 +1,18 @@
 {
-  "name": "Traditional Chinese to Simplified Chinese",
-  "segmentation": {
-    "type": "mmseg",
-    "dict": {
-      "type": "txt",
-      "file": "TSPhrases.txt"
+  "name": "Traditional Chinese (OpenCC Standard) to Simplified Chinese",
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
     }
-  },
+  ],
   "conversion_chain": [
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",

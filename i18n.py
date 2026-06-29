@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 08 Jun, 2026',
-        '发布：2026年6月8日',
-        '發佈：2026年6月8日'),
+        'Released: 29 Jun, 2026',
+        '发布：2026年6月29日',
+        '發佈：2026年6月29日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -113,10 +113,10 @@ _MESSAGES = {
     'Simplified to Traditional': _T('Simplified to Traditional', '简体转繁体', '簡體轉繁體'),
     'Traditional to Traditional': _T('Traditional to Traditional', '繁体转繁体', '繁體轉繁體'),
     'Traditional to Traditional help': _T(
-        'Still traditional Chinese; adjusts wording or character forms between regional varieties '
-        '(e.g. Mainland / Hong Kong / Taiwan).',
-        '仍是繁体字，只在不同地区繁体之间调整用词或字形习惯（如大陆/香港/台湾）。',
-        '仍是繁體字，只在不同地區繁體之間調整用詞或字形習慣（如大陸/香港/臺灣）。'),
+        'Still traditional Chinese; adjusts character forms between regional varieties '
+        '(Mainland, Hong Kong, Taiwan), including Hong Kong ↔ Taiwan.',
+        '仍是繁体字，在不同地区繁体之间调整字形习惯（大陆/香港/台湾），含香港与台湾互转。',
+        '仍是繁體字，在不同地區繁體之間調整字形習慣（大陸/香港/臺灣），含香港與臺灣互轉。'),
     'Language Styles': _T('Set language styles', '设置语言风格', '設定語言風格'),
     'Input:': _T('Input:', '输入：', '輸入：'),
     'Output:': _T('Output:', '输出：', '輸出：'),
@@ -244,10 +244,14 @@ _MESSAGES = {
         'Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland',
         '有效的输入/输出组合：\n大陆/香港\n大陆/大陆\n大陆/台湾\n日本/大陆',
         '有效的輸入/輸出組合：\n大陸/香港\n大陸/大陸\n大陸/臺灣\n日本/大陸'),
-    'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan': _T(
-        'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan',
-        '有效的输入/输出组合：\n香港/大陆\n大陆/香港\n台湾/大陆\n大陆/台湾\n大陆/大陆\n香港/香港\n台湾/台湾',
-        '有效的輸入/輸出組合：\n香港/大陸\n大陸/香港\n臺灣/大陸\n大陸/臺灣\n大陸/大陸\n香港/香港\n臺灣/臺灣'),
+    'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong': _T(
+        'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong',
+        '有效的输入/输出组合：\n香港/大陆\n大陆/香港\n台湾/大陆\n大陆/台湾\n大陆/大陆\n香港/香港\n台湾/台湾\n香港/台湾\n台湾/香港',
+        '有效的輸入/輸出組合：\n香港/大陸\n大陸/香港\n臺灣/大陸\n大陸/臺灣\n大陸/大陸\n香港/香港\n臺灣/臺灣\n香港/臺灣\n臺灣/香港'),
+    'Target phrases not available for Hong Kong ↔ Taiwan conversion. Only character variants are adjusted; regional wording is not swapped.': _T(
+        'Target phrases not available for Hong Kong ↔ Taiwan conversion. Only character variants are adjusted; regional wording is not swapped.',
+        '香港与台湾互转时不适用惯用词语选项。仅调整字形/变体，不进行两岸用词替换。',
+        '香港與臺灣互轉時不適用慣用詞語選項。僅調整字形/變體，不進行兩岸用詞替換。'),
     'Convert Chinese Text Simplified/Traditional': _T(
         'Convert Chinese Simplified/Traditional', '简繁中文转换', '簡繁中文轉換'),
     'No book open': _T('No book open', '未打开书籍', '未開啟書籍'),
@@ -327,6 +331,26 @@ _MESSAGES = {
         '----Preview result end----',
         '----预览结果结束----',
         '----預覽結果結束----'),
+    '----Log replacements begin----': _T(
+        '----Replacement statistics begin----',
+        '----替换统计开始----',
+        '----替換統計開始----'),
+    '----Log replacements end----': _T(
+        '----Replacement statistics end----',
+        '----替换统计结束----',
+        '----替換統計結束----'),
+    'OpenCC replacements: {} hits, {} unique pairs': _T(
+        'OpenCC replacements: {} hits, {} unique pairs',
+        'OpenCC 替换：共 {} 处，{} 组不同词对',
+        'OpenCC 替換：共 {} 處，{} 組不同詞對'),
+    '… and {} more unique pairs not shown': _T(
+        '… and {} more unique pairs not shown',
+        '……另有 {} 组未列出',
+        '……另有 {} 組未列出'),
+    'No OpenCC replacements recorded for this book.': _T(
+        'No OpenCC replacements recorded for this book.',
+        '本书未记录 OpenCC 词汇替换。',
+        '本書未記錄 OpenCC 詞彙替換。'),
     '----Log summary begin----': _T(
         '----Processing summary begin----',
         '----处理汇总开始----',
@@ -536,28 +560,49 @@ _MESSAGES = {
         '所选输出配置不受支持。\n请使用其他输入/输出语言风格组合。',
         '所選輸出設定不受支援。\n請使用其他輸入/輸出語言風格組合。'),
     'About': _T('About', '关于', '關於'),
-    'Check for updates': _T('Check for updates ↗', '检查更新 ↗', '檢查更新 ↗'),
+    'Check for updates': _T('New version features ↗', '新版本功能 ↗', '新版本功能 ↗'),
     'About Chinese Conversion · 简繁转换': _T(
         'About Chinese Conversion · 简繁转换',
         '关于 Chinese Conversion · 简繁转换',
         '關於 Chinese Conversion · 簡繁轉換'),
     'Version {}': _T('Version {}', '版本 {}', '版本 {}'),
+    'Version: {}': _T('Version: {}', '版本：{}', '版本：{}'),
+    'Plugin description': _T(
+        'Fully offline Simplified ↔ Traditional Chinese conversion for your calibre library (OpenCC). '
+        'Adds new books; originals stay unchanged.',
+        '离线简繁中文转换（OpenCC），在书库中批量处理并新增书籍，不修改原书。',
+        '離線簡繁中文轉換（OpenCC），在書庫中批次處理並新增書籍，不修改原書。',
+        '離線簡繁中文轉換（OpenCC），在書庫中批次處理並新增書籍，不修改原書。'),
+    'About MobileRead link': _T(
+        '<a href="{url}">MobileRead release thread</a>',
+        '<a href="{url}">MobileRead 发布帖</a>',
+        '<a href="{url}">MobileRead 發佈帖</a>',
+        '<a href="{url}">MobileRead 發佈帖</a>'),
     'About last updated': _T(
         'Last updated: {}',
         '最后更新：{}',
         '最後更新：{}'),
     'About welcome first run': _T(
-        'Welcome! This guide appears once after install. Use Chinese Conversion from the '
-        'calibre library main toolbar (not only the book editor). Conversions are offline '
-        '(OpenCC); new books are added without changing the originals. Scroll below for '
-        'release info, maintainer, and goals. Open About again anytime at the bottom left '
-        'of the conversion window.',
-        '欢迎使用！本说明仅在首次安装后显示一次。请从 calibre 书库主工具栏使用「简繁中文转换」'
-        '（不仅限于编辑书籍模式）。转换全程离线（OpenCC），以新增书籍方式入库，不修改原书。'
-        '请向下滚动查看发布信息、维护者与维护目标。之后可在转换窗口左下角「关于」再次打开。',
-        '歡迎使用！本說明僅在首次安裝後顯示一次。請從 calibre 書庫主工具列使用「簡繁中文轉換」'
-        '（不僅限於編輯書籍模式）。轉換全程離線（OpenCC），以新增書籍方式入庫，不修改原書。'
-        '請向下捲動查看發佈資訊、維護者與維護目標。之後可在轉換視窗左下角「關於」再次開啟。'),
+        'Quick start:\n'
+        '1. Add Chinese Conversion to the main toolbar (Preferences → Toolbars & menus).\n'
+        '2. Select one or more EPUB/AZW3 books in your library.\n'
+        '3. Click the button, choose options, then Start Processing.\n'
+        '4. When finished, open the new library entry (title includes a time suffix).',
+        '快速上手：\n'
+        '1. 在「偏好设置 → 工具栏和菜单」中将「简繁中文转换」加入主工具栏。\n'
+        '2. 在书库中选中一本或多本 EPUB/AZW3 书籍。\n'
+        '3. 点击插件按钮，选好选项后点「开始处理」。\n'
+        '4. 完成后在书库中查看新书（书名会带时间后缀，原书不变）。',
+        '快速上手：\n'
+        '1. 在「偏好設定 → 工具列和選單」中將「簡繁中文轉換」加入主工具列。\n'
+        '2. 在書庫中選取一本或多本 EPUB/AZW3 書籍。\n'
+        '3. 點擊外掛按鈕，選好選項後點「開始處理」。\n'
+        '4. 完成後在書庫中查看新書（書名會帶時間後綴，原書不變）。',
+        '快速上手：\n'
+        '1. 在「偏好設定 → 工具列和選單」中將「簡繁中文轉換」加入主工具列。\n'
+        '2. 在書庫中選取一本或多本 EPUB/AZW3 書籍。\n'
+        '3. 點擊外掛按鈕，選好選項後點「開始處理」。\n'
+        '4. 完成後在書庫中查看新書（書名會帶時間後綴，原書不變）。'),
     'About offline highlight': _T(
         'Fully offline conversion powered by OpenCC — no AI, no cloud, no internet required.',
         '完全离线转换，基于 OpenCC — 无需 AI、无需云端、无需联网。',
@@ -568,17 +613,23 @@ _MESSAGES = {
         '主要功能'),
     'About features list': _T(
         '• Traditional ↔ Simplified, plus regional Traditional wording (Mainland / Hong Kong / Taiwan)\n'
+        '• Hong Kong ↔ Taiwan Traditional conversion; Hong Kong / Taiwan phrase modes where supported\n'
         '• Quotation marks, left-to-right / top-to-bottom layout, and punctuation\n'
         '• Batch convert EPUB/AZW3 in the library; adds new books, originals unchanged\n'
-        '• UI: English, Simplified Chinese, Traditional Chinese (Taiwan / Hong Kong)',
+        '• Library conversion log shows OpenCC replacement statistics (top word pairs sampled)\n'
+        '• OpenCC ver.1.3.2 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
         '• 繁体 ↔ 简体，以及繁体地区用词互转（大陆 / 香港 / 台湾）\n'
+        '• 香港 ↔ 台湾繁体互转；简繁/繁简流程中支持香港、台湾惯用词语模式\n'
         '• 引号样式、从左到右/从上到下的排版与标点调整\n'
         '• 在书库中批量处理 EPUB / AZW3；生成新书，不修改原书\n'
-        '• 界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
+        '• 书库转换日志展示 OpenCC 替换统计（高频词对取样）\n'
+        '• OpenCC ver.1.3.2 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
         '• 繁體 ↔ 簡體，以及繁體地區用詞互轉（大陸 / 香港 / 臺灣）\n'
+        '• 香港 ↔ 臺灣繁體互轉；簡繁/繁簡流程中支援香港、臺灣慣用詞語模式\n'
         '• 引號樣式、從左到右/從上到下的排版與標點調整\n'
         '• 在書庫中批次處理 EPUB / AZW3；產生新書，不修改原書\n'
-        '• 介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
+        '• 書庫轉換日誌展示 OpenCC 替換統計（高頻詞對取樣）\n'
+        '• OpenCC ver.1.3.2 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
     'About quick start': _T(
         'About quick start',
         '快速上手',
@@ -644,6 +695,55 @@ _MESSAGES = {
         '• 以新增書籍方式完成轉換，不破壞原有檔案\n'
         '• 從編輯模式中難以定位的入口，改為書庫 GUI 外掛，更加方便易於呼叫'),
     'Got it': _T('Got it', '知道了', '知道了'),
+    'About recommendations heading': _T(
+        'Nowtiny calibre plugin recommendations',
+        'Nowtiny calibre 插件推荐',
+        'Nowtiny calibre 外掛推薦',
+        'Nowtiny calibre 外掛推薦'),
+    'About section divider': _T('---', '---', '---', '---'),
+    'About recommendation Markdown title': _T(
+        'Markdown (for calibre)',
+        'Markdown（for calibre）',
+        'Markdown（for calibre）',
+        'Markdown（for calibre）'),
+    'About recommendation Markdown desc': _T(
+        'Calibre plugin · Python · offline\n'
+        'Convert books to Markdown text files and export to a target folder.',
+        'Calibre 插件 · Python · 离线\n'
+        '将图书转换为 Markdown 文本文件并导出到指定目录。',
+        'Calibre 外掛 · Python · 離線\n'
+        '將圖書轉換為 Markdown 文字檔並匯出到指定目錄。',
+        'Calibre 外掛 · Python · 離線\n'
+        '將圖書轉換為 Markdown 文字檔並匯出到指定目錄。'),
+    'About recommendation Ask AI title': _T(
+        'Ask AI Plugin (for calibre)',
+        'Ask AI Plugin（for calibre）',
+        'Ask AI Plugin（for calibre）',
+        'Ask AI Plugin（for calibre）'),
+    'About recommendation Ask AI desc': _T(
+        'Calibre plugin · Python\n'
+        'Ask AI questions while reading and managing ebooks.',
+        'Calibre 插件 · Python\n'
+        '在阅读与管理电子书时进行 AI 问答。',
+        'Calibre 外掛 · Python\n'
+        '在閱讀與管理電子書時進行 AI 問答。',
+        'Calibre 外掛 · Python\n'
+        '在閱讀與管理電子書時進行 AI 問答。'),
+    'About recommendation Open button': _T(
+        'MobileRead',
+        'MobileRead',
+        'MobileRead',
+        'MobileRead'),
+    'About MobileRead note': _T(
+        'Note: MobileRead is the developer page for calibre plugin releases and more version updates.',
+        '注：MobileRead 是 calibre 插件发布和更多版本更新信息的开发者页面。',
+        '註：MobileRead 是 calibre 外掛發佈與更多版本更新資訊的開發者頁面。',
+        '註：MobileRead 是 calibre 外掛發佈與更多版本更新資訊的開發者頁面。'),
+    'About recommendations site link': _T(
+        'Explore more on <a href="{url}">Nowtiny</a>',
+        '在 <a href="{url}">Nowtiny</a> 查看更多工具',
+        '在 <a href="{url}">Nowtiny</a> 查看更多工具',
+        '在 <a href="{url}">Nowtiny</a> 查看更多工具'),
     'Please confirm the current book language is Chinese.': _T(
         'Please confirm the current book language is Chinese.',
         '请确认当前书籍语言为中文。',

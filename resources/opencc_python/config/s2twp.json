@@ -1,20 +1,49 @@
 {
-  "name": "Simplified Chinese to Traditional Chinese (Taiwan standard, with phrases)",
+  "name": "Simplified Chinese to Traditional Chinese (Taiwan Standard, with Taiwan Phrases)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
+    }
+  ],
   "segmentation": {
     "type": "mmseg",
     "dict": {
-      "type": "txt",
-      "file": "STPhrases.txt"
+      "type": "group",
+      "match_policy": "union",
+      "dicts": [
+        {
+          "type": "txt",
+          "file": "STPhrases.txt"
+        },
+        {
+          "type": "txt",
+          "file": "STPhrases_GeneratedFromRegionalPhrases.txt"
+        }
+      ]
     }
   },
   "conversion_chain": [
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
-            "type": "txt",
-            "file": "STPhrases.txt"
+            "type": "group",
+            "match_policy": "union",
+            "dicts": [
+              {
+                "type": "txt",
+                "file": "STPhrases.txt"
+              },
+              {
+                "type": "txt",
+                "file": "STPhrases_GeneratedFromRegionalPhrases.txt"
+              }
+            ]
           },
           {
             "type": "txt",
@@ -25,14 +54,22 @@
     },
     {
       "dict": {
-        "type": "txt",
-        "file": "TWPhrases.txt"
-      }
-    },
-    {
-      "dict": {
-        "type": "txt",
-        "file": "TWVariants.txt"
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "txt",
+            "file": "TWPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TWVariantsPhrases.txt"
+          },
+          {
+            "type": "txt",
+            "file": "TWVariants.txt"
+          }
+        ]
       }
     }
   ]

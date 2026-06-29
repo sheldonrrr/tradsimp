@@ -28,8 +28,15 @@ import re
 CONFIG_FILE = 'config'
 DICT_FILE = 'dictionary'
 
-# Dictionary mapping ("old", "new") as a key and conversion count as a value
-_counts_dict = {}
+CHAINED_CONVERSIONS = {
+    'hk2tw': ('hk2t', 't2tw'),
+    'tw2hk': ('tw2t', 't2hk'),
+}
+
+CHAINED_CONVERSION_NAMES = {
+    'hk2tw': 'Traditional Chinese (Hong Kong) to Traditional Chinese (Taiwan)',
+    'tw2hk': 'Traditional Chinese (Taiwan) to Traditional Chinese (Hong Kong)',
+}
 
 class OpenCC:
     def __init__(self, resource_getter, conversion=None):
@@ -39,18 +46,21 @@ class OpenCC:
          The first parameter is CONFIG_FILE, or DICT_FILE
          The second parameter is a file name associated with the directory.
          It returns bytes from the selected file.
-        :param conversion: the conversion of usage, options are
-         'hk2s', 's2hk', 's2t', 's2tw', 's2twp', 't2hk', 't2s', 't2tw', 'tw2s', and 'tw2sp'
+        :param conversion: the conversion of usage, options include
+         'hk2s', 'hk2sp', 'hk2tw', 's2hk', 's2hkp', 's2t', 's2tw', 's2twp', 't2hk', 't2s',
+         't2tw', 'tw2hk', 'tw2s', 'tw2sp', 'tw2t', 'jp2t', 't2jp'
          check the json file names in config directory
         :return: None
         """
-        _counts_dict.clear()
         self.conversion_name = ''
         self.conversion = conversion
+        self.replacement_counts = {}
         self._dict_init_done = False
         self._dict_chain = list()
         self._dict_chain_data = list()
+        self._normalization_chain_data = list()
         self.dict_cache = dict()
+        self._chain_converters = {}
         self.resource_getter = resource_getter
         # List of sentence separators from OpenCC PhraseExtract.cpp. None of these separators are allowed as
         # part of a dictionary entry
@@ -69,9 +79,19 @@ class OpenCC:
         if self.conversion == "no_conversion":
             return string
 
+        chain = CHAINED_CONVERSIONS.get(self.conversion)
+        if chain is not None:
+            result = string
+            for mode in chain:
+                result = self._get_chain_converter(mode).convert(result)
+            return result
+
         if not self._dict_init_done:
             self._init_dict()
             self._dict_init_done = True
+
+        if self._normalization_chain_data:
+            string = self._convert(string, self._normalization_chain_data)
 
         result = []
         # Separate string using the list of separators in a regular expression
@@ -88,30 +108,63 @@ class OpenCC:
         # Join it all together to return a result
         return "".join(result)
 
-    def _convert(self, string, dictionary = [], is_dict_group = False):
+    def clear_replacement_counts(self):
+        self.replacement_counts.clear()
+        for child in self._chain_converters.values():
+            child.clear_replacement_counts()
+
+    def get_replacement_counts(self):
+        merged = dict(self.replacement_counts)
+        chain = CHAINED_CONVERSIONS.get(self.conversion)
+        if chain is not None:
+            for mode in chain:
+                for key, count in self._get_chain_converter(mode).get_replacement_counts().items():
+                    merged[key] = merged.get(key, 0) + count
+        return merged
+
+    def _convert(self, string, dictionary = [], is_dict_group = False, match_policy = 'short_circuit', counts = None):
         """
-        Convert string from Simplified Chinese to Traditional Chinese or vice versa
-        If a dictionary is part of a group of dictionaries, stop conversion on a word
-        after the first match is found.
-        :param string: the input string
-        :param dictionary: list of dictionaries to be applied against the string
-        :param is_dict_group: indicates if this is a group of dictionaries in which only
-                              the first match in the dict group should be used
-        :return: converted string
+        Convert string using one or more dictionaries. Group policies follow OpenCC
+        short_circuit (first match wins) and union (longest match across dicts).
         """
+        if counts is None:
+            counts = self.replacement_counts
+
+        if is_dict_group and match_policy == 'union':
+            return self._convert_union_group(string, dictionary, counts)
+
         tree = StringTree(string)
         for c_dict in dictionary:
-            if isinstance(c_dict, tuple):
-                tree.convert_tree(c_dict)
+            if isinstance(c_dict, tuple) and len(c_dict) == 3 and c_dict[0] == 'group':
+                _, policy, chain = c_dict
+                tree = StringTree(self._convert("".join(tree.inorder()), chain, True, policy, counts))
+            elif isinstance(c_dict, tuple):
+                tree.convert_tree(c_dict, counts)
                 if not is_dict_group:
-                    # Don't reform the string here if the dictionary list is part of a group
-                    # Recreate the tree for next loop iteration
                     tree = StringTree("".join(tree.inorder()))
-            else:
-                # This is a list of dictionaries. Call back in with the dictionary
-                # list but specify that this is a group
-                tree = StringTree(self._convert("".join(tree.inorder()), c_dict, True))
         return "".join(tree.inorder())
+
+    def _convert_union_group(self, string, dictionary, counts = None):
+        if counts is None:
+            counts = self.replacement_counts
+
+        tree = StringTree(string)
+        dicts = []
+        for item in dictionary:
+            if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
+                _, policy, chain = item
+                string = self._convert(string, chain, True, policy, counts)
+                tree = StringTree(string)
+            else:
+                dicts.append(item)
+        if dicts:
+            tree.convert_tree_union(dicts, counts)
+        return "".join(tree.inorder())
+
+    def _get_chain_converter(self, mode):
+        if mode not in self._chain_converters:
+            self._chain_converters[mode] = OpenCC(self.resource_getter, mode)
+        return self._chain_converters[mode]
 
     def _init_dict(self):
         """
@@ -120,6 +173,13 @@ class OpenCC:
         """
         if self.conversion is None:
             raise ValueError('conversion is not set')
+
+        if self.conversion in CHAINED_CONVERSIONS:
+            self.conversion_name = CHAINED_CONVERSION_NAMES[self.conversion]
+            self._dict_chain_data = []
+            self._normalization_chain_data = []
+            self._dict_init_done = True
+            return
 
         self._dict_chain = []
 ##        print(self.conversion)
@@ -133,21 +193,28 @@ class OpenCC:
 
         self.conversion_name = setting_json.get('name')
 
+        self._normalization_chain = []
+        for step in setting_json.get('normalization', []):
+            self._add_dict_chain(self._normalization_chain, step.get('dict'))
+
         for chain in setting_json.get('conversion_chain'):
             self._add_dict_chain(self._dict_chain, chain.get('dict'))
 
+        self._normalization_chain_data = []
+        self._add_dictionaries(self._normalization_chain, self._normalization_chain_data)
         self._dict_chain_data = []
         self._add_dictionaries(self._dict_chain, self._dict_chain_data)
         self._dict_init_done = True
 
     def _add_dictionaries(self, chain_list, chain_data):
         for item in chain_list:
-            if isinstance(item, list):
+            if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
+                _, policy, children = item
                 chain = []
-                self._add_dictionaries(item, chain)
-                chain_data.append(chain)
+                self._add_dictionaries(children, chain)
+                chain_data.append(('group', policy, chain))
             else:
-                if not item in self.dict_cache:
+                if item not in self.dict_cache:
                     map_dict = {}
                     max_len = 1
                     bytes = self.resource_getter(DICT_FILE, item)
@@ -162,13 +229,12 @@ class OpenCC:
                             map_dict[key] = value
                             if len(key) > max_len:
                                 max_len = len(key)
-                        chain_data.append((max_len, map_dict))
-                        self.dict_cache[item] = (max_len, map_dict)
+                        entry = (max_len, map_dict)
+                        chain_data.append(entry)
+                        self.dict_cache[item] = entry
                     else:
-                        #Raise exception
-                        raise IOError('unable to open opencc dictionary')
+                        raise IOError('unable to open opencc dictionary: ' + item)
                 else:
-                    #Use the cached version
                     chain_data.append(self.dict_cache[item])
 
     def _add_dict_chain(self, dict_chain, dict_dict):
@@ -179,21 +245,20 @@ class OpenCC:
         :return: None
         """
         if dict_dict.get('type') == 'group':
-            # Create a sublist of dictionaries for a group
             chain = []
             for dict_item in dict_dict.get('dicts'):
                 self._add_dict_chain(chain, dict_item)
-            dict_chain.append(chain)
+            match_policy = dict_dict.get('match_policy', 'short_circuit')
+            dict_chain.append(('group', match_policy, chain))
         elif dict_dict.get('type') == 'txt':
-            filename = dict_dict.get('file')
-            dict_file = filename
-            dict_chain.append(dict_file)
+            dict_chain.append(dict_dict.get('file'))
 
     def set_conversion(self, conversion):
         """
         set conversion
-        :param conversion: the conversion of usage, options are
-         'hk2s', 's2hk', 's2t', 's2tw', 's2twp', 't2hk', 't2s', 't2tw', 'tw2s', and 'tw2sp'
+        :param conversion: the conversion of usage, options include
+         'hk2s', 'hk2sp', 'hk2tw', 's2hk', 's2hkp', 's2t', 's2tw', 's2twp', 't2hk', 't2s',
+         't2tw', 'tw2hk', 'tw2s', 'tw2sp', 'tw2t', 'jp2t', 't2jp'
          check the json file names in config directory
         :return: None
         """
@@ -204,6 +269,8 @@ class OpenCC:
             self.conversion = conversion
         else:
             self._dict_init_done = False
+            self._chain_converters = {}
+            self.replacement_counts.clear()
             self.conversion = conversion
 
 
@@ -218,7 +285,7 @@ class StringTree:
         self.string_len = len(string)
         self.matched = False
 
-    def convert_tree(self, test_dict):
+    def convert_tree(self, test_dict, counts = None):
         """
         Compare smaller and smaller sub-strings going from left to
         right against test_dict. If an entry is found, place the remaining
@@ -230,34 +297,87 @@ class StringTree:
         """
         if self.matched == True:
             if self.left is not None:
-                self.left.convert_tree(test_dict)
+                self.left.convert_tree(test_dict, counts)
             if self.right is not None:
-                self.right.convert_tree(test_dict)
+                self.right.convert_tree(test_dict, counts)
         else:
             test_len = min(self.string_len, test_dict[0])
             while test_len != 0:
                 # Loop through trying successively smaller substrings in the dictionary
                 for i in range(0, self.string_len - test_len + 1):
-                    if self.string[i:i+test_len] in test_dict[1]:
+                    fragment = self.string[i:i+test_len]
+                    if fragment in test_dict[1]:
                         # Match found.
                         if i > 0:
                             # Put everything to the left of the match into the left sub-tree and further process it
                             self.left = StringTree(self.string[:i])
-                            self.left.convert_tree(test_dict)
+                            self.left.convert_tree(test_dict, counts)
                         if (i+test_len) < self.string_len:
                             # Put everything to the right of the match into the right sub-tree and further process it
                             self.right = StringTree(self.string[i+test_len:])
-                            self.right.convert_tree(test_dict)
+                            self.right.convert_tree(test_dict, counts)
                         # Save the dictionary value in this tree
-                        value = test_dict[1][self.string[i:i+test_len]]
+                        value = test_dict[1][fragment]
                         if len(value.split(' ')) > 1:
                             # multiple mapping, use the first one for now
                             value = value.split(' ')[0]
+                        if counts is not None and fragment != value:
+                            pair = (fragment, value)
+                            counts[pair] = counts.get(pair, 0) + 1
                         self.string = value
                         self.string_len = len(self.string)
                         self.matched = True
                         return
                 test_len -= 1
+
+    def convert_tree_union(self, test_dicts, counts = None):
+        if self.matched:
+            if self.left is not None:
+                self.left.convert_tree_union(test_dicts, counts)
+            if self.right is not None:
+                self.right.convert_tree_union(test_dicts, counts)
+            return
+
+        best_len = 0
+        best_index = -1
+        best_value = None
+        best_fragment = None
+        max_key_len = 0
+        for test_dict in test_dicts:
+            max_key_len = max(max_key_len, test_dict[0])
+
+        test_len = min(self.string_len, max_key_len)
+        while test_len > 0:
+            for i in range(0, self.string_len - test_len + 1):
+                fragment = self.string[i:i + test_len]
+                for test_dict in test_dicts:
+                    if fragment in test_dict[1]:
+                        if test_len > best_len:
+                            best_len = test_len
+                            best_index = i
+                            best_fragment = fragment
+                            best_value = test_dict[1][fragment]
+            if best_len:
+                break
+            test_len -= 1
+
+        if best_len:
+            if best_index > 0:
+                self.left = StringTree(self.string[:best_index])
+                self.left.convert_tree_union(test_dicts, counts)
+            end = best_index + best_len
+            if end < self.string_len:
+                self.right = StringTree(self.string[end:])
+                self.right.convert_tree_union(test_dicts, counts)
+            value = best_value
+            if len(value.split(' ')) > 1:
+                value = value.split(' ')[0]
+            if counts is not None and best_fragment != value:
+                pair = (best_fragment, value)
+                counts[pair] = counts.get(pair, 0) + 1
+            self.string = value
+            self.string_len = len(self.string)
+            self.matched = True
 
     def inorder(self):
         """

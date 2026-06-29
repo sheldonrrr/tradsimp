@@ -1,25 +1,18 @@
 {
   "name": "Traditional Chinese (OpenCC Standard) to Traditional Chinese (Hong Kong variant)",
-  "segmentation": {
-    "type": "mmseg",
-    "dict": {
-      "type": "group",
-      "dicts": [
-        {
-          "type": "txt",
-          "file": "HKVariantsPhrases.txt"
-        },
-        {
-          "type": "txt",
-          "file": "HKVariants.txt"
-        }
-      ]
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
     }
-  },
+  ],
   "conversion_chain": [
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",

@@ -1,20 +1,49 @@
 {
   "name": "Simplified Chinese to Traditional Chinese (Hong Kong variant)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
+    }
+  ],
   "segmentation": {
     "type": "mmseg",
     "dict": {
-      "type": "txt",
-      "file": "STPhrases.txt"
+      "type": "group",
+      "match_policy": "union",
+      "dicts": [
+        {
+          "type": "txt",
+          "file": "STPhrases.txt"
+        },
+        {
+          "type": "txt",
+          "file": "STPhrases_GeneratedFromRegionalPhrases.txt"
+        }
+      ]
     }
   },
   "conversion_chain": [
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
-            "type": "txt",
-            "file": "STPhrases.txt"
+            "type": "group",
+            "match_policy": "union",
+            "dicts": [
+              {
+                "type": "txt",
+                "file": "STPhrases.txt"
+              },
+              {
+                "type": "txt",
+                "file": "STPhrases_GeneratedFromRegionalPhrases.txt"
+              }
+            ]
           },
           {
             "type": "txt",
@@ -26,6 +55,7 @@
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",

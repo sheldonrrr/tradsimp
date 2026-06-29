@@ -20,6 +20,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
+    format_replacement_stats_log,
     languages_from_metadata, books_with_non_chinese_language,
     confirm_chinese_books_or_cancel,
 )
@@ -203,6 +204,12 @@ class ChineseTextAction(InterfaceAction):
                         _('----Log book info begin----'),
                         _('----Log book info end----'),
                         [book_info])
+                    status_dlg.log_result('')
+                    log_section(
+                        status_dlg,
+                        _('----Log replacements begin----'),
+                        _('----Log replacements end----'),
+                        [format_replacement_stats_log(converter)])
                     status_dlg.log_result('')
                     log_section(
                         status_dlg,

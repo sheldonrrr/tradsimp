@@ -1,16 +1,18 @@
 {
-  "name": "New Japanese Kanji (Shinjitai) to Traditional Chinese Characters (Kyūjitai)",
-  "segmentation": {
-    "type": "mmseg",
-    "dict": {
-      "type": "txt",
-      "file": "JPShinjitaiPhrases.txt"
+  "name": "New Japanese Kanji (Shinjitai) to Old Japanese Kanji (Kyūjitai)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "txt",
+        "file": "CJK_Compatibility_Ideographs.txt"
+      }
     }
-  },
+  ],
   "conversion_chain": [
     {
       "dict": {
         "type": "group",
+        "match_policy": "short_circuit",
         "dicts": [
           {
             "type": "txt",
@@ -19,10 +21,6 @@
           {
             "type": "txt",
             "file": "JPShinjitaiCharacters.txt"
-          },
-          {
-            "type": "txt",
-            "file": "JPVariantsRev.txt"
           }
         ]
       }

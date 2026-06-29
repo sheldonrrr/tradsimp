@@ -39,6 +39,7 @@ BRAND_HEADER_ID = 'tradSimpBrandHeader'
 BRAND_TITLE_ID = 'tradSimpBrandTitle'
 BRAND_SUBTITLE_ID = 'tradSimpBrandSubtitle'
 DIVIDER_ID = 'tradSimpSectionDivider'
+RECOMMEND_CARD_ID = 'tradSimpRecommendCard'
 
 
 def configure_layout(layout, role='section'):
@@ -266,3 +267,22 @@ def polish_scroll_area(scroll_area):
         from PyQt5.Qt import Qt
     scroll_area.setFrameShape(QFrame.Shape.NoFrame if hasattr(QFrame, 'Shape') else QFrame.NoFrame)
     scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+
+def style_recommend_card(card):
+    '''Theme-aware background for plugin recommendation cards in About dialog.'''
+    card.setObjectName(RECOMMEND_CARD_ID)
+    palette = card.palette()
+    alt_base = palette.color(QPalette.ColorRole.AlternateBase).name()
+    mid = palette.color(QPalette.ColorRole.Mid).name()
+    card.setStyleSheet(
+        'QWidget#{card_id} {{'
+        ' background-color: {alt_base};'
+        ' border: 1px solid {mid};'
+        ' border-radius: 8px;'
+        '}}'
+        'QWidget#{card_id} QLabel {{ background: transparent; }}'.format(
+            card_id=RECOMMEND_CARD_ID,
+            alt_base=alt_base,
+            mid=mid,
+        ))
