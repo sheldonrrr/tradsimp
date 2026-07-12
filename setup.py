@@ -37,6 +37,8 @@ PLUGIN_FILES = [
     'dialogs.py',
     'i18n.py',
     'main.py',
+    'vision_ocr.py',
+    'ocr_compat.py',
     PLUGIN_IMPORT_NAME_FILE,
     'LICENSE',
 ]

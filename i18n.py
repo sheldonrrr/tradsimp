@@ -133,6 +133,10 @@ _MESSAGES = {
         '繁体中文（台湾）',
         '繁體中文（臺灣）'),
     'Japan': _T('Japan', '日本', '日本'),
+    'Japanese Kanji': _T(
+        'Japanese Kanji',
+        '日本汉字',
+        '日本漢字'),
     'Select the origin region of the input': _T(
         'Select the origin region of the input', '选择输入文本的来源地区', '選擇輸入文字的來源地區'),
     'Select the desired region of the output': _T(
@@ -164,6 +168,14 @@ _MESSAGES = {
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',
         '啟用 Vision OCR 的圖片增強功能'),
+    'Vision OCR unsupported': _T(
+        'Vision OCR Unsupported',
+        'Vision OCR 不受支持',
+        'Vision OCR 不受支援'),
+    'Vision OCR unsupported message': _T(
+        'Vision OCR requires macOS 12 or later and a working local Vision Framework. OCR has been disabled for this conversion.',
+        'Vision OCR 需要 macOS 12 或更高版本，并且本地 Vision Framework 可用。本次转换已禁用 OCR。',
+        'Vision OCR 需要 macOS 12 或更高版本，且本機 Vision Framework 可用。本次轉換已停用 OCR。'),
     'Vision OCR language notice': _T(
         'Vision OCR Language Notice',
         'Vision OCR 语言支持提醒',
@@ -184,6 +196,20 @@ _MESSAGES = {
         'Open macOS Settings > General > Language & Region, add/download the required language pack, then retry OCR.',
         '前往 macOS「系统设置 > 通用 > 语言与地区」，添加并下载对应语言支持后再开启 OCR。',
         '前往 macOS「系統設定 > 一般 > 語言與地區」，新增並下載對應語言支援後再啟用 OCR。'),
+    'Vision OCR large job notice': _T(
+        'Large Vision OCR Job',
+        '大量图片 OCR 提醒',
+        '大量圖片 OCR 提醒'),
+    'Vision OCR large job summary': _T(
+        'Detected {} image(s). OCR may take a long time. Do you want to run OCR for this conversion?',
+        '检测到 {} 张图片。OCR 可能耗时较长，是否对本次转换执行 OCR？',
+        '偵測到 {} 張圖片。OCR 可能耗時較長，是否對本次轉換執行 OCR？'),
+    'Vision OCR large job details': _T(
+        'Choosing “Skip OCR” keeps the other conversion settings and disables OCR for this run only.',
+        '选择“跳过 OCR”会保留其他转换设置，并且仅本次运行禁用 OCR。',
+        '選擇「略過 OCR」會保留其他轉換設定，且僅本次執行停用 OCR。'),
+    'Run OCR': _T('Run OCR', '执行 OCR', '執行 OCR'),
+    'Skip OCR': _T('Skip OCR', '跳过 OCR', '略過 OCR'),
     'OCR notice problem line': _T(
         'Problem: {}',
         '问题：{}',
@@ -220,6 +246,34 @@ _MESSAGES = {
         'Converted: {}',
         '转换结果：{}',
         '轉換結果：{}'),
+    'No OCR sample text': _T(
+        'No sample text',
+        '无示例文本',
+        '無示例文字'),
+    'OCR summary line': _T(
+        'OCR triggered: recognized {} image(s), generated {} text result(s). Samples: {}',
+        'OCR 已触发：识别了 {} 张图片，汇总了 {} 个文字结果。示例：{}',
+        'OCR 已觸發：辨識了 {} 張圖片，彙整了 {} 個文字結果。示例：{}'),
+    'OCR summary images line': _T(
+        'Image count: {}, names (up to 3): {}',
+        '图片数量：{}，名称（最多 3 个）：{}',
+        '圖片數量：{}，名稱（最多 3 個）：{}'),
+    'OCR enabled but not used summary': _T(
+        'OCR is enabled but was not used in this conversion (no eligible image text found).',
+        'OCR 已开启，但本次未触发（未找到可处理的图片文字）。',
+        'OCR 已啟用，但本次未觸發（未找到可處理的圖片文字）。'),
+    'OCR enabled but no image resources summary': _T(
+        'OCR is enabled but this EPUB package contains no image resources.',
+        'OCR 已开启，但该 EPUB 包内未检测到图片资源。',
+        'OCR 已啟用，但該 EPUB 套件內未偵測到圖片資源。'),
+    'OCR enabled but no delta summary': _T(
+        'OCR ran, but recognized text matches existing image descriptions so no file changes were needed.',
+        'OCR 已执行，但识别结果与现有图片说明一致，因此未产生文件变更。',
+        'OCR 已執行，但辨識結果與現有圖片說明一致，因此未產生檔案變更。'),
+    'OCR executed with no content delta; creating a new copy for review.': _T(
+        'OCR executed with no content delta; creating a new copy for review.',
+        'OCR 已执行且内容无差异；仍将创建一本新副本供你复核。',
+        'OCR 已執行且內容無差異；仍會建立一本新副本供你複核。'),
     'Settings...': _T('Settings...', '设置…', '設定…'),
     'Entire eBook': _T('Entire eBook', '整本电子书', '整本電子書'),
     'Current File': _T('Current File', '当前文件', '目前檔案'),
@@ -236,14 +290,14 @@ _MESSAGES = {
     'Valid input/output combinations:\nNot Applicable': _T(
         'Valid input/output combinations:\nNot Applicable',
         '有效的输入/输出组合：\n不适用', '有效的輸入/輸出組合：\n不適用'),
-    'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japan': _T(
-        'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japan',
-        '有效的输入/输出组合：\n香港/大陆\n大陆/大陆\n台湾/大陆\n大陆/日本',
-        '有效的輸入/輸出組合：\n香港/大陸\n大陸/大陸\n臺灣/大陸\n大陸/日本'),
-    'Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland': _T(
-        'Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland',
-        '有效的输入/输出组合：\n大陆/香港\n大陆/大陆\n大陆/台湾\n日本/大陆',
-        '有效的輸入/輸出組合：\n大陸/香港\n大陸/大陸\n大陸/臺灣\n日本/大陸'),
+    'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji': _T(
+        'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji',
+        '有效的输入/输出组合：\n香港/大陆\n大陆/大陆\n台湾/大陆\n大陆/日本汉字',
+        '有效的輸入/輸出組合：\n香港/大陸\n大陸/大陸\n臺灣/大陸\n大陸/日本漢字'),
+    'Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland': _T(
+        'Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland',
+        '有效的输入/输出组合：\n大陆/香港\n大陆/大陆\n大陆/台湾\n日本汉字/大陆',
+        '有效的輸入/輸出組合：\n大陸/香港\n大陸/大陸\n大陸/臺灣\n日本漢字/大陸'),
     'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong': _T(
         'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\nTaiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\nTaiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong',
         '有效的输入/输出组合：\n香港/大陆\n大陆/香港\n台湾/大陆\n大陆/台湾\n大陆/大陆\n香港/香港\n台湾/台湾\n香港/台湾\n台湾/香港',
@@ -283,6 +337,16 @@ _MESSAGES = {
     'Cancel': _T('Cancel', '取消', '取消'),
     'Processing…': _T('Processing…', '处理中…', '處理中…'),
     'Processing complete': _T('Processing complete', '处理完成', '處理完成'),
+    'OCR progress': _T('OCR Progress', 'OCR 进度', 'OCR 進度'),
+    'Processing progress': _T('Processing Progress', '处理进度', '處理進度'),
+    'OCR progress status': _T(
+        'OCR progress: {}/{} image(s)',
+        'OCR 进度：已处理 {}/{} 张图片',
+        'OCR 進度：已處理 {}/{} 張圖片'),
+    'OCR completed status': _T(
+        '{} image(s) OCR completed',
+        '{} 张图片 OCR 已经处理完成',
+        '{} 張圖片 OCR 已經處理完成'),
     'Result preview': _T('Result preview', '处理结果预览', '處理結果預覽'),
     'New books will be added to the library; original files are not modified.': _T(
         'New books will be added to the library; original files are not modified.',
@@ -290,6 +354,23 @@ _MESSAGES = {
         '將在書庫中新建書籍，不會修改原書檔案。'),
     'Processing ({}/{}): {}': _T(
         'Processing ({}/{}): {}', '正在处理（{}/{}）：{}', '正在處理（{}/{}）：{}'),
+    'Current book progress label': _T(
+        '{}/{} “{}”',
+        '{}/{}《{}》',
+        '{}/{}《{}》'),
+    'Preparing background conversion…': _T(
+        'Preparing background conversion…',
+        '正在准备后台转换…',
+        '正在準備背景轉換…'),
+    'Background conversion is still running. You can reopen this window when processing completes.': _T(
+        'Background conversion is still running. You can reopen this window when processing completes.',
+        '后台转换仍在进行。处理完成后会重新显示此窗口。',
+        '背景轉換仍在進行。處理完成後會重新顯示此視窗。'),
+    'Hide': _T('Hide', '隐藏', '隱藏'),
+    'Library conversion is already running.': _T(
+        'Library conversion is already running.',
+        '书库转换正在进行中。',
+        '書庫轉換正在進行中。'),
     'No changes for “{}”; no new book created.': _T(
         'No changes for “{}”; no new book created.',
         '《{}》无可用更改，未创建新书。',
@@ -303,6 +384,10 @@ _MESSAGES = {
         'Source: {}\nNew book: {}\nLibrary id: {}\nFormat: {}',
         '原书：{}\n新书：{}\n书库编号：{}\n格式：{}',
         '原書：{}\n新書：{}\n書庫編號：{}\n格式：{}'),
+    'Saved file log line': _T(
+        'Saved file: {}, save path: {}',
+        '已保存文件：{}，保存路径：{}',
+        '已儲存檔案：{}，儲存路徑：{}'),
     'Log book title suffix: {}': _T(
         'New book title suffix: {}',
         '新书书名后缀：{}',
@@ -744,20 +829,37 @@ _MESSAGES = {
         '在 <a href="{url}">Nowtiny</a> 查看更多工具',
         '在 <a href="{url}">Nowtiny</a> 查看更多工具',
         '在 <a href="{url}">Nowtiny</a> 查看更多工具'),
-    'Please confirm the current book language is Chinese.': _T(
-        'Please confirm the current book language is Chinese.',
-        '请确认当前书籍语言为中文。',
-        '請確認當前書籍語言為中文。'),
+    'Please confirm the current book language is Chinese or Japanese Kanji.': _T(
+        'Please confirm the current book language is Chinese or Japanese Kanji.',
+        '请确认当前书籍语言为中文或日本汉字。',
+        '請確認目前書籍語言為中文或日本漢字。'),
     'Language check': _T('Language check', '语言检查', '語言檢查'),
     'Continue': _T('Continue', '继续', '繼續'),
-    'Book: {}\nLanguage: {}': _T(
-        'Book: {}\nLanguage: {}',
-        '书籍：{}\n语言：{}',
-        '書籍：{}\n語言：{}'),
-    'The following {} book(s) are not marked as Chinese:': _T(
-        'The following {} book(s) are not marked as Chinese:',
-        '以下 {} 本书未标记为中文：',
-        '以下 {} 本書未標記為中文：'),
+    'Book: {}\nLanguage: {}\nYou can still continue if this book contains Chinese or Japanese Kanji text.': _T(
+        'Book: {}\nLanguage: {}\nYou can still continue if this book contains Chinese or Japanese Kanji text.',
+        '书籍：{}\n语言：{}\n如果这本书包含中文或日本汉字内容，仍可继续处理。',
+        '書籍：{}\n語言：{}\n如果這本書包含中文或日本漢字內容，仍可繼續處理。'),
+    'The following {} book(s) are not marked as Chinese or Japanese:': _T(
+        'The following {} book(s) are not marked as Chinese or Japanese:',
+        '以下 {} 本书未标记为中文或日文：',
+        '以下 {} 本書未標記為中文或日文：'),
+    'The following {} book(s) are not marked as Chinese or Japanese and will be skipped:': _T(
+        'The following {} book(s) are not marked as Chinese or Japanese and will be skipped:',
+        '以下 {} 本书未标记为中文或日文，将被跳过：',
+        '以下 {} 本書未標記為中文或日文，將被略過：'),
+    'Some selected books are not marked as Chinese or Japanese.': _T(
+        'Some selected books are not marked as Chinese or Japanese.',
+        '部分所选书籍未标记为中文或日文。',
+        '部分所選書籍未標記為中文或日文。'),
+    'Skip listed books': _T('Skip listed books', '跳过列出的书籍', '略過列出的書籍'),
+    'Skipped (language not Chinese/Japanese):': _T(
+        'Skipped (language not Chinese/Japanese):',
+        '已跳过（语言不是中文/日文）：',
+        '已略過（語言不是中文/日文）：'),
+    'All selected books were skipped by language check.': _T(
+        'All selected books were skipped by language check.',
+        '所有所选书籍都已因语言检查被跳过。',
+        '所有所選書籍都已因語言檢查被略過。'),
 }
 
 _finalize_message_catalog()

@@ -26,7 +26,7 @@ except:
 from calibre_plugins.chinese_text_conversion.__init__ import (PLUGIN_NAME, PLUGIN_SAFE_NAME)
 from calibre_plugins.chinese_text_conversion.i18n import _, apply_ui_language_from_prefs, detect_calibre_ui_language
 from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc import OpenCC
-from calibre_plugins.chinese_text_conversion.vision_ocr import (
+from calibre_plugins.chinese_text_conversion.ocr_compat import (
     is_vision_ocr_supported, enrich_images_with_ocr,
     get_preferred_ocr_languages, get_missing_ocr_language_notice,
     format_ocr_language_notice_message,
@@ -74,6 +74,7 @@ PUNC_DICT = 8              # punctuation swapping dictionary based on settings, 
 PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, may be None
 ENABLE_VISION_OCR = 10     # True/False
 _LAST_OCR_PREVIEW_SAMPLES = []
+_LAST_OCR_SUMMARY_STATS = None
 
 
 #<!--PI_SELTEXT_START-->
@@ -364,20 +365,36 @@ class TradSimpChinese(Tool):
                 return
 
             criteria = self.getCriteria()
-            if criteria[ENABLE_VISION_OCR]:
-                notice = get_missing_ocr_language_notice(criteria[INPUT_LOCALE])
-                if notice:
+            if criteria[ENABLE_VISION_OCR] and criteria[INPUT_SOURCE] == 0:
+                from calibre_plugins.chinese_text_conversion.library_flow import (
+                    OCR_LARGE_IMAGE_COUNT_THRESHOLD, count_image_resources)
+                image_count = count_image_resources(self.current_container)
+                if image_count >= OCR_LARGE_IMAGE_COUNT_THRESHOLD:
                     proceed = question_dialog(
                         self.gui,
-                        _('Vision OCR language notice'),
-                        _('Vision OCR language notice summary'),
-                        det_msg=format_ocr_language_notice_message(notice),
+                        _('Vision OCR large job notice'),
+                        _('Vision OCR large job summary').format(image_count),
+                        det_msg=_('Vision OCR large job details'),
                         default_yes=False,
-                        yes_text=_('Continue'),
-                        no_text=_('Cancel'),
+                        yes_text=_('Run OCR'),
+                        no_text=_('Skip OCR'),
                     )
                     if not proceed:
-                        return
+                        criteria = criteria_with_ocr_enabled(criteria, False)
+                if criteria[ENABLE_VISION_OCR]:
+                    notice = get_missing_ocr_language_notice(criteria[INPUT_LOCALE])
+                    if notice:
+                        proceed = question_dialog(
+                            self.gui,
+                            _('Vision OCR language notice'),
+                            _('Vision OCR language notice summary'),
+                            det_msg=format_ocr_language_notice_message(notice),
+                            default_yes=False,
+                            yes_text=_('Continue'),
+                            no_text=_('Cancel'),
+                        )
+                        if not proceed:
+                            return
             # Ensure any in progress editing the user is doing is present in the container
             self.boss.commit_all_editors_to_container()
             self.boss.add_savepoint(_('Before: Text Conversion'))
@@ -460,7 +477,8 @@ class TradSimpChinese(Tool):
                 cancelled_msg = ' (cancelled)'
             self.filesChanged = self.filesChanged or (not d.clean) or direction_changed
             self.changed_files.extend(d.changed_files)
-            ocr_changed_files, _ocr_samples = maybe_enrich_images_with_vision_ocr(container, criteria, self.converter)
+            ocr_changed_files, _ocr_samples, _ocr_stats = maybe_enrich_images_with_vision_ocr(
+                container, criteria, self.converter)
             if ocr_changed_files:
                 self.filesChanged = True
                 self.changed_files.extend(ocr_changed_files)
@@ -557,6 +575,12 @@ def build_criteria(prefs):
         prefs.get('enable_vision_ocr_enhancement', False))
 
 
+def criteria_with_ocr_enabled(criteria, enabled):
+    values = list(criteria)
+    values[ENABLE_VISION_OCR] = bool(enabled)
+    return tuple(values)
+
+
 def getPrefs():
     from calibre.utils.config import JSONConfig
     plugin_prefs = JSONConfig('plugins/{0}_ChineseConversion_settings'.format(PLUGIN_SAFE_NAME))
@@ -634,25 +658,46 @@ def get_language_code(criteria):
     return language_code
 
 
-def maybe_enrich_images_with_vision_ocr(container, criteria, converter):
+def maybe_enrich_images_with_vision_ocr(container, criteria, converter, progress_callback=None):
     if not criteria[ENABLE_VISION_OCR] or not is_vision_ocr_supported():
-        return [], []
+        return [], [], {
+            'images_recognized': 0,
+            'recognized_images': [],
+            'text_results': 0,
+            'sample_results': [],
+            'image_file_count': 0,
+            'reason': 'disabled_or_unsupported',
+        }
 
     changed_files = []
     ocr_cache = {}
     preview_samples = []
+    recognized_images = set()
+    text_results = 0
+    sample_results = []
+    recognized_no_change = 0
     preferred_languages = get_preferred_ocr_languages(criteria[INPUT_LOCALE])
     file_list = [i[0] for i in container.mime_map.items() if i[1] in OEB_DOCS]
+    image_files = [name for name, mt in container.mime_map.items() if (mt or '').startswith('image/')]
+    processed_images = set()
+
+    def on_image_processed(image_name):
+        if image_name in processed_images:
+            return
+        processed_images.add(image_name)
+        if progress_callback is not None:
+            progress_callback(len(processed_images), len(image_files), image_name)
 
     for name in file_list:
         data = container.raw_data(name)
-        htmlstr, changed, samples = enrich_images_with_ocr(
+        htmlstr, changed, samples, stats = enrich_images_with_ocr(
             container,
             name,
             data,
             converter,
             ocr_cache=ocr_cache,
             preferred_languages=preferred_languages,
+            progress_callback=on_image_processed,
         )
         if changed and htmlstr != data:
             container.dirty(name)
@@ -662,7 +707,25 @@ def maybe_enrich_images_with_vision_ocr(container, criteria, converter):
             if len(preview_samples) >= 3:
                 break
             preview_samples.append(sample)
-    return changed_files, preview_samples
+        for result in stats.get('sample_results', []):
+            if len(sample_results) >= 3:
+                break
+            sample_results.append(result)
+        recognized_images.update(stats.get('recognized_images', []))
+        text_results += int(stats.get('text_results', 0) or 0)
+        recognized_no_change += int(stats.get('recognized_no_change', 0) or 0)
+    return changed_files, preview_samples, {
+        'images_recognized': len(recognized_images),
+        'recognized_images': sorted(recognized_images),
+        'text_results': text_results,
+        'sample_results': sample_results[:3],
+        'recognized_no_change': recognized_no_change,
+        'image_file_count': len(image_files),
+        'reason': (
+            'no_image_resources' if len(image_files) == 0
+            else ('ocr_no_delta' if recognized_no_change > 0 and text_results == 0 else '')
+        ),
+    }
 
 
 def consume_last_ocr_preview_samples():
@@ -670,6 +733,13 @@ def consume_last_ocr_preview_samples():
     samples = list(_LAST_OCR_PREVIEW_SAMPLES)
     _LAST_OCR_PREVIEW_SAMPLES = []
     return samples
+
+
+def consume_last_ocr_summary_stats():
+    global _LAST_OCR_SUMMARY_STATS
+    stats = dict(_LAST_OCR_SUMMARY_STATS or {})
+    _LAST_OCR_SUMMARY_STATS = None
+    return stats
 
 
 def set_metadata_toc(container, language, criteria, changed_files, converter):
@@ -1068,13 +1138,16 @@ def cli_get_criteria(args):
         input_source, output_mode, input_locale,
         output_locale, use_target_phrase, quote_type,
         text_direction, update_punctuation, punc_dict, punc_regex,
-        bool(prefs.get('enable_vision_ocr_enhancement', False)))
+        bool(prefs.get('enable_vision_ocr_enhancement', False))
+        and is_vision_ocr_supported())
 
     return criteria
 
-def cli_process_files(criteria, container, converter, parser):
+def cli_process_files(criteria, container, converter, parser, progress_callback=None):
     global _LAST_OCR_PREVIEW_SAMPLES
+    global _LAST_OCR_SUMMARY_STATS
     _LAST_OCR_PREVIEW_SAMPLES = []
+    _LAST_OCR_SUMMARY_STATS = None
     lang = get_language_code(criteria)
     if lang != "None":
         language = 'lang=\"' + lang + '\"'
@@ -1104,8 +1177,10 @@ def cli_process_files(criteria, container, converter, parser):
             changed_files.append(name)
             clean = False
 
-    ocr_changed_files, ocr_samples = maybe_enrich_images_with_vision_ocr(container, criteria, converter)
+    ocr_changed_files, ocr_samples, ocr_stats = maybe_enrich_images_with_vision_ocr(
+        container, criteria, converter, progress_callback=progress_callback)
     _LAST_OCR_PREVIEW_SAMPLES = list(ocr_samples)
+    _LAST_OCR_SUMMARY_STATS = dict(ocr_stats or {})
     for changed_name in ocr_changed_files:
         if changed_name not in changed_files:
             changed_files.append(changed_name)

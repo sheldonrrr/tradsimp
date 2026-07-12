@@ -14,6 +14,7 @@ from calibre_plugins.chinese_text_conversion.i18n import _
 
 
 MIN_VISION_OCR_MACOS_MAJOR = 12
+_VISION_OCR_SUPPORT_CACHE = None
 _SUPPORTED_LANGUAGES_CACHE = None
 
 OCR_LANGUAGE_PROFILES = {
@@ -25,12 +26,39 @@ OCR_LANGUAGE_PROFILES = {
 
 
 def is_vision_ocr_supported():
+    global _VISION_OCR_SUPPORT_CACHE
+    if _VISION_OCR_SUPPORT_CACHE is not None:
+        return _VISION_OCR_SUPPORT_CACHE
+
     if platform.system().lower() != 'darwin':
-        return False
+        _VISION_OCR_SUPPORT_CACHE = False
+        return _VISION_OCR_SUPPORT_CACHE
     ver = (platform.mac_ver()[0] or '').split('.')
     if not ver or not ver[0].isdigit():
-        return False
-    return int(ver[0]) >= MIN_VISION_OCR_MACOS_MAJOR
+        _VISION_OCR_SUPPORT_CACHE = False
+        return _VISION_OCR_SUPPORT_CACHE
+    if int(ver[0]) < MIN_VISION_OCR_MACOS_MAJOR:
+        _VISION_OCR_SUPPORT_CACHE = False
+        return _VISION_OCR_SUPPORT_CACHE
+
+    swift_code = r'''
+import Vision
+
+let request = VNRecognizeTextRequest()
+_ = request.recognitionLevel
+print("vision-ocr-ok")
+'''
+    cmd = ['/usr/bin/xcrun', 'swift', '-e', swift_code]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
+    except Exception:
+        _VISION_OCR_SUPPORT_CACHE = False
+        return _VISION_OCR_SUPPORT_CACHE
+
+    _VISION_OCR_SUPPORT_CACHE = (
+        result.returncode == 0
+        and 'vision-ocr-ok' in (result.stdout or ''))
+    return _VISION_OCR_SUPPORT_CACHE
 
 
 def get_preferred_ocr_languages(input_locale):
@@ -125,9 +153,17 @@ def run_vision_ocr(image_bytes, preferred_languages=None):
                 pass
 
 
-def enrich_images_with_ocr(container, html_name, html_data, converter, ocr_cache=None, preferred_languages=None):
+def enrich_images_with_ocr(
+    container, html_name, html_data, converter,
+    ocr_cache=None, preferred_languages=None, progress_callback=None,
+):
     if not html_data or not is_vision_ocr_supported():
-        return html_data, False, []
+        return html_data, False, [], {
+            'images_recognized': 0,
+            'recognized_images': [],
+            'text_results': 0,
+            'sample_results': [],
+        }
 
     cache = ocr_cache if ocr_cache is not None else {}
     parser = _ImageAltEnricher(
@@ -136,11 +172,12 @@ def enrich_images_with_ocr(container, html_name, html_data, converter, ocr_cache
         converter,
         cache,
         preferred_languages=preferred_languages,
+        progress_callback=progress_callback,
     )
     parser.feed(html_data)
     parser.close()
     output = parser.render()
-    return output, parser.changed, parser.preview_samples
+    return output, parser.changed, parser.preview_samples, parser.get_summary_stats()
 
 
 def _run_vision_ocr_from_file(image_path, preferred_languages=None):
@@ -199,20 +236,37 @@ class _FigureFrame:
 
 
 class _ImageAltEnricher(HTMLParser):
-    def __init__(self, container, html_name, converter, ocr_cache, preferred_languages=None):
+    def __init__(
+        self, container, html_name, converter, ocr_cache,
+        preferred_languages=None, progress_callback=None,
+    ):
         super().__init__(convert_charrefs=False)
         self.container = container
         self.html_name = html_name
         self.converter = converter
         self.ocr_cache = ocr_cache
         self.preferred_languages = preferred_languages or []
+        self.progress_callback = progress_callback
         self.result = []
         self.figure_stack = []
         self.changed = False
         self.preview_samples = []
+        self._recognized_images = set()
+        self._text_result_count = 0
+        self._sample_results = []
+        self._recognized_no_change_count = 0
 
     def render(self):
         return ''.join(self.result)
+
+    def get_summary_stats(self):
+        return {
+            'images_recognized': len(self._recognized_images),
+            'recognized_images': sorted(self._recognized_images),
+            'text_results': self._text_result_count,
+            'sample_results': list(self._sample_results[:3]),
+            'recognized_no_change': self._recognized_no_change_count,
+        }
 
     def handle_starttag(self, tag, attrs):
         tag_text = self.get_starttag_text()
@@ -224,7 +278,7 @@ class _ImageAltEnricher(HTMLParser):
             return
         if lower_tag == 'figcaption' and self.figure_stack:
             self.figure_stack[-1].has_figcaption = True
-        if lower_tag == 'img':
+        if lower_tag in ('img', 'image', 'svg:image'):
             self._append_img_part(tag_text, attrs, self._inside_captionless_figure())
             return
         self._append_text(tag_text)
@@ -232,7 +286,7 @@ class _ImageAltEnricher(HTMLParser):
     def handle_startendtag(self, tag, attrs):
         tag_text = self.get_starttag_text()
         lower_tag = tag.lower()
-        if lower_tag == 'img':
+        if lower_tag in ('img', 'image', 'svg:image'):
             self._append_img_part(tag_text, attrs, self._inside_captionless_figure())
             return
         self._append_text(tag_text)
@@ -296,20 +350,13 @@ class _ImageAltEnricher(HTMLParser):
 
     def _render_img(self, part, has_figcaption):
         _, tag_text, attrs, _inside_captionless_figure = part
-        if has_figcaption:
-            return tag_text
-        alt_found = False
-        alt_value = ''
         src_value = None
         for name, value in attrs:
             n = (name or '').lower()
-            if n == 'alt':
-                alt_found = True
-                alt_value = value or ''
-            elif n == 'src':
+            if n == 'src':
                 src_value = value or ''
-        if alt_found and alt_value.strip():
-            return tag_text
+            elif n in ('href', 'xlink:href') and not src_value:
+                src_value = value or ''
         if not src_value:
             return tag_text
 
@@ -322,6 +369,8 @@ class _ImageAltEnricher(HTMLParser):
             recognized = _ocr_from_container(
                 self.container, image_name, preferred_languages=self.preferred_languages)
             self.ocr_cache[image_name] = recognized
+            if self.progress_callback is not None:
+                self.progress_callback(image_name)
         if not recognized:
             return tag_text
 
@@ -330,16 +379,25 @@ class _ImageAltEnricher(HTMLParser):
         converted = _clean_ocr_text(converted)
         if not converted:
             return tag_text
-        if len(self.preview_samples) < 3:
-            self.preview_samples.append({
-                'image': image_name,
-                'recognized': recognized,
-                'converted': converted,
-            })
-
-        updated_tag = _inject_alt(tag_text, converted)
+        lower_tag_text = tag_text.lstrip().lower()
+        if lower_tag_text.startswith('<img'):
+            updated_tag = _inject_alt(tag_text, converted)
+        else:
+            updated_tag = _inject_aria_label(tag_text, converted)
         if updated_tag != tag_text:
             self.changed = True
+            self._recognized_images.add(image_name)
+            self._text_result_count += 1
+            if len(self._sample_results) < 3:
+                self._sample_results.append(converted)
+            if len(self.preview_samples) < 3:
+                self.preview_samples.append({
+                    'image': image_name,
+                    'recognized': recognized,
+                    'converted': converted,
+                })
+        else:
+            self._recognized_no_change_count += 1
         return updated_tag
 
 
@@ -347,7 +405,49 @@ def _clean_ocr_text(text):
     text = (text or '').strip()
     if not text:
         return ''
-    return re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    if not text:
+        return ''
+
+    # Vision may prepend language-detection metadata like
+    # "Chinese (Simplified) - Detected English ...". Keep from first CJK char.
+    if 'Detected' in text:
+        cjk = re.search(r'[\u3400-\u9fff]', text)
+        if cjk is not None and cjk.start() > 0 and 'Detected' in text[:cjk.start()]:
+            text = text[cjk.start():].strip()
+
+    # Remove common OCR tail noise like "46 个 ×".
+    text = re.sub(r'\s+\d+\s*[个個]\s*×\s*$', '', text).strip()
+
+    # Remove common leading OCR garbage symbols.
+    text = re.sub(r'^[\s\W_·•◇◆■□▲△▼▽★☆※¤¶]+', '', text).strip()
+
+    # Remove rare leading noise glyphs often emitted by OCR before Chinese text.
+    # Example: "丷 聚集在..." -> "聚集在..."
+    noise_prefix_tokens = (
+        '丷', '丶', '丨', '〡', '〢', '〣', '〤', '〥',
+        '•', '·', '●', '○', '◆', '◇', '■', '□',
+        '▲', '△', '▼', '▽', '★', '☆', '※',
+    )
+    while text and text[0] in noise_prefix_tokens:
+        text = text[1:].lstrip()
+
+    # Trim transliteration-like ASCII tail after Chinese content.
+    last_cjk_idx = -1
+    for idx, ch in enumerate(text):
+        if '\u3400' <= ch <= '\u9fff':
+            last_cjk_idx = idx
+    if last_cjk_idx >= 0 and last_cjk_idx < len(text) - 1:
+        tail = text[last_cjk_idx + 1:].strip()
+        if len(tail) >= 24:
+            ascii_like = sum(
+                1 for ch in tail
+                if ch.isascii() and (ch.isalpha() or ch.isspace() or ch in ".,;:!?-'()")
+            )
+            ratio = float(ascii_like) / float(max(len(tail), 1))
+            if ratio >= 0.85:
+                text = text[:last_cjk_idx + 1].strip()
+    return text
 
 
 def _ocr_from_container(container, image_name, preferred_languages=None):
@@ -406,4 +506,21 @@ def _inject_alt(tag_text, alt_text):
         return tag_text[:-2] + ' alt="' + escaped + '"/>'
     if tag_text.endswith('>'):
         return tag_text[:-1] + ' alt="' + escaped + '">'
+    return tag_text
+
+
+def _inject_aria_label(tag_text, label_text):
+    escaped = html.escape(label_text, quote=True)
+    if re.search(r'\baria-label\s*=', tag_text, flags=re.IGNORECASE):
+        return re.sub(
+            r'(\baria-label\s*=\s*)(["\']).*?\2',
+            r'\1"' + escaped + '"',
+            tag_text,
+            count=1,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+    if tag_text.endswith('/>'):
+        return tag_text[:-2] + ' aria-label="' + escaped + '"/>'
+    if tag_text.endswith('>'):
+        return tag_text[:-1] + ' aria-label="' + escaped + '">'
     return tag_text

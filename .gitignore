@@ -4,6 +4,7 @@ dist/*.zip
 tradsimp-*.zip
 chinese_text_conversion-*.zip
 chinese_text_v*_plugin.zip
+chinese_text_conversion-*/
 
 # Python
 __pycache__/
@@ -25,6 +26,7 @@ Thumbs.db
 
 # Cursor / local debug
 .cursor/
+scripts/caldbg.local.fish
 
 # Test / coverage
 .pytest_cache/

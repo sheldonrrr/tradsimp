@@ -8,17 +8,17 @@ try:
     from qt.core import (Qt, QUrl, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
-                  QPushButton, QPlainTextEdit)
+                  QPushButton, QPlainTextEdit, QProgressBar)
 except ImportError:
     from PyQt5.Qt import (Qt, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                           QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                           QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
-                          QPushButton, QPlainTextEdit)
+                          QPushButton, QPlainTextEdit, QProgressBar)
     from PyQt5.QtCore import QUrl
 
 from calibre.utils.config import config_dir
 
-from calibre.gui2 import open_url
+from calibre.gui2 import info_dialog, open_url
 from calibre.gui2.tweak_book.widgets import Dialog
 
 from calibre_plugins.chinese_text_conversion import (
@@ -29,12 +29,12 @@ from calibre_plugins.chinese_text_conversion.i18n import (
     UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
 )
 from calibre_plugins.chinese_text_conversion.ui_style import (
-    apply_dialog_stylesheet, configure_form_label, configure_layout,
+    apply_dialog_stylesheet, apply_text_direction_icons, configure_form_label, configure_layout,
     build_radio_group, build_section_group,
     help_text_row, make_section_divider, polish_scroll_area, style_help_label,
     style_recommend_card, style_subheading_label,
 )
-from calibre_plugins.chinese_text_conversion.vision_ocr import is_vision_ocr_supported
+from calibre_plugins.chinese_text_conversion.ocr_compat import is_vision_ocr_supported
 
 '''
 ConversionDialog
@@ -58,6 +58,15 @@ ABOUT_DIALOG_SIZE = QSize(560, 480)
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
+
+
+class NoWheelComboBox(QComboBox):
+    '''Let scroll pages move normally instead of changing combo values on hover.'''
+
+    def wheelEvent(self, event):
+        if self.view().isVisible():
+            return super().wheelEvent(event)
+        event.ignore()
 
 
 class PluginAboutDialog(QDialog):
@@ -300,7 +309,7 @@ class ConversionDialog(Dialog):
         self.ui_lang_label = QLabel(_('Interface Language:'))
         configure_form_label(self.ui_lang_label)
         lang_layout.addWidget(self.ui_lang_label)
-        self.ui_lang_combo = QComboBox()
+        self.ui_lang_combo = NoWheelComboBox()
         self.ui_lang_combo.addItems(ui_language_combo_items())
         self.ui_lang_combo.setCurrentIndex(
             normalize_ui_language(self.prefs.get(
@@ -339,6 +348,7 @@ class ConversionDialog(Dialog):
         (self.text_dir_no_change_button,
          self.text_dir_horizontal_button,
          self.text_dir_vertical_button) = text_direction_buttons
+        apply_text_direction_icons(self.text_dir_horizontal_button, self.text_dir_vertical_button)
         tip = _('Select the desired text orientation')
         self.text_direction_group_box.setToolTip(tip)
         for btn in text_direction_buttons:
@@ -393,9 +403,9 @@ class ConversionDialog(Dialog):
         self.input_region_label = QLabel(_('Input:'))
         configure_form_label(self.input_region_label)
         input_layout.addWidget(self.input_region_label)
-        self.input_combo = QComboBox()
+        self.input_combo = NoWheelComboBox()
         input_layout.addWidget(self.input_combo, 1)
-        self.input_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
+        self.input_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')])
         self.input_combo.setToolTip(_('Select the origin region of the input'))
         self.input_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.input_combo.activated.connect(self._mark_input_locale_user_set)
@@ -406,9 +416,9 @@ class ConversionDialog(Dialog):
         self.output_region_label = QLabel(_('Output:'))
         configure_form_label(self.output_region_label)
         output_layout.addWidget(self.output_region_label)
-        self.output_combo = QComboBox()
+        self.output_combo = NoWheelComboBox()
         output_layout.addWidget(self.output_combo, 1)
-        self.output_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')])
+        self.output_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')])
         self.output_combo.setToolTip(_('Select the desired region of the output'))
         self.output_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.output_combo.activated.connect(self._mark_output_locale_user_set)
@@ -491,8 +501,9 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
         self.punctuation_dialog = None
 
+        self._vision_ocr_unsupported_notice_pending = False
         self.enable_vision_ocr_enhancement = QCheckBox(_('Enable Vision OCR image enhancement'))
-        self.enable_vision_ocr_enhancement.setVisible(is_vision_ocr_supported())
+        self.enable_vision_ocr_enhancement.toggled.connect(self._on_vision_ocr_toggled)
         advanced_group_box_layout.addWidget(self.enable_vision_ocr_enhancement)
 
         self.book_source_button.toggled.connect(self.on_button_toggled)
@@ -803,8 +814,8 @@ class ConversionDialog(Dialog):
         self.input_region_label.setText(_('Input:'))
         self.output_region_label.setText(_('Output:'))
         for combo, regions in (
-            (self.input_combo, [_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')]),
-             (self.output_combo, [_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japan')]),
+            (self.input_combo, [_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')]),
+             (self.output_combo, [_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')]),
         ):
             idx = combo.currentIndex()
             combo.blockSignals(True)
@@ -931,8 +942,10 @@ class ConversionDialog(Dialog):
 
         self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
-        self.enable_vision_ocr_enhancement.setChecked(bool(self.prefs.get('enable_vision_ocr_enhancement', False)))
-        self.enable_vision_ocr_enhancement.setVisible(is_vision_ocr_supported())
+        ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
+        ocr_supported = is_vision_ocr_supported()
+        self._vision_ocr_unsupported_notice_pending = bool(ocr_requested and not ocr_supported)
+        self.enable_vision_ocr_enhancement.setChecked(bool(ocr_requested and ocr_supported))
 
         self.block_signals(False)
 
@@ -960,15 +973,15 @@ class ConversionDialog(Dialog):
             self.use_target_phrases.setEnabled(True)
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japan'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japan'))
+            self.input_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji'))
+            self.output_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji'))
             self.style_group_box.setEnabled(True)
 
         elif self.simp_to_trad_button.isChecked():
             self.input_combo.setEnabled(True)
             self.output_combo.setEnabled(True)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapan/Mainland'))
+            self.input_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland'))
+            self.output_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland'))
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
@@ -1015,6 +1028,7 @@ class ConversionDialog(Dialog):
 
     def _ok_clicked(self):
         # save current settings into preferences and close dialog
+        self._ensure_vision_ocr_supported_before_accept()
         self.savePrefs()
         self.accept()
 
@@ -1024,6 +1038,39 @@ class ConversionDialog(Dialog):
         self.set_to_preferences()
         self.update_gui()
         self.reject()
+
+
+    def _show_vision_ocr_unsupported_notice(self):
+        info_dialog(
+            self,
+            _('Vision OCR unsupported'),
+            _('Vision OCR unsupported message'),
+            show=True)
+
+
+    def _set_vision_ocr_checked(self, checked):
+        self.enable_vision_ocr_enhancement.blockSignals(True)
+        self.enable_vision_ocr_enhancement.setChecked(bool(checked))
+        self.enable_vision_ocr_enhancement.blockSignals(False)
+
+
+    def _on_vision_ocr_toggled(self, checked):
+        if not checked or is_vision_ocr_supported():
+            return
+        self._set_vision_ocr_checked(False)
+        self._vision_ocr_unsupported_notice_pending = False
+        self._show_vision_ocr_unsupported_notice()
+
+
+    def _ensure_vision_ocr_supported_before_accept(self):
+        if is_vision_ocr_supported():
+            return
+        if self.enable_vision_ocr_enhancement.isChecked():
+            self._set_vision_ocr_checked(False)
+            self._vision_ocr_unsupported_notice_pending = True
+        if self._vision_ocr_unsupported_notice_pending:
+            self._vision_ocr_unsupported_notice_pending = False
+            self._show_vision_ocr_unsupported_notice()
 
 
     def punc_settings_btn_clicked(self):
@@ -1089,7 +1136,9 @@ class ConversionDialog(Dialog):
         self.prefs['output_orientation_user_set'] = True
         self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
-        self.prefs['enable_vision_ocr_enhancement'] = self.enable_vision_ocr_enhancement.isChecked()
+        self.prefs['enable_vision_ocr_enhancement'] = (
+            self.enable_vision_ocr_enhancement.isChecked()
+            and is_vision_ocr_supported())
 
 
     def getRegex(self):
@@ -1100,11 +1149,13 @@ class ConversionDialog(Dialog):
 class LibraryConversionStatusDialog(QDialog):
     '''Processing / complete status and text preview when converting library books.'''
 
-    def __init__(self, parent):
+    def __init__(self, parent, ocr_enabled=True):
         QDialog.__init__(self, parent)
         self.setWindowTitle(_('Chinese Conversion'))
         self.setMinimumSize(LIBRARY_STATUS_DIALOG_SIZE)
         self.resize(LIBRARY_STATUS_DIALOG_SIZE)
+        self._processing = True
+        self._ocr_enabled = bool(ocr_enabled)
 
         layout = QVBoxLayout(self)
         configure_layout(layout, 'dialog')
@@ -1115,12 +1166,24 @@ class LibraryConversionStatusDialog(QDialog):
         self.headline.setFont(font)
         layout.addWidget(self.headline)
 
+        self.status_label = QLabel()
+        self.status_label.setWordWrap(True)
+        layout.addWidget(self.status_label)
+
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setRange(0, 1)
+        self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
+
         self.preview = QPlainTextEdit(self)
         self.preview.setReadOnly(True)
         self.preview.setMinimumHeight(320)
         layout.addWidget(self.preview, stretch=1)
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
+        self.hide_btn = self.button_box.addButton(
+            _('Hide'), QDialogButtonBox.ActionRole)
+        self.hide_btn.clicked.connect(self._hide_while_processing)
         self.close_btn = self.button_box.button(QDialogButtonBox.Close)
         self.close_btn.setEnabled(False)
         self.close_btn.setText(_('Close'))
@@ -1132,20 +1195,62 @@ class LibraryConversionStatusDialog(QDialog):
         self.set_processing()
 
     def set_processing(self):
-        self.headline.setText(_('Processing…'))
+        self._processing = True
+        self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+        self.status_label.setText(_('Preparing background conversion…'))
+        self.hide_btn.setEnabled(True)
+        self.hide_btn.setVisible(True)
         self.close_btn.setEnabled(False)
 
-    def set_complete(self):
-        self.headline.setText(_('Processing complete'))
+    def set_complete(self, completed_images=None):
+        self._processing = False
+        self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+        if completed_images is None or not self._ocr_enabled:
+            self.status_label.setText(_('Processing complete'))
+        else:
+            self.status_label.setText(_('OCR completed status').format(completed_images))
+        self.progress_bar.setValue(self.progress_bar.maximum())
+        self.hide_btn.setEnabled(False)
+        self.hide_btn.setVisible(False)
         self.close_btn.setEnabled(True)
 
     def apply_translations(self):
         self.setWindowTitle(_('Chinese Conversion'))
+        self.hide_btn.setText(_('Hide'))
         self.close_btn.setText(_('Close'))
         if self.close_btn.isEnabled():
-            self.headline.setText(_('Processing complete'))
+            self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+            if not self.status_label.text():
+                self.status_label.setText(_('Processing complete'))
         else:
-            self.headline.setText(_('Processing…'))
+            self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+            if not self.status_label.text():
+                self.status_label.setText(_('Preparing background conversion…'))
+
+    def set_progress(self, current, total, message):
+        total = max(int(total or 0), 1)
+        current = max(0, min(int(current or 0), total))
+        self.progress_bar.setRange(0, total)
+        self.progress_bar.setValue(current)
+        self.status_label.setText(message or _('Processing…'))
+
+    def _hide_while_processing(self):
+        self.log_processing(
+            _('Background conversion is still running. You can reopen this window when processing completes.'))
+        self.hide()
+
+    def reject(self):
+        if self._processing:
+            self._hide_while_processing()
+            return
+        super().reject()
+
+    def closeEvent(self, event):
+        if self._processing:
+            self._hide_while_processing()
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def append_preview(self, text):
         self.preview.appendPlainText(text)

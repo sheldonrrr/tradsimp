@@ -6,17 +6,18 @@ __license__ = 'GPL 3'
 
 try:
     from qt.core import (
-        QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel, QPalette, QPixmap,
-        QRadioButton, QSizePolicy, QVBoxLayout, QWidget,
+        QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
+        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QVBoxLayout, QWidget,
     )
 except ImportError:
     from PyQt5.Qt import (
-        QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QLabel, QPalette, QPixmap,
-        QRadioButton, QSizePolicy, QVBoxLayout, QWidget,
+        QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
+        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QVBoxLayout, QWidget,
     )
 
 ICON_RESOURCE = 'images/TradSimpIcon.png'
 BRAND_ICON_PX = 40
+TEXT_DIRECTION_ICON_PX = 22
 
 # 8px spacing scale
 SPACE_XS = 4
@@ -40,6 +41,79 @@ BRAND_TITLE_ID = 'tradSimpBrandTitle'
 BRAND_SUBTITLE_ID = 'tradSimpBrandSubtitle'
 DIVIDER_ID = 'tradSimpSectionDivider'
 RECOMMEND_CARD_ID = 'tradSimpRecommendCard'
+
+
+def _palette_role(role_name, fallback):
+    roles = getattr(QPalette, 'ColorRole', QPalette)
+    role = getattr(roles, role_name, None)
+    if role is not None:
+        return role
+    return getattr(QPalette, fallback)
+
+
+def _palette_color(palette, role_name, fallback_role, fallback_color):
+    color = palette.color(_palette_role(role_name, fallback_role))
+    if color.isValid():
+        return color
+    return QColor(*fallback_color)
+
+
+def make_text_direction_icon(palette, vertical=False):
+    '''Draw compact, theme-aware reading-direction icons for radio buttons.'''
+    pixmap = QPixmap(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+    pixmap.fill(Qt.GlobalColor.transparent if hasattr(Qt, 'GlobalColor') else Qt.transparent)
+
+    text_color = _palette_color(palette, 'WindowText', 'WindowText', (80, 80, 80))
+    accent_color = _palette_color(palette, 'Highlight', 'Highlight', (40, 110, 220))
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(
+        QPainter.RenderHint.Antialiasing
+        if hasattr(QPainter, 'RenderHint') else QPainter.Antialiasing)
+
+    text_pen = QPen(text_color)
+    text_pen.setWidth(2)
+    text_pen.setCapStyle(
+        Qt.PenCapStyle.RoundCap if hasattr(Qt, 'PenCapStyle') else Qt.RoundCap)
+    painter.setPen(text_pen)
+
+    if vertical:
+        for x in (7, 14):
+            painter.drawLine(x, 4, x, 14)
+            painter.drawPoint(x, 18)
+    else:
+        for y in (6, 11, 16):
+            painter.drawLine(4, y, 14, y)
+
+    arrow_pen = QPen(accent_color)
+    arrow_pen.setWidth(2)
+    arrow_pen.setCapStyle(
+        Qt.PenCapStyle.RoundCap if hasattr(Qt, 'PenCapStyle') else Qt.RoundCap)
+    arrow_pen.setJoinStyle(
+        Qt.PenJoinStyle.RoundJoin if hasattr(Qt, 'PenJoinStyle') else Qt.RoundJoin)
+    painter.setPen(arrow_pen)
+
+    if vertical:
+        painter.drawLine(18, 4, 18, 17)
+        painter.drawLine(18, 17, 15, 14)
+        painter.drawLine(18, 17, 21, 14)
+    else:
+        painter.drawLine(4, 19, 17, 19)
+        painter.drawLine(17, 19, 14, 16)
+        painter.drawLine(17, 19, 14, 21)
+
+    painter.end()
+    return QIcon(pixmap)
+
+
+def apply_text_direction_icons(horizontal_button, vertical_button):
+    '''Attach horizontal and vertical orientation icons to the text direction choices.'''
+    palette = horizontal_button.palette()
+    icon_size = QSize(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+    horizontal_button.setIcon(make_text_direction_icon(palette, vertical=False))
+    horizontal_button.setIconSize(icon_size)
+    vertical_button.setIcon(make_text_direction_icon(palette, vertical=True))
+    vertical_button.setIconSize(icon_size)
 
 
 def configure_layout(layout, role='section'):
