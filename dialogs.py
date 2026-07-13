@@ -25,7 +25,7 @@ from calibre_plugins.chinese_text_conversion import (
     PLUGIN_VERSION, PLUGIN_RELEASE_THREAD_URL)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, apply_ui_language_from_prefs, detect_calibre_ui_language,
-    normalize_ui_language, ui_language_combo_items,
+    get_ui_language, normalize_ui_language, ui_language_combo_items,
     UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
 )
 from calibre_plugins.chinese_text_conversion.ui_style import (
@@ -58,6 +58,7 @@ ABOUT_DIALOG_SIZE = QSize(560, 480)
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
+XIAOHONGSHU_FEEDBACK_URL = 'http://xhslink.com/o/hdgQctdOte'
 
 
 class NoWheelComboBox(QComboBox):
@@ -76,6 +77,9 @@ class PluginAboutDialog(QDialog):
         super().__init__(parent)
         self.prefs = prefs
         self.first_run = first_run
+        # Keep About strictly modal to its parent config dialog.
+        self.setModal(True)
+        self.setWindowModality(Qt.WindowModal)
         self._build_ui()
         apply_ui_language_from_prefs(self.prefs)
         self.apply_translations()
@@ -183,6 +187,12 @@ class PluginAboutDialog(QDialog):
         self.recommend_site_link_label.setOpenExternalLinks(True)
         content_layout.addWidget(self.recommend_site_link_label)
 
+        self.feedback_link_label = QLabel()
+        self.feedback_link_label.setWordWrap(True)
+        self.feedback_link_label.setTextFormat(Qt.RichText)
+        self.feedback_link_label.setOpenExternalLinks(True)
+        content_layout.addWidget(self.feedback_link_label)
+
         content_layout.addStretch(1)
         scroll.setWidget(content)
         layout.addWidget(scroll)
@@ -212,9 +222,12 @@ class PluginAboutDialog(QDialog):
         self.recommend_note_label.setText(_('About MobileRead note'))
         self.recommend_site_link_label.setText(
             _('About recommendations site link').format(url=NOWTINY_SITE_URL))
+        self.feedback_link_label.setText(
+            _('About Xiaohongshu feedback link').format(url=XIAOHONGSHU_FEEDBACK_URL))
         style_recommend_card(self.recommend_markdown_card)
         style_recommend_card(self.recommend_askai_card)
         show_full_about = not self.first_run
+        show_feedback_link = show_full_about and get_ui_language() == UI_LANG_ZH_CN
         self.first_run_intro_label.setVisible(self.first_run)
         self.description_label.setVisible(show_full_about)
         self.mobile_read_link_label.setVisible(show_full_about)
@@ -224,6 +237,7 @@ class PluginAboutDialog(QDialog):
         self.recommend_askai_card.setVisible(show_full_about)
         self.recommend_note_label.setVisible(show_full_about)
         self.recommend_site_link_label.setVisible(show_full_about)
+        self.feedback_link_label.setVisible(show_feedback_link)
         ok_btn = self.button_box.button(QDialogButtonBox.Ok)
         if ok_btn is not None:
             ok_btn.setText(_('Got it'))
@@ -542,7 +556,7 @@ class ConversionDialog(Dialog):
         apply_dialog_stylesheet(self)
 
     def _show_about_dialog(self, first_run=False):
-        dlg = PluginAboutDialog(self.parent, self.prefs, first_run=first_run)
+        dlg = PluginAboutDialog(self, self.prefs, first_run=first_run)
         dlg.exec_()
         dlg.mark_first_run_complete()
 

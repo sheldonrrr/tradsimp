@@ -829,6 +829,11 @@ _MESSAGES = {
         '在 <a href="{url}">Nowtiny</a> 查看更多工具',
         '在 <a href="{url}">Nowtiny</a> 查看更多工具',
         '在 <a href="{url}">Nowtiny</a> 查看更多工具'),
+    'About Xiaohongshu feedback link': _T(
+        '',
+        '问题反馈：<a href="{url}">小红书</a>',
+        '',
+        ''),
     'Please confirm the current book language is Chinese or Japanese Kanji.': _T(
         'Please confirm the current book language is Chinese or Japanese Kanji.',
         '请确认当前书籍语言为中文或日本汉字。',
