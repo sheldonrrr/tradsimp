@@ -515,6 +515,17 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
         self.punctuation_dialog = None
 
+        self.include_metadata = QCheckBox(_('Include metadata'))
+        advanced_group_box_layout.addWidget(self.include_metadata)
+        self.include_metadata_help = QLabel()
+        self.include_metadata_help.setWordWrap(True)
+        self.include_metadata_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.include_metadata_help)
+        self.include_metadata_help_row = help_text_row(self, self.include_metadata_help)
+        self.include_metadata_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.include_metadata_help_row)
+        self._update_include_metadata_help_text()
+
         self._vision_ocr_unsupported_notice_pending = False
         self.enable_vision_ocr_enhancement = QCheckBox(_('Enable Vision OCR image enhancement'))
         self.enable_vision_ocr_enhancement.toggled.connect(self._on_vision_ocr_toggled)
@@ -567,6 +578,11 @@ class ConversionDialog(Dialog):
         help_text = _('Use target region phrases help')
         self.use_target_phrases_help.setText(help_text)
         self.use_target_phrases.setToolTip(help_text)
+
+    def _update_include_metadata_help_text(self):
+        help_text = _('Include metadata help')
+        self.include_metadata_help.setText(help_text)
+        self.include_metadata.setToolTip(help_text)
 
     def _update_trad_to_trad_help_text(self):
         self.trad_to_trad_help.setText(_('Traditional to Traditional help'))
@@ -860,6 +876,8 @@ class ConversionDialog(Dialog):
         self.quotation_simp_to_trad_button.setText(self.quote_for_trad_target)
         self.update_punctuation.setText(_('Update punctuation'))
         self.punc_settings_btn.setText(_('Settings...'))
+        self.include_metadata.setText(_('Include metadata'))
+        self._update_include_metadata_help_text()
         self.enable_vision_ocr_enhancement.setText(_('Enable Vision OCR image enhancement'))
 
         self.book_source_button.setText(_('Entire eBook'))
@@ -915,6 +933,7 @@ class ConversionDialog(Dialog):
         self.text_dir_horizontal_button.blockSignals(state)
         self.text_dir_vertical_button.blockSignals(state)
         self.update_punctuation.blockSignals(state)
+        self.include_metadata.blockSignals(state)
         self.enable_vision_ocr_enhancement.blockSignals(state)
 
 
@@ -956,6 +975,7 @@ class ConversionDialog(Dialog):
 
         self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
+        self.include_metadata.setChecked(bool(self.prefs.get('include_metadata', True)))
         ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
         ocr_supported = is_vision_ocr_supported()
         self._vision_ocr_unsupported_notice_pending = bool(ocr_requested and not ocr_supported)
@@ -1150,6 +1170,7 @@ class ConversionDialog(Dialog):
         self.prefs['output_orientation_user_set'] = True
         self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
+        self.prefs['include_metadata'] = self.include_metadata.isChecked()
         self.prefs['enable_vision_ocr_enhancement'] = (
             self.enable_vision_ocr_enhancement.isChecked()
             and is_vision_ocr_supported())

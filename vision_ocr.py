@@ -26,38 +26,22 @@ OCR_LANGUAGE_PROFILES = {
 
 
 def is_vision_ocr_supported():
+    '''Cheap platform gate for UI/enablement (no subprocess).
+
+    Previously probed Vision via `xcrun swift -e`, which blocked the Qt UI
+    thread for up to 15s on first dialog open when the probe timed out.
+    Actual OCR paths already handle Vision failures at runtime.
+    '''
     global _VISION_OCR_SUPPORT_CACHE
     if _VISION_OCR_SUPPORT_CACHE is not None:
         return _VISION_OCR_SUPPORT_CACHE
 
-    if platform.system().lower() != 'darwin':
-        _VISION_OCR_SUPPORT_CACHE = False
-        return _VISION_OCR_SUPPORT_CACHE
-    ver = (platform.mac_ver()[0] or '').split('.')
-    if not ver or not ver[0].isdigit():
-        _VISION_OCR_SUPPORT_CACHE = False
-        return _VISION_OCR_SUPPORT_CACHE
-    if int(ver[0]) < MIN_VISION_OCR_MACOS_MAJOR:
-        _VISION_OCR_SUPPORT_CACHE = False
-        return _VISION_OCR_SUPPORT_CACHE
-
-    swift_code = r'''
-import Vision
-
-let request = VNRecognizeTextRequest()
-_ = request.recognitionLevel
-print("vision-ocr-ok")
-'''
-    cmd = ['/usr/bin/xcrun', 'swift', '-e', swift_code]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
-    except Exception:
-        _VISION_OCR_SUPPORT_CACHE = False
-        return _VISION_OCR_SUPPORT_CACHE
-
-    _VISION_OCR_SUPPORT_CACHE = (
-        result.returncode == 0
-        and 'vision-ocr-ok' in (result.stdout or ''))
+    supported = False
+    if platform.system().lower() == 'darwin':
+        ver = (platform.mac_ver()[0] or '').split('.')
+        if ver and ver[0].isdigit() and int(ver[0]) >= MIN_VISION_OCR_MACOS_MAJOR:
+            supported = True
+    _VISION_OCR_SUPPORT_CACHE = supported
     return _VISION_OCR_SUPPORT_CACHE
 
 

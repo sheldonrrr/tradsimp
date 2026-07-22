@@ -1,6 +1,6 @@
 Upstream data source
     Dictionary text files in this folder are synced from:
-    https://github.com/BYVoid/OpenCC (commit 1a7c529 (ver.1.3.2))
+    https://github.com/BYVoid/OpenCC (commit 81223ed (ver.1.4.1))
 
     Notes:
     - Upstream OpenCC runtime configs now use ocd2 dictionaries.
@@ -11,6 +11,6 @@ Upstream data source
 
 reverse.py
     Legacy helper for reversing dictionary keys and values (requires Python3).
-    Upstream 1.3.x ships TWPhrasesRev.txt and HKPhrasesRev.txt directly; sync_opencc.py
+    Upstream ships TWPhrasesRev.txt and HKPhrasesRev.txt directly; sync_opencc.py
     uses upstream data/scripts/reverse.py for HKVariantsRev, TWVariantsRev, and
     JPShinjitaiCharactersRev.

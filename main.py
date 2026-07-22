@@ -73,6 +73,7 @@ UPDATE_PUNCTUATION = 7     # True/False
 PUNC_DICT = 8              # punctuation swapping dictionary based on settings, may be None
 PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, may be None
 ENABLE_VISION_OCR = 10     # True/False
+INCLUDE_METADATA = 11      # True/False — convert OPF + Calibre library metadata
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -461,7 +462,7 @@ class TradSimpChinese(Tool):
         elif criteria[INPUT_SOURCE] == 0:
             # Cover the entire book
             # Set metadata and Table of Contents (TOC) if language changed
-            if criteria[CONVERSION_TYPE] != 0:
+            if criteria[CONVERSION_TYPE] != 0 and criteria[INCLUDE_METADATA]:
                 self.filesChanged = set_metadata_toc(container, self.language, criteria, self.changed_files, self.converter)
 
             # Check for orientation change
@@ -508,6 +509,7 @@ def prepare_prefs(prefs):
         prefs['update_punctuation'] = False
         prefs['punc_omits'] = PUNC_OMITS
         prefs['enable_vision_ocr_enhancement'] = False
+        prefs['include_metadata'] = True
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -528,6 +530,7 @@ def prepare_prefs(prefs):
     prefs.defaults['update_punctuation'] = False
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['enable_vision_ocr_enhancement'] = False
+    prefs.defaults['include_metadata'] = True
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -572,7 +575,8 @@ def build_criteria(prefs):
         prefs['input_source'], prefs['conversion_type'], prefs['input_locale'],
         prefs['output_locale'], prefs['use_target_phrases'], prefs['quotation_type'],
         prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
-        prefs.get('enable_vision_ocr_enhancement', False))
+        prefs.get('enable_vision_ocr_enhancement', False),
+        prefs.get('include_metadata', True))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -753,7 +757,7 @@ def set_metadata_toc(container, language, criteria, changed_files, converter):
     dc_list = ['//opf:metadata/dc:title',
                '//opf:metadata/dc:description',
                '//opf:metadata/dc:publisher',
-               '//opf:metadata/dc:subject'
+               '//opf:metadata/dc:subject',
                '//opf:metadata/dc:contributor',
                '//opf:metadata/dc:coverage',
                '//opf:metadata/dc:rights'];
@@ -1139,7 +1143,8 @@ def cli_get_criteria(args):
         output_locale, use_target_phrase, quote_type,
         text_direction, update_punctuation, punc_dict, punc_regex,
         bool(prefs.get('enable_vision_ocr_enhancement', False))
-        and is_vision_ocr_supported())
+        and is_vision_ocr_supported(),
+        bool(prefs.get('include_metadata', True)))
 
     return criteria
 
@@ -1158,7 +1163,7 @@ def cli_process_files(criteria, container, converter, parser, progress_callback=
     # Cover the entire book
     # Set metadata and Table of Contents (TOC)
     changed_files = []
-    if criteria[CONVERSION_TYPE] != 0:
+    if criteria[CONVERSION_TYPE] != 0 and criteria[INCLUDE_METADATA]:
         set_metadata_toc(container, lang, criteria, changed_files, converter)
 
     # Set text orientation

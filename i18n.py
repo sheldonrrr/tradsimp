@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 29 Jun, 2026',
-        '发布：2026年6月29日',
-        '發佈：2026年6月29日'),
+        'Released: 22 Jul, 2026',
+        '发布：2026年7月22日',
+        '發佈：2026年7月22日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -164,6 +164,17 @@ _MESSAGES = {
         '选择从左到右或从上到下的阅读顺序',
         '選擇從左到右或從上到下的閱讀順序'),
     'Update punctuation': _T('Update punctuation', '更新标点', '更新標點'),
+    'Include metadata': _T(
+        'Include metadata',
+        '包含 Metadata 信息',
+        '包含 Metadata 資訊'),
+    'Include metadata help': _T(
+        'Converts Title, Author(s), Tags, and Publisher in the calibre library and in the ebook’s '
+        'OPF (Open Packaging Format) metadata.',
+        '转换 calibre 书库与电子书 OPF（Open Packaging Format，开放包装格式）中的'
+        '标题、作者、标签、出版商。',
+        '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
+        '標題、作者、標籤、出版商。'),
     'Enable Vision OCR image enhancement': _T(
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',
@@ -388,10 +399,10 @@ _MESSAGES = {
         'Saved file: {}, save path: {}',
         '已保存文件：{}，保存路径：{}',
         '已儲存檔案：{}，儲存路徑：{}'),
-    'Log book title suffix: {}': _T(
-        'New book title suffix: {}',
-        '新书书名后缀：{}',
-        '新書書名後綴：{}'),
+    'Log conversion id: {}': _T(
+        'Conversion id: {}',
+        '转换标识：{}',
+        '轉換識別：{}'),
     'Log generated at (local time): {}': _T(
         'Generated at (local time): {}',
         '生成时间（本地时间）：{}',
@@ -400,6 +411,15 @@ _MESSAGES = {
         'The suffix ends with hour-minute-second (HH-MM-SS); it is not the plugin version.',
         '后缀末尾为时-分-秒（HH-MM-SS），用于区分同次转换的新书，并非插件版本号。',
         '後綴末尾為時-分-秒（HH-MM-SS），用於區分同次轉換的新書，並非外掛版本號。'),
+    'Converted by Chinese Conversion · 简繁转换(for calibre) plugin': _T(
+        'Converted by the “Chinese Conversion · 简繁转换(for calibre)” plugin',
+        '由「Chinese Conversion · 简繁转换(for calibre)」插件转换',
+        '由「Chinese Conversion · 簡繁轉換(for calibre)」外掛轉換'),
+    'Plugin comments tagline': _T(
+        'Supports horizontal/vertical layout conversion and Traditional ↔ Simplified Chinese. '
+        'Fully offline — no large language models.',
+        '插件支持横竖排转换、支持繁体中文和简体中文互转，完全离线，不调用大语言模型。',
+        '外掛支援橫豎排轉換、支援繁體中文和簡體中文互轉，完全離線，不呼叫大型語言模型。'),
     '----Log book info begin----': _T(
         '----Book processing info begin----',
         '----本书处理信息开始----',
@@ -456,10 +476,6 @@ _MESSAGES = {
     'Changed files: ': _T('Changed files: ', '已更改文件：', '已變更檔案：'),
     'No text excerpt available.': _T(
         'No text excerpt available.', '无文字预览。', '無文字預覽。'),
-    'Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).': _T(
-        'Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).',
-        '由「Chinese Conversion · 简繁转换」插件新建入库（来源书籍编号：{}）。',
-        '由「Chinese Conversion · 簡繁轉換」外掛新建入庫（來源書籍編號：{}）。'),
     'Unknown': _T('Unknown', '未知', '未知'),
     'No changes (originals kept):': _T(
         'No changes (originals kept):', '无更改（保留原书）：', '無變更（保留原書）：'),
@@ -672,22 +688,22 @@ _MESSAGES = {
         '1. Add Chinese Conversion to the main toolbar (Preferences → Toolbars & menus).\n'
         '2. Select one or more EPUB/AZW3 books in your library.\n'
         '3. Click the button, choose options, then Start Processing.\n'
-        '4. When finished, open the new library entry (title includes a time suffix).',
+        '4. When finished, open the new library entry (the original book is unchanged).',
         '快速上手：\n'
         '1. 在「偏好设置 → 工具栏和菜单」中将「简繁中文转换」加入主工具栏。\n'
         '2. 在书库中选中一本或多本 EPUB/AZW3 书籍。\n'
         '3. 点击插件按钮，选好选项后点「开始处理」。\n'
-        '4. 完成后在书库中查看新书（书名会带时间后缀，原书不变）。',
+        '4. 完成后在书库中查看新书（原书不变）。',
         '快速上手：\n'
         '1. 在「偏好設定 → 工具列和選單」中將「簡繁中文轉換」加入主工具列。\n'
         '2. 在書庫中選取一本或多本 EPUB/AZW3 書籍。\n'
         '3. 點擊外掛按鈕，選好選項後點「開始處理」。\n'
-        '4. 完成後在書庫中查看新書（書名會帶時間後綴，原書不變）。',
+        '4. 完成後在書庫中查看新書（原書不變）。',
         '快速上手：\n'
         '1. 在「偏好設定 → 工具列和選單」中將「簡繁中文轉換」加入主工具列。\n'
         '2. 在書庫中選取一本或多本 EPUB/AZW3 書籍。\n'
         '3. 點擊外掛按鈕，選好選項後點「開始處理」。\n'
-        '4. 完成後在書庫中查看新書（書名會帶時間後綴，原書不變）。'),
+        '4. 完成後在書庫中查看新書（原書不變）。'),
     'About offline highlight': _T(
         'Fully offline conversion powered by OpenCC — no AI, no cloud, no internet required.',
         '完全离线转换，基于 OpenCC — 无需 AI、无需云端、无需联网。',
@@ -702,19 +718,19 @@ _MESSAGES = {
         '• Quotation marks, left-to-right / top-to-bottom layout, and punctuation\n'
         '• Batch convert EPUB/AZW3 in the library; adds new books, originals unchanged\n'
         '• Library conversion log shows OpenCC replacement statistics (top word pairs sampled)\n'
-        '• OpenCC ver.1.3.2 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
+        '• OpenCC ver.1.4.1 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
         '• 繁体 ↔ 简体，以及繁体地区用词互转（大陆 / 香港 / 台湾）\n'
         '• 香港 ↔ 台湾繁体互转；简繁/繁简流程中支持香港、台湾惯用词语模式\n'
         '• 引号样式、从左到右/从上到下的排版与标点调整\n'
         '• 在书库中批量处理 EPUB / AZW3；生成新书，不修改原书\n'
         '• 书库转换日志展示 OpenCC 替换统计（高频词对取样）\n'
-        '• OpenCC ver.1.3.2 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
+        '• OpenCC ver.1.4.1 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
         '• 繁體 ↔ 簡體，以及繁體地區用詞互轉（大陸 / 香港 / 臺灣）\n'
         '• 香港 ↔ 臺灣繁體互轉；簡繁/繁簡流程中支援香港、臺灣慣用詞語模式\n'
         '• 引號樣式、從左到右/從上到下的排版與標點調整\n'
         '• 在書庫中批次處理 EPUB / AZW3；產生新書，不修改原書\n'
         '• 書庫轉換日誌展示 OpenCC 替換統計（高頻詞對取樣）\n'
-        '• OpenCC ver.1.3.2 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
+        '• OpenCC ver.1.4.1 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
     'About quick start': _T(
         'About quick start',
         '快速上手',
@@ -723,15 +739,15 @@ _MESSAGES = {
         '1. In calibre, add this plugin to the main toolbar (Preferences → Toolbars & menus).\n'
         '2. Select one or more books (EPUB or AZW3) in your library.\n'
         '3. Click Chinese Conversion, choose options, then Start Processing.\n'
-        '4. When finished, find the new copy in your library (title includes a time suffix).',
+        '4. When finished, find the new copy in your library (the original book is unchanged).',
         '1. 在 calibre「偏好设置 → 工具栏和菜单」中，把本插件加到主工具栏。\n'
         '2. 在书库选中一本或多本书（需为 EPUB 或 AZW3）。\n'
         '3. 点击「简繁中文转换」，选好选项后点「开始处理」。\n'
-        '4. 完成后在书库中查看新书（书名会带时间后缀，原书不变）。',
+        '4. 完成后在书库中查看新书（原书不变）。',
         '1. 在 calibre「偏好設定 → 工具列和選單」中，把本外掛加到主工具列。\n'
         '2. 在書庫選取一本或多本書（需為 EPUB 或 AZW3）。\n'
         '3. 點擊「簡繁中文轉換」，選好選項後點「開始處理」。\n'
-        '4. 完成後在書庫中查看新書（書名會帶時間後綴，原書不變）。'),
+        '4. 完成後在書庫中查看新書（原書不變）。'),
     'About lineage': _T(
         'Developed from Hopkins’ Chinese Text Conversion plugin for calibre.\n'
         'This community fork (module: chinese_text_conversion) runs from the library toolbar; '

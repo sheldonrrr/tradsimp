@@ -29,7 +29,8 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
 )
 from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
-    get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR, INPUT_LOCALE,
+    get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR,
+    INCLUDE_METADATA, INPUT_LOCALE,
     HTML_TextProcessor, OpenCC, criteria_with_ocr_enabled,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
@@ -291,6 +292,7 @@ class ChineseTextAction(InterfaceAction):
         state = {
             'db': db,
             'criteria': criteria,
+            'conversion': conversion,
             'ocr_total_images': total_images if criteria[ENABLE_VISION_OCR] else 0,
             'created': [],
             'unchanged': [],
@@ -372,8 +374,18 @@ class ChineseTextAction(InterfaceAction):
                     result.get('ocr_samples'),
                     ocr_enabled=True,
                 )
+            meta_converter = None
+            if criteria[INCLUDE_METADATA]:
+                meta_converter = state.get('meta_converter')
+                if meta_converter is None:
+                    conversion = state.get('conversion')
+                    if conversion and conversion != 'no_conversion':
+                        meta_converter = OpenCC(get_resource_file)
+                        meta_converter.set_conversion(conversion)
+                        state['meta_converter'] = meta_converter
             new_id, new_title = import_converted_book_as_new(
-                db, result['book_id'], temp_path, fmt, result['suffix'])
+                db, result['book_id'], temp_path, fmt, result['suffix'],
+                converter=meta_converter)
             state['new_book_ids'].append(new_id)
             state['created'].append(new_title)
             saved_path = db.format_abspath(new_id, fmt, index_is_id=True)

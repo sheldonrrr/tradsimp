@@ -8,7 +8,8 @@ import shutil
 import tempfile
 from datetime import datetime
 
-from calibre_plugins.chinese_text_conversion.__init__ import PLUGIN_SAFE_NAME
+from calibre_plugins.chinese_text_conversion.__init__ import (
+    PLUGIN_RELEASE_THREAD_URL, PLUGIN_SAFE_NAME)
 from calibre_plugins.chinese_text_conversion.i18n import _
 
 
@@ -259,7 +260,7 @@ def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMP
 
 def make_conversion_suffix():
     '''
-    Plugin name + local time (HH-MM-SS), safe for titles and filenames.
+    Plugin name + local time (HH-MM-SS) for conversion logs only (not applied to titles).
     Returns (suffix_tag, generated_at) so logs can show the same instant.
     '''
     generated_at = datetime.now()
@@ -269,13 +270,111 @@ def make_conversion_suffix():
 
 
 def format_book_tag_log_lines(suffix_tag, generated_at):
-    '''Human-readable lines explaining the new-book title suffix (log only).'''
+    '''Human-readable conversion-time lines for the status log (not applied to titles).'''
     time_stamp = generated_at.strftime('%Y-%m-%d %H:%M:%S')
     return '\n'.join([
-        _('Log book title suffix: {}').format(suffix_tag),
+        _('Log conversion id: {}').format(suffix_tag),
         _('Log generated at (local time): {}').format(time_stamp),
-        _('Log suffix time hint'),
     ])
+
+
+def build_library_conversion_comments_note():
+    '''Promo block written into the new book Comments / 简介 field.'''
+    return '\n'.join([
+        _('Converted by Chinese Conversion · 简繁转换(for calibre) plugin'),
+        PLUGIN_RELEASE_THREAD_URL,
+        _('Plugin comments tagline'),
+    ])
+
+
+_PLUGIN_TITLE_SUFFIX_RE = re.compile(
+    r'(?:\s+|^)' + re.escape(PLUGIN_SAFE_NAME) + r'-\d{2}-\d{2}-\d{2}(?=\s*$)')
+
+_PLUGIN_COMMENT_MARKERS = (
+    PLUGIN_RELEASE_THREAD_URL,
+    'for calibre',
+    'source book id:',
+    '来源书籍编号',
+    '來源書籍編號',
+    '新建入库',
+    '新建入庫',
+    'Created as a new library book by Chinese Conversion',
+    'Converted by the “Chinese Conversion',
+    'Converted by Chinese Conversion',
+    '完全离线，不调用大语言模型',
+    '完全離線，不呼叫大型語言模型',
+    'Fully offline — no large language models',
+    '插件支持横竖排转换',
+    '外掛支援橫豎排轉換',
+    'Supports horizontal/vertical layout conversion',
+)
+
+
+def sanitize_converted_book_title(title):
+    '''Remove legacy plugin time suffixes from a title (and title_sort).'''
+    text = (title or '').strip()
+    while True:
+        cleaned = _PLUGIN_TITLE_SUFFIX_RE.sub('', text).strip()
+        if cleaned == text:
+            return cleaned
+        text = cleaned
+
+
+def _plain_comment_text(block):
+    text = re.sub(r'(?is)<br\s*/?>', '\n', block or '')
+    text = re.sub(r'(?is)<[^>]+>', '', text)
+    return text.replace('&nbsp;', ' ').strip()
+
+
+def _is_plugin_comment_block(block):
+    plain = _plain_comment_text(block)
+    if not plain or re.fullmatch(r'-{3,}', plain):
+        return True
+    for marker in _PLUGIN_COMMENT_MARKERS:
+        if marker in plain or marker in (block or ''):
+            return True
+    if 'Chinese Conversion' in plain and (
+            '插件' in plain or '外掛' in plain or 'plugin' in plain.lower()):
+        return True
+    return False
+
+
+def _strip_plugin_paragraphs(segment):
+    paras = re.split(r'\n\s*\n', (segment or '').strip())
+    while paras and _is_plugin_comment_block(paras[0]):
+        paras.pop(0)
+    while paras and _is_plugin_comment_block(paras[-1]):
+        paras.pop()
+    return '\n\n'.join(p.strip() for p in paras if p.strip()).strip()
+
+
+def sanitize_converted_book_comments(comments):
+    '''
+    Remove prior plugin promo / “created by plugin” blocks from Comments so
+    re-converting a previously converted book does not stack history.
+    '''
+    text = (comments or '').strip()
+    if not text:
+        return ''
+    text = re.sub(r'(?is)<hr\s*/?>', '\n----\n', text)
+    segments = re.split(r'\n\s*-{3,}\s*\n', text)
+    kept = []
+    for seg in segments:
+        cleaned = _strip_plugin_paragraphs(seg)
+        if cleaned and not _is_plugin_comment_block(cleaned):
+            kept.append(cleaned)
+    return '\n\n'.join(kept).strip()
+
+
+def append_library_conversion_comments(existing_comments, note):
+    '''
+    Append the conversion promo note to Comments.
+    If other text already exists, separate with a ---- line below it.
+    '''
+    existing = sanitize_converted_book_comments(existing_comments)
+    if existing:
+        return existing + '\n----\n' + note
+    return note
 
 
 def log_section(status_dlg, begin_msg, end_msg, body_lines):
@@ -287,21 +386,56 @@ def log_section(status_dlg, begin_msg, end_msg, body_lines):
     status_dlg.log_result(end_msg)
 
 
-def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix_tag):
+def _convert_text(converter, value):
+    '''OpenCC-convert a non-empty string; leave None/empty unchanged.'''
+    if value is None:
+        return value
+    text = value if isinstance(value, str) else str(value)
+    if not text:
+        return value
+    return converter.convert(text)
+
+
+def convert_calibre_metadata(mi, converter):
+    '''
+    OpenCC-convert Calibre library fields so the new book row matches converted content.
+    Mutates mi in place. Covers title, authors, tags, publisher (and sort fields).
+    Does not touch comments, identifiers, series index, dates, rating, or cover.
+    '''
+    if mi.title:
+        mi.title = _convert_text(converter, mi.title)
+    if getattr(mi, 'title_sort', None):
+        mi.title_sort = _convert_text(converter, mi.title_sort)
+    if mi.authors:
+        mi.authors = [_convert_text(converter, a) for a in mi.authors]
+    if getattr(mi, 'author_sort', None):
+        mi.author_sort = _convert_text(converter, mi.author_sort)
+    if mi.tags:
+        mi.tags = [_convert_text(converter, t) for t in mi.tags]
+    if mi.publisher:
+        mi.publisher = _convert_text(converter, mi.publisher)
+
+
+def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix_tag=None, converter=None):
     '''
     Add a new library entry with converted file; does not modify the source book.
+    When converter is provided, OpenCC-converts title/authors/tags/publisher (and sort fields).
+    Title is not given a time suffix. Comments get a short plugin promo note (with ----
+    separator when prior comments exist). suffix_tag is unused (kept for call-site compat).
     Returns (new_book_id, new_title).
     '''
     mi = db.get_metadata(source_book_id, index_is_id=True)
     new_mi = mi.deepcopy_metadata()
-    base_title = (mi.title or '').strip() or _('Unknown')
-    new_mi.title = '{} {}'.format(base_title, suffix_tag).strip()
-    note = _('Created as a new library book by Chinese Conversion · 简繁转换 (source book id: {}).').format(
-        source_book_id)
-    if new_mi.comments:
-        new_mi.comments = new_mi.comments + '\n\n' + note
-    else:
-        new_mi.comments = note
+    # Drop legacy title suffixes / stacked promo notes copied from a prior conversion.
+    new_mi.title = sanitize_converted_book_title(new_mi.title)
+    if getattr(new_mi, 'title_sort', None):
+        new_mi.title_sort = sanitize_converted_book_title(new_mi.title_sort)
+    new_mi.comments = sanitize_converted_book_comments(new_mi.comments)
+    if converter is not None:
+        convert_calibre_metadata(new_mi, converter)
+    new_mi.title = (new_mi.title or '').strip() or _('Unknown')
+    new_mi.comments = append_library_conversion_comments(
+        new_mi.comments, build_library_conversion_comments_note())
 
     new_id = db.import_book(new_mi, [converted_path], notify=False, apply_import_tags=True)
     try:
