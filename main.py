@@ -81,30 +81,42 @@ _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
 BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
+# Native ruby layout keeps converted text on the paragraph baseline while placing
+# the original below it without turning each changed run into a flex formatting box.
 BILINGUAL_STYLE_CSS = (
-    '.ctc-bi{display:inline-block;vertical-align:top}'
-    '.ctc-bi-rt{display:block;text-align:end;font-size:.75em;'
-    'line-height:1.15;opacity:.75;white-space:nowrap}'
+    '.ctc-bi{ruby-position:under;ruby-align:end}'
+    '.ctc-bi-main{line-height:inherit}'
+    '.ctc-bi-rt{font-size:.75em;line-height:1;color:inherit;opacity:.55;white-space:nowrap}'
 )
 BILINGUAL_STYLE_BLOCK = (
     '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
     + BILINGUAL_STYLE_CSS +
     '</style>'
 )
-BILINGUAL_BI_STYLE_CSS_TEXT = 'display:inline-block;vertical-align:top'
+BILINGUAL_BI_STYLE_CSS_TEXT = (
+    'ruby-position:under;ruby-align:end'
+)
+BILINGUAL_MAIN_STYLE_CSS_TEXT = 'line-height:inherit'
 BILINGUAL_RT_STYLE_CSS_TEXT = (
-    'display:block;text-align:end;font-size:.75em;'
-    'line-height:1.15;opacity:.75;white-space:nowrap'
+    'font-size:.75em;line-height:1;color:inherit;opacity:.55;white-space:nowrap'
 )
 
-# Innermost bilingual unit: <span class="ctc-bi">PRIMARY<span class="ctc-bi-rt">ORIGINAL</span></span>
+# Innermost: <span class="ctc-bi"><span class="ctc-bi-main">CONV</span><span class="ctc-bi-rt">ORIG</span></span>
+# Also accepts legacy form without ctc-bi-main.
 # (?<=["\'\s])ctc-bi(?=["\'\s]) avoids matching the "ctc-bi" prefix inside "ctc-bi-rt".
 _BILINGUAL_UNWRAP_RE = re.compile(
     r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi(?=["\'\s]))[^>]*>'
-    r'([^<]*)'
+    r'(?:<span\b(?=[^>]*\bctc-bi-main\b)[^>]*>)?([^<]*)(?:</span>)?'
     r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi-rt(?=["\'\s]))[^>]*>'
     r'(.*?)'
     r'</span>\s*</span>',
+    re.IGNORECASE | re.DOTALL,
+)
+_BILINGUAL_RUBY_UNWRAP_RE = re.compile(
+    r'<ruby\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=[\"\'\s])ctc-bi(?=[\"\'\s]))[^>]*>'
+    r'<rb\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bctc-bi-main\b)[^>]*>.*?</rb>'
+    r'<rt\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bctc-bi-rt\b)[^>]*>(.*?)</rt>'
+    r'\s*</ruby>',
     re.IGNORECASE | re.DOTALL,
 )
 _BILINGUAL_STYLE_BLOCK_RE = re.compile(
@@ -127,6 +139,7 @@ def strip_bilingual_annotations(html):
     prev = None
     while prev != html:
         prev = html
+        html = _BILINGUAL_RUBY_UNWRAP_RE.sub(r'\1', html)
         html = _BILINGUAL_UNWRAP_RE.sub(r'\2', html)
     return html
 
@@ -206,7 +219,8 @@ def format_bilingual_html(original, converted):
             parts.append(html_escape(orig, quote=False))
             continue
         parts.append(
-            '<span class="ctc-bi">{}<span class="ctc-bi-rt">{}</span></span>'.format(
+            '<ruby class="ctc-bi"><rb class="ctc-bi-main">{}</rb>'
+            '<rt class="ctc-bi-rt">{}</rt></ruby>'.format(
                 html_escape(conv, quote=False),
                 html_escape(orig, quote=False)))
     return ''.join(parts)
@@ -1135,6 +1149,8 @@ def ensure_bilingual_annotation_css(container, changed_files):
         sheet = container.parsed(name)
         sheet_changed = False
         if _ensure_style_rule(sheet, u'.ctc-bi', BILINGUAL_BI_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if _ensure_style_rule(sheet, u'.ctc-bi-main', BILINGUAL_MAIN_STYLE_CSS_TEXT):
             sheet_changed = True
         if _ensure_style_rule(sheet, u'.ctc-bi-rt', BILINGUAL_RT_STYLE_CSS_TEXT):
             sheet_changed = True

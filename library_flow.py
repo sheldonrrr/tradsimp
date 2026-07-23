@@ -399,8 +399,8 @@ def _convert_text(converter, value):
 def convert_calibre_metadata(mi, converter):
     '''
     OpenCC-convert Calibre library fields so the new book row matches converted content.
-    Mutates mi in place. Covers title, authors, tags, publisher (and sort fields).
-    Does not touch comments, identifiers, series index, dates, rating, or cover.
+    Mutates mi in place. Covers title, authors, tags, publisher, comments/简介
+    (and sort fields). Does not touch identifiers, series index, dates, rating, or cover.
     '''
     if mi.title:
         mi.title = _convert_text(converter, mi.title)
@@ -414,14 +414,17 @@ def convert_calibre_metadata(mi, converter):
         mi.tags = [_convert_text(converter, t) for t in mi.tags]
     if mi.publisher:
         mi.publisher = _convert_text(converter, mi.publisher)
+    if getattr(mi, 'comments', None):
+        mi.comments = _convert_text(converter, mi.comments)
 
 
 def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix_tag=None, converter=None):
     '''
     Add a new library entry with converted file; does not modify the source book.
-    When converter is provided, OpenCC-converts title/authors/tags/publisher (and sort fields).
-    Title is not given a time suffix. Comments get a short plugin promo note (with ----
-    separator when prior comments exist). suffix_tag is unused (kept for call-site compat).
+    When converter is provided, OpenCC-converts title/authors/tags/publisher/comments
+    (简介) and sort fields. Title is not given a time suffix. After conversion,
+    Comments get a short plugin promo note (with ---- separator when prior comments
+    exist). suffix_tag is unused (kept for call-site compat).
     Returns (new_book_id, new_title).
     '''
     mi = db.get_metadata(source_book_id, index_is_id=True)

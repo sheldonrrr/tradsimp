@@ -169,12 +169,12 @@ _MESSAGES = {
         '包含 Metadata 信息',
         '包含 Metadata 資訊'),
     'Include metadata help': _T(
-        'Converts Title, Author(s), Tags, and Publisher in the calibre library and in the ebook’s '
-        'OPF (Open Packaging Format) metadata.',
+        'Converts Title, Author(s), Tags, Publisher, and Comments in the calibre library and in the '
+        'ebook’s OPF (Open Packaging Format) metadata.',
         '转换 calibre 书库与电子书 OPF（Open Packaging Format，开放包装格式）中的'
-        '标题、作者、标签、出版商。',
+        '标题、作者、标签、出版商、简介（Comments）。',
         '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
-        '標題、作者、標籤、出版商。'),
+        '標題、作者、標籤、出版商、簡介（Comments）。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',
