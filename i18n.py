@@ -175,6 +175,18 @@ _MESSAGES = {
         '标题、作者、标签、出版商。',
         '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
         '標題、作者、標籤、出版商。'),
+    'Bilingual annotation': _T(
+        'Bilingual annotation (keep original)',
+        '双语批注（保留原文）',
+        '雙語批註（保留原文）'),
+    'Bilingual annotation help': _T(
+        'Keeps the original characters in the ebook body and mounts the converted form as small text '
+        'at the bottom-right of each changed phrase (immersive-translation style). Conversion still '
+        'uses full-sentence OpenCC context to reduce ambiguity. Metadata is not annotated.',
+        '正文保留原文字，仅在变化片段的右下角以小字挂载转换结果（沉浸式翻译风格）；'
+        '仍按整句上下文做 OpenCC 转换以降低歧义。不应用于 Metadata。',
+        '正文保留原文字，僅在變化片段的右下角以小字掛載轉換結果（沉浸式翻譯風格）；'
+        '仍按整句上下文做 OpenCC 轉換以降低歧義。不套用於 Metadata。'),
     'Enable Vision OCR image enhancement': _T(
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',
@@ -551,6 +563,12 @@ _MESSAGES = {
     'Convert phrases to target locale versions (Default: False)': _T(
         'Convert phrases to target locale versions (Default: False)',
         '将短语转换为目标地区版本（默认：False）', '將片語轉換為目標地區版本（預設：False）'),
+    'Keep original text with converted forms as bilingual annotations (Default: False)': _T(
+        'Keep original text with converted forms as bilingual annotations (Default: False)',
+        '保留原文并以双语批注显示转换结果（默认：False）',
+        '保留原文並以雙語批註顯示轉換結果（預設：False）'),
+    'Bilingual annotation: ': _T(
+        'Bilingual annotation: ', '双语批注：', '雙語批註：'),
     'Set to Western or East Asian (Default: no_change)': _T(
         'Set to Western or East Asian (Default: no_change)',
         '设置为西式或东亚引号（默认：no_change）', '設定為西式或東亞引號（預設：no_change）'),

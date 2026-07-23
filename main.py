@@ -3,8 +3,10 @@
 __license__ = 'GPL 3'
 __copyright__ = '2022, Hopkins'
 
+import difflib
 import re, os.path
 from css_parser import  css, stylesheets
+from html import escape as html_escape
 from html.parser import HTMLParser
 from html.entities import name2codepoint
 
@@ -74,8 +76,24 @@ PUNC_DICT = 8              # punctuation swapping dictionary based on settings, 
 PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, may be None
 ENABLE_VISION_OCR = 10     # True/False
 INCLUDE_METADATA = 11      # True/False — convert OPF + Calibre library metadata
+BILINGUAL_ANNOTATION = 12  # True/False — keep original with converted annotation
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
+
+BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
+BILINGUAL_STYLE_CSS = (
+    '.ctc-bi{position:relative;display:inline-block;'
+    'padding-inline-end:.15em;padding-block-end:.55em;'
+    'padding-right:.15em;padding-bottom:.55em}'
+    '.ctc-bi-rt{position:absolute;inset-inline-end:0;inset-block-end:0;'
+    'right:0;bottom:0;font-size:.45em;line-height:1;opacity:.75;'
+    'white-space:nowrap;pointer-events:none}'
+)
+BILINGUAL_STYLE_BLOCK = (
+    '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
+    + BILINGUAL_STYLE_CSS +
+    '</style>'
+)
 
 
 #<!--PI_SELTEXT_START-->
@@ -105,6 +123,61 @@ def get_resource_file(file_type, file_name):
 # regular expression to remove ruby text
 # newstring = oldstring.replace(/<rb>([^<]*)<\/rb>|<rp>[^<]*<\/rp>|<rt>[^<]*<\/rt>|<\/?ruby>/g, "$1");
 
+
+def align_conversion_segments(original, converted):
+    """
+    Align original and converted strings into (orig, conv) segments.
+    Unchanged spans keep equal text; changed spans keep full-context conversion results.
+    """
+    if original == converted:
+        return [(original, converted)]
+
+    matcher = difflib.SequenceMatcher(None, original, converted, autojunk=False)
+    segments = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'equal':
+            segments.append((original[i1:i2], converted[j1:j2]))
+        elif tag == 'replace':
+            segments.append((original[i1:i2], converted[j1:j2]))
+        elif tag == 'delete':
+            segments.append((original[i1:i2], ''))
+        elif tag == 'insert':
+            inserted = converted[j1:j2]
+            if segments:
+                prev_orig, prev_conv = segments[-1]
+                segments[-1] = (prev_orig, prev_conv + inserted)
+            else:
+                segments.append(('', inserted))
+    return segments
+
+
+def format_bilingual_html(original, converted):
+    """Build immersive-style bilingual HTML from original + converted text."""
+    if original == converted:
+        return original
+
+    parts = []
+    for orig, conv in align_conversion_segments(original, converted):
+        if not orig and not conv:
+            continue
+        if orig == conv:
+            parts.append(html_escape(orig, quote=False))
+            continue
+        if not orig:
+            parts.append(
+                '<span class="ctc-bi"><span class="ctc-bi-rt">{}</span></span>'.format(
+                    html_escape(conv, quote=False)))
+            continue
+        if not conv:
+            parts.append(html_escape(orig, quote=False))
+            continue
+        parts.append(
+            '<span class="ctc-bi">{}<span class="ctc-bi-rt">{}</span></span>'.format(
+                html_escape(orig, quote=False),
+                html_escape(conv, quote=False)))
+    return ''.join(parts)
+
+
 class HTML_TextProcessor(HTMLParser):
     """
     This class takes in HTML files as a string.
@@ -118,6 +191,7 @@ class HTML_TextProcessor(HTMLParser):
           self.criteria = None
           self.converting = True
           self.language = None
+          self._bilingual_style_injected = False
 
           # Create regular expressions to modify quote styles
           self.trad_to_simp_quotes = {'「':'“', '」':'”', '『':'‘', '』':'’'}
@@ -169,6 +243,7 @@ class HTML_TextProcessor(HTMLParser):
         self.criteria = criteria
         self.result.clear()
         self.reset()
+        self._bilingual_style_injected = False
         if self.criteria[INPUT_SOURCE] == 2:
             # turn off converting until a start comment seen
             self.converting = False
@@ -181,6 +256,28 @@ class HTML_TextProcessor(HTMLParser):
         # return result
         return "".join(self.result)
 
+    def _bilingual_enabled(self):
+        return bool(
+            self.criteria is not None
+            and self.criteria[CONVERSION_TYPE] != 0
+            and self.criteria[BILINGUAL_ANNOTATION])
+
+    def _ensure_body_chinese_text_class(self, tag_text):
+        if "calibre-chinese_text" in tag_text:
+            return tag_text
+        if "class=" in tag_text:
+            return re.sub(
+                r"class=(['\"])(.+)\1",
+                r"class=\1\2 calibre-chinese_text\1",
+                tag_text)
+        return re.sub(r"<body", r'<body class="calibre-chinese_text"', tag_text)
+
+    def _maybe_inject_bilingual_style(self):
+        if self._bilingual_style_injected or not self._bilingual_enabled():
+            return
+        self.result.append(BILINGUAL_STYLE_BLOCK)
+        self._bilingual_style_injected = True
+
     def handle_starttag(self, tag, attrs):
         ##print("Literal start tag:", self.get_starttag_text())
         ##print("Start tag:", tag)
@@ -189,15 +286,13 @@ class HTML_TextProcessor(HTMLParser):
 
         tag_text = self.get_starttag_text()
 
-        # if direction is being changed, verify "calibre-chinese_text" is a class name listed in the body tag
-        if (tag == "body") and (self.criteria[OUTPUT_ORIENTATION] != 0):
-            # check if it contains "calibre-chinese_text"
-               if "calibre-chinese_text" not in tag_text:
-                   # if class="" exists, append to items in quotes
-                   if "class=" in tag_text:
-                       tag_text = re.sub(r"class=(['\"])(.+)\1", r"class=\1\2 calibre-chinese_text\1", tag_text)
-                   else:
-                       tag_text = re.sub(r"<body", r'<body class="calibre-chinese_text"', tag_text)
+        # Direction change or bilingual annotation needs body.calibre-chinese_text
+        if (tag == "body") and (
+                self.criteria[OUTPUT_ORIENTATION] != 0 or self._bilingual_enabled()):
+            tag_text = self._ensure_body_chinese_text_class(tag_text)
+            if self._bilingual_enabled() and not self._bilingual_style_injected:
+                # No </head> seen (unusual markup) — inject style before body.
+                self._maybe_inject_bilingual_style()
 
         # if Chinese script is being changed, change language code inside of tags
         if self.converting and (self.criteria[CONVERSION_TYPE] != 0) and (self.language != None) and (self.zh_non_re.search(tag_text) == None):
@@ -206,6 +301,8 @@ class HTML_TextProcessor(HTMLParser):
             self.result.append(tag_text)
 
     def handle_endtag(self, tag):
+        if tag == "head":
+            self._maybe_inject_bilingual_style()
         self.result.append("</" + tag + ">")
 
 ##        print("End tag  :", tag)
@@ -249,7 +346,11 @@ class HTML_TextProcessor(HTMLParser):
 ##            print('handle_data CONVERSION_TYPE criteria = ', self.criteria[CONVERSION_TYPE])
             if self.criteria[CONVERSION_TYPE] != 0 and self.converting:
 ##                print('handle_data calling self.textConverter.convert(text)')
-                self.result.append(self.textConverter.convert(text))
+                converted = self.textConverter.convert(text)
+                if self._bilingual_enabled():
+                    self.result.append(format_bilingual_html(text, converted))
+                else:
+                    self.result.append(converted)
             else:
 ##                print('handle_data NOT calling self.textConverter.convert(text)')
                 self.result.append(text)
@@ -458,6 +559,9 @@ class TradSimpChinese(Tool):
                 self.filesChanged = True
                 self.changed_files.append(name)
                 container.open(name, 'w').write(htmlstr)
+            if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
+                if ensure_bilingual_annotation_css(container, self.changed_files):
+                    self.filesChanged = True
 
         elif criteria[INPUT_SOURCE] == 0:
             # Cover the entire book
@@ -478,6 +582,9 @@ class TradSimpChinese(Tool):
                 cancelled_msg = ' (cancelled)'
             self.filesChanged = self.filesChanged or (not d.clean) or direction_changed
             self.changed_files.extend(d.changed_files)
+            if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
+                if ensure_bilingual_annotation_css(container, self.changed_files):
+                    self.filesChanged = True
             ocr_changed_files, _ocr_samples, _ocr_stats = maybe_enrich_images_with_vision_ocr(
                 container, criteria, self.converter)
             if ocr_changed_files:
@@ -510,6 +617,7 @@ def prepare_prefs(prefs):
         prefs['punc_omits'] = PUNC_OMITS
         prefs['enable_vision_ocr_enhancement'] = False
         prefs['include_metadata'] = True
+        prefs['bilingual_annotation'] = False
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -531,6 +639,7 @@ def prepare_prefs(prefs):
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['enable_vision_ocr_enhancement'] = False
     prefs.defaults['include_metadata'] = True
+    prefs.defaults['bilingual_annotation'] = False
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -576,7 +685,8 @@ def build_criteria(prefs):
         prefs['output_locale'], prefs['use_target_phrases'], prefs['quotation_type'],
         prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
         prefs.get('enable_vision_ocr_enhancement', False),
-        prefs.get('include_metadata', True))
+        prefs.get('include_metadata', True),
+        prefs.get('bilingual_annotation', False))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -941,6 +1051,59 @@ def set_flow_direction(container, criteria, changed_files, converter):
                 container.dirty(name)
     return fileChanged
 
+
+def _stylesheet_has_bilingual_rule(sheet):
+    for rule in sheet:
+        if rule.type != rule.STYLE_RULE:
+            continue
+        for selector in rule.selectorList:
+            if selector.selectorText in (u'.ctc-bi', u'.ctc-bi-rt'):
+                return True
+    return False
+
+
+def ensure_bilingual_annotation_css(container, changed_files):
+    """
+    Append immersive bilingual annotation CSS to existing stylesheets.
+    Returns True if any stylesheet was modified.
+    """
+    file_changed = False
+    for name, mt in container.mime_map.items():
+        if mt not in OEB_STYLES:
+            continue
+        sheet = container.parsed(name)
+        if _stylesheet_has_bilingual_rule(sheet):
+            continue
+
+        bi_style = css.CSSStyleDeclaration()
+        bi_style['position'] = 'relative'
+        bi_style['display'] = 'inline-block'
+        bi_style['padding-inline-end'] = '.15em'
+        bi_style['padding-block-end'] = '.55em'
+        bi_style['padding-right'] = '.15em'
+        bi_style['padding-bottom'] = '.55em'
+        sheet.add(css.CSSStyleRule(selectorText=u'.ctc-bi', style=bi_style))
+
+        rt_style = css.CSSStyleDeclaration()
+        rt_style['position'] = 'absolute'
+        rt_style['inset-inline-end'] = '0'
+        rt_style['inset-block-end'] = '0'
+        rt_style['right'] = '0'
+        rt_style['bottom'] = '0'
+        rt_style['font-size'] = '.45em'
+        rt_style['line-height'] = '1'
+        rt_style['opacity'] = '.75'
+        rt_style['white-space'] = 'nowrap'
+        rt_style['pointer-events'] = 'none'
+        sheet.add(css.CSSStyleRule(selectorText=u'.ctc-bi-rt', style=rt_style))
+
+        file_changed = True
+        if name not in changed_files:
+            changed_files.append(name)
+        container.dirty(name)
+    return file_changed
+
+
 def get_configuration(criteria):
     """
     :param criteria: the description of the desired conversion
@@ -1066,6 +1229,7 @@ def cli_get_criteria(args):
     #   quote_type:         0 = No change, 1 = Western, 2 = East Asian
     #   text_direction:     0 = No change, 1 = Horizontal, 2 = Vertical
     #   update_punctuation  True - Modify punctuation to match text_direction
+    #   bilingual_annotation True - Keep original with converted forms as corner annotations
 
     # Set up default values
     input_source = 0            # Whole book
@@ -1144,7 +1308,8 @@ def cli_get_criteria(args):
         text_direction, update_punctuation, punc_dict, punc_regex,
         bool(prefs.get('enable_vision_ocr_enhancement', False))
         and is_vision_ocr_supported(),
-        bool(prefs.get('include_metadata', True)))
+        bool(prefs.get('include_metadata', True)),
+        bool(getattr(args, 'bilingual_opt', False)))
 
     return criteria
 
@@ -1182,6 +1347,9 @@ def cli_process_files(criteria, container, converter, parser, progress_callback=
             changed_files.append(name)
             clean = False
 
+    if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
+        ensure_bilingual_annotation_css(container, changed_files)
+
     ocr_changed_files, ocr_samples, ocr_stats = maybe_enrich_images_with_vision_ocr(
         container, criteria, converter, progress_callback=progress_callback)
     _LAST_OCR_PREVIEW_SAMPLES = list(ocr_samples)
@@ -1210,6 +1378,7 @@ def print_conversion_info(args, file_set, version, configuration_filename):
         print(_('Input locale: ') + args.orig_opt.upper())
         print(_('Output locale: ') + args.dest_opt.upper())
         print(_('Use destination phrases: ') + str(args.phrase_opt))
+        print(_('Bilingual annotation: ') + str(args.bilingual_opt))
 
     print(_('Quotation Mark Style: '), end="")
     if args.quote_type_opt == 'no_change':
@@ -1270,6 +1439,9 @@ def main(argv, plugin_version, usage=None):
     parser.add_argument('-d', '--direction', dest='direction_opt', default='none',
                         help=_('Set to the ebook conversion direction (Default: none)'), choices=list_of_directions)
     parser.add_argument('-p', '--phrase_convert', dest='phrase_opt', help=_('Convert phrases to target locale versions (Default: False)'),
+                        action='store_true')
+    parser.add_argument('-ba', '--bilingual-annotation', dest='bilingual_opt',
+                        help=_('Keep original text with converted forms as bilingual annotations (Default: False)'),
                         action='store_true')
 
     parser.add_argument('-qt', '--quotation-type', dest='quote_type_opt', default='no_change',
