@@ -43,22 +43,43 @@ PLUGIN_FILES = [
     'LICENSE',
 ]
 
-# Never pack these (macOS metadata, caches, dev trees).
+# Never pack these (OS junk / caches / dev trees). Plugin targets win+mac+linux;
+# primary pack host is macOS, so Apple metadata must stay out of the zip.
 SKIP_DIR_NAMES = frozenset({
     '__pycache__', '__MACOSX', '.git', '.cursor', '.idea', '.vscode',
-    'dist', 'scripts', 'bin', '.pytest_cache', 'venv', '.venv', 'env',
+    '.windsurf', '.claude', '.codex', '.agent', '.history', '.obsidian',
+    'dist', 'scripts', 'bin', 'testdata', 'tmp_test_assets',
+    '.pytest_cache', '.mypy_cache', 'venv', '.venv', 'env', 'node_modules',
     'agent-transcripts', 'terminals',
+    # macOS Finder / Spotlight / Trash volume metadata
+    '.Spotlight-V100', '.Trashes', '.fseventsd', '.TemporaryItems',
+    '.DocumentRevisions-V100', '.AppleDouble',
+    # Windows recycle bin folder name
+    '$RECYCLE.BIN',
 })
 SKIP_FILE_NAMES = frozenset({
-    '.DS_Store', 'Thumbs.db', '.gitignore', '.gitattributes',
-    'setup.py',
+    # macOS
+    '.DS_Store', '.AppleDouble', '.LSOverride',
+    # Windows
+    'Thumbs.db', 'ehthumbs.db', 'Desktop.ini',
+    # VCS / packaging
+    '.gitignore', '.gitattributes', 'setup.py',
 })
-SKIP_FILE_SUFFIXES = ('.pyc', '.pyo', '.pyd', '.po', '.pot', '.po~')
+SKIP_FILE_SUFFIXES = (
+    '.pyc', '.pyo', '.pyd', '.po', '.pot', '.po~',
+    '.swp', '.swo',  # vim
+)
 # Root-only dev docs (not used when walking resources/; listed for clarity).
 SKIP_ROOT_DOC_BASENAMES = frozenset({
     'README.md', 'README.zh-CN.md', 'README.zh-TW.md',
 })
-SKIP_BASENAME_PREFIXES = ('mobileread', '._')
+SKIP_BASENAME_PREFIXES = (
+    'mobileread',
+    '._',      # AppleDouble resource forks (common on macOS SMB/USB copies)
+)
+SKIP_BASENAME_SUFFIXES = (
+    '~',       # editor backups (file~, README.md~)
+)
 PACKAGE_VERSION_FILE = 'package-version.txt'
 
 
@@ -105,7 +126,7 @@ def package_version_payload(version=None):
 
 
 def should_skip_archive_name(name):
-    '''Filter macOS junk, caches, and dev-only paths from the plugin zip.'''
+    '''Filter OS junk, caches, and dev-only paths from the plugin zip.'''
     if not name:
         return False
     base = os.path.basename(name)
@@ -117,6 +138,9 @@ def should_skip_archive_name(name):
             return True
     if base.endswith(SKIP_FILE_SUFFIXES):
         return True
+    for suffix in SKIP_BASENAME_SUFFIXES:
+        if base.endswith(suffix):
+            return True
     parts = name.replace('\\', '/').split('/')
     for part in parts:
         if not part or part in ('.', '..'):
@@ -125,7 +149,7 @@ def should_skip_archive_name(name):
             return True
         if part.startswith('._'):
             return True
-        if part == '.DS_Store':
+        if part in ('.DS_Store', 'Thumbs.db', 'Desktop.ini'):
             return True
         if part == '.cursor' or part.startswith('.cursor'):
             return True

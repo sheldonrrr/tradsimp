@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese in your Calibre library on your own m
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.3.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.6.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -68,10 +68,10 @@ python3 scripts/build_plugin_zip.py
 # or: python3 setup.py -b
 ```
 
-This reads the version from `__init__.py` and writes `dist/chinese_text_conversion-{version}.zip` (for example `dist/chinese_text_conversion-3.3.0.zip`). The zip includes `package-version.txt` and excludes dev files (`.cursor`, `__pycache__`, `mobileread-*.md`, README copies, etc.). Install it with:
+This reads the version from `__init__.py` and writes `dist/chinese_text_conversion-{version}.zip` (for example `dist/chinese_text_conversion-3.6.0.zip`). The zip includes `package-version.txt` and excludes dev files (`.cursor`, `__pycache__`, `mobileread-*.md`, README copies, etc.). Install it with:
 
 ```bash
-calibre-customize -a "dist/chinese_text_conversion-3.3.0.zip"
+calibre-customize -a "dist/chinese_text_conversion-3.6.0.zip"
 ```
 
 Other useful commands:

@@ -76,24 +76,59 @@ PUNC_DICT = 8              # punctuation swapping dictionary based on settings, 
 PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, may be None
 ENABLE_VISION_OCR = 10     # True/False
 INCLUDE_METADATA = 11      # True/False — convert OPF + Calibre library metadata
-BILINGUAL_ANNOTATION = 12  # True/False — keep original with converted annotation
+BILINGUAL_ANNOTATION = 12  # True/False — converted primary + original on smaller line below
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
 BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
 BILINGUAL_STYLE_CSS = (
-    '.ctc-bi{position:relative;display:inline-block;'
-    'padding-inline-end:.15em;padding-block-end:.55em;'
-    'padding-right:.15em;padding-bottom:.55em}'
-    '.ctc-bi-rt{position:absolute;inset-inline-end:0;inset-block-end:0;'
-    'right:0;bottom:0;font-size:.45em;line-height:1;opacity:.75;'
-    'white-space:nowrap;pointer-events:none}'
+    '.ctc-bi{display:inline-block;vertical-align:top}'
+    '.ctc-bi-rt{display:block;text-align:end;font-size:.75em;'
+    'line-height:1.15;opacity:.75;white-space:nowrap}'
 )
 BILINGUAL_STYLE_BLOCK = (
     '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
     + BILINGUAL_STYLE_CSS +
     '</style>'
 )
+BILINGUAL_BI_STYLE_CSS_TEXT = 'display:inline-block;vertical-align:top'
+BILINGUAL_RT_STYLE_CSS_TEXT = (
+    'display:block;text-align:end;font-size:.75em;'
+    'line-height:1.15;opacity:.75;white-space:nowrap'
+)
+
+# Innermost bilingual unit: <span class="ctc-bi">PRIMARY<span class="ctc-bi-rt">ORIGINAL</span></span>
+# (?<=["\'\s])ctc-bi(?=["\'\s]) avoids matching the "ctc-bi" prefix inside "ctc-bi-rt".
+_BILINGUAL_UNWRAP_RE = re.compile(
+    r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi(?=["\'\s]))[^>]*>'
+    r'([^<]*)'
+    r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi-rt(?=["\'\s]))[^>]*>'
+    r'(.*?)'
+    r'</span>\s*</span>',
+    re.IGNORECASE | re.DOTALL,
+)
+_BILINGUAL_STYLE_BLOCK_RE = re.compile(
+    r'<style\b[^>]*\bid\s*=\s*["\']'
+    + re.escape(BILINGUAL_STYLE_MARKER)
+    + r'["\'][^>]*>.*?</style>\s*',
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def strip_bilingual_annotations(html):
+    """
+    Unwrap existing bilingual shells back to original text (ctc-bi-rt content)
+    and drop previously injected bilingual <style> blocks.
+    Applies innermost-first until stable so nested re-conversions rebuild cleanly.
+    """
+    if not html or ('ctc-bi' not in html and BILINGUAL_STYLE_MARKER not in html):
+        return html
+    html = _BILINGUAL_STYLE_BLOCK_RE.sub('', html)
+    prev = None
+    while prev != html:
+        prev = html
+        html = _BILINGUAL_UNWRAP_RE.sub(r'\2', html)
+    return html
 
 
 #<!--PI_SELTEXT_START-->
@@ -152,7 +187,7 @@ def align_conversion_segments(original, converted):
 
 
 def format_bilingual_html(original, converted):
-    """Build immersive-style bilingual HTML from original + converted text."""
+    """Build bilingual HTML: converted as primary line, original as smaller line below."""
     if original == converted:
         return original
 
@@ -164,17 +199,16 @@ def format_bilingual_html(original, converted):
             parts.append(html_escape(orig, quote=False))
             continue
         if not orig:
-            parts.append(
-                '<span class="ctc-bi"><span class="ctc-bi-rt">{}</span></span>'.format(
-                    html_escape(conv, quote=False)))
+            # Insert-only: show converted text without a bilingual shell.
+            parts.append(html_escape(conv, quote=False))
             continue
         if not conv:
             parts.append(html_escape(orig, quote=False))
             continue
         parts.append(
             '<span class="ctc-bi">{}<span class="ctc-bi-rt">{}</span></span>'.format(
-                html_escape(orig, quote=False),
-                html_escape(conv, quote=False)))
+                html_escape(conv, quote=False),
+                html_escape(orig, quote=False)))
     return ''.join(parts)
 
 
@@ -244,6 +278,9 @@ class HTML_TextProcessor(HTMLParser):
         self.result.clear()
         self.reset()
         self._bilingual_style_injected = False
+        # Re-conversion safety: clear prior bilingual markup/style from already-converted books.
+        if 'ctc-bi' in data or BILINGUAL_STYLE_MARKER in data:
+            data = strip_bilingual_annotations(data)
         if self.criteria[INPUT_SOURCE] == 2:
             # turn off converting until a start comment seen
             self.converting = False
@@ -558,6 +595,7 @@ class TradSimpChinese(Tool):
             if htmlstr != data:
                 self.filesChanged = True
                 self.changed_files.append(name)
+                container.dirty(name)
                 container.open(name, 'w').write(htmlstr)
             if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
                 if ensure_bilingual_annotation_css(container, self.changed_files):
@@ -1052,19 +1090,42 @@ def set_flow_direction(container, criteria, changed_files, converter):
     return fileChanged
 
 
-def _stylesheet_has_bilingual_rule(sheet):
+def _find_stylesheet_rule(sheet, selector_text):
     for rule in sheet:
         if rule.type != rule.STYLE_RULE:
             continue
         for selector in rule.selectorList:
-            if selector.selectorText in (u'.ctc-bi', u'.ctc-bi-rt'):
-                return True
-    return False
+            if selector.selectorText == selector_text:
+                return rule
+    return None
+
+
+def _normalize_css_text(css_text):
+    return ''.join(str(css_text or '').split())
+
+
+def _ensure_style_rule(sheet, selector_text, css_text):
+    """
+    Ensure a style rule exists with the given declarations.
+    Rewrites in place when present; appends when missing.
+    Returns True if the stylesheet was modified.
+    """
+    rule = _find_stylesheet_rule(sheet, selector_text)
+    if rule is None:
+        style = css.CSSStyleDeclaration()
+        style.cssText = css_text
+        sheet.add(css.CSSStyleRule(selectorText=selector_text, style=style))
+        return True
+    if _normalize_css_text(rule.style.cssText) == _normalize_css_text(css_text):
+        return False
+    rule.style.cssText = css_text
+    return True
 
 
 def ensure_bilingual_annotation_css(container, changed_files):
     """
-    Append immersive bilingual annotation CSS to existing stylesheets.
+    Ensure bilingual annotation CSS is present and up to date in stylesheets.
+    Rewrites existing .ctc-bi / .ctc-bi-rt rules when layout CSS changes.
     Returns True if any stylesheet was modified.
     """
     file_changed = False
@@ -1072,30 +1133,13 @@ def ensure_bilingual_annotation_css(container, changed_files):
         if mt not in OEB_STYLES:
             continue
         sheet = container.parsed(name)
-        if _stylesheet_has_bilingual_rule(sheet):
+        sheet_changed = False
+        if _ensure_style_rule(sheet, u'.ctc-bi', BILINGUAL_BI_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if _ensure_style_rule(sheet, u'.ctc-bi-rt', BILINGUAL_RT_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if not sheet_changed:
             continue
-
-        bi_style = css.CSSStyleDeclaration()
-        bi_style['position'] = 'relative'
-        bi_style['display'] = 'inline-block'
-        bi_style['padding-inline-end'] = '.15em'
-        bi_style['padding-block-end'] = '.55em'
-        bi_style['padding-right'] = '.15em'
-        bi_style['padding-bottom'] = '.55em'
-        sheet.add(css.CSSStyleRule(selectorText=u'.ctc-bi', style=bi_style))
-
-        rt_style = css.CSSStyleDeclaration()
-        rt_style['position'] = 'absolute'
-        rt_style['inset-inline-end'] = '0'
-        rt_style['inset-block-end'] = '0'
-        rt_style['right'] = '0'
-        rt_style['bottom'] = '0'
-        rt_style['font-size'] = '.45em'
-        rt_style['line-height'] = '1'
-        rt_style['opacity'] = '.75'
-        rt_style['white-space'] = 'nowrap'
-        rt_style['pointer-events'] = 'none'
-        sheet.add(css.CSSStyleRule(selectorText=u'.ctc-bi-rt', style=rt_style))
 
         file_changed = True
         if name not in changed_files:
@@ -1229,7 +1273,7 @@ def cli_get_criteria(args):
     #   quote_type:         0 = No change, 1 = Western, 2 = East Asian
     #   text_direction:     0 = No change, 1 = Horizontal, 2 = Vertical
     #   update_punctuation  True - Modify punctuation to match text_direction
-    #   bilingual_annotation True - Keep original with converted forms as corner annotations
+    #   bilingual_annotation True - Converted primary line + original on smaller line below
 
     # Set up default values
     input_source = 0            # Whole book

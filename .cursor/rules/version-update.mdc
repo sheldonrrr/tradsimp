@@ -1,0 +1,45 @@
+---
+description: Bump Chinese Conversion plugin version (simple semver in __init__.py)
+alwaysApply: true
+---
+
+# Version Update (→ X.Y.Z)
+
+## Code (must match)
+
+1. `__init__.py` → `PLUGIN_VERSION_TUPLE = (X, Y, Z)`
+2. `__init__.py` → `PLUGIN_VERSION = 'X.Y.Z'`
+3. `__init__.py` → `PLUGIN_RELEASED` / `PLUGIN_ABOUT_LAST_UPDATED` (release date)
+4. README lines → `Current version` / `当前版本` / `目前版本` = `X.Y.Z`
+5. `i18n.py` → `Plugin catalog released` dates when the release day changes
+
+`setup.py` reads the version from `__init__.py` — do not hardcode a second version there.
+
+Verify:
+
+```bash
+grep -n "PLUGIN_VERSION\|PLUGIN_VERSION_TUPLE\|Current version\|当前版本\|目前版本" __init__.py README.md README.zh-CN.md README.zh-TW.md
+```
+
+## Build / ship
+
+```bash
+bash scripts/package.sh
+# → dist/chinese_text_conversion-X.Y.Z.zip
+```
+
+Confirm About / Preferences shows `X.Y.Z`.
+
+## Semver
+
+MAJOR = breaking · MINOR = features · PATCH = fixes
+
+## Slash command
+
+Invoke with `/upgrade-version` (optional `X.Y.Z` argument). See `.cursor/commands/upgrade-version.md`.
+Related: `/pack` packages; `/push` commits and pushes.
+
+## Never
+
+- Ship a zip whose embedded `package-version.txt` disagrees with `__init__.py`
+- Leave README version banners stale

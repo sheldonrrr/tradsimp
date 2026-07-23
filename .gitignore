@@ -24,8 +24,12 @@ Thumbs.db
 *.swp
 *~
 
-# Cursor / local debug
-.cursor/
+# Cursor / local debug (keep shared slash commands + rules)
+.cursor/*
+!.cursor/commands/
+!.cursor/commands/**
+!.cursor/rules/
+!.cursor/rules/**
 scripts/caldbg.local.fish
 
 # Test / coverage
