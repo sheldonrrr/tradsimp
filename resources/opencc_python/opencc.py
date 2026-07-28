@@ -19,14 +19,20 @@
 #   in order of the listed dictionaries
 # - Cache the results of reading a dictionary in self.dict_cache
 ##########################################################
+##########################################################
+# Revised for Chinese Conversion plugin:
+# - Honor OpenCC config "segmentation" (mmseg forward max-match)
+# - Optional Jieba segmentation mode for phrase-level accuracy
+##########################################################
 
-import io
-import os
 import json
 import re
 
 CONFIG_FILE = 'config'
 DICT_FILE = 'dictionary'
+
+SEGMENTATION_MMSEG = 'mmseg'
+SEGMENTATION_JIEBA = 'jieba'
 
 CHAINED_CONVERSIONS = {
     'hk2tw': ('hk2t', 't2tw'),
@@ -59,6 +65,14 @@ class OpenCC:
         self._dict_chain = list()
         self._dict_chain_data = list()
         self._normalization_chain_data = list()
+        self._segmentation_chain = list()
+        self._seg_max_len = 1
+        self._seg_keys = set()
+        self._has_segmentation = False
+        self._segmentation_mode = SEGMENTATION_MMSEG
+        self._jieba_samples = []
+        self._jieba_sample_keys = set()
+        self._jieba_sample_limit = 8
         self.dict_cache = dict()
         self._chain_converters = {}
         self.resource_getter = resource_getter
@@ -98,20 +112,129 @@ class OpenCC:
         split_string_list = self.split_chars_re.split(string)
         for i in range(0, len(split_string_list)):
             if i % 2 == 0:
-                # Work with the text string
-                # Append converted string to result
-                result.append(self._convert(split_string_list[i], self._dict_chain_data))
+                result.append(self._convert_text_unit(split_string_list[i]))
             else:
-                # Work with the separator
-                # Append separator string to converted_string
                 result.append(split_string_list[i])
-        # Join it all together to return a result
         return "".join(result)
+
+    def _convert_text_unit(self, text):
+        """Segment (optional) then apply the conversion chain to each piece."""
+        if not text:
+            return text
+        if self._should_segment():
+            segments = self._segment(text)
+            converted_parts = [
+                self._convert(segment, self._dict_chain_data) for segment in segments
+            ]
+            if self._segmentation_mode == SEGMENTATION_JIEBA:
+                self._maybe_record_jieba_sample(text, segments, converted_parts)
+            return "".join(converted_parts)
+        return self._convert(text, self._dict_chain_data)
+
+    def _maybe_record_jieba_sample(self, text, segments, converted_parts):
+        """Keep a few multi-token cuts so logs can show how Jieba split the text."""
+        if len(self._jieba_samples) >= self._jieba_sample_limit:
+            return
+        if not text or not segments or len(segments) < 2:
+            return
+        # Prefer short phrase-like spans; skip huge paragraphs.
+        if len(text) < 4 or len(text) > 40:
+            return
+        if not any(len(seg) >= 2 for seg in segments):
+            return
+        key = text
+        if key in self._jieba_sample_keys:
+            return
+        self._jieba_sample_keys.add(key)
+        self._jieba_samples.append({
+            'text': text,
+            'segments': list(segments),
+            'converted_segments': list(converted_parts),
+        })
+
+    def _should_segment(self):
+        if self._segmentation_mode == SEGMENTATION_JIEBA:
+            return True
+        return self._has_segmentation
+
+    def _segment(self, text):
+        if self._segmentation_mode == SEGMENTATION_JIEBA:
+            jieba_mod = self._get_jieba()
+            if jieba_mod is not None:
+                return list(jieba_mod.lcut(text, cut_all=False))
+        if self._has_segmentation:
+            return self._mmseg(text)
+        return [text]
+
+    def _mmseg(self, text):
+        """Forward maximum matching using the config segmentation dictionaries."""
+        if not text:
+            return []
+        if not self._seg_keys:
+            return [text]
+        segments = []
+        i = 0
+        n = len(text)
+        while i < n:
+            matched_len = None
+            max_try = min(self._seg_max_len, n - i)
+            for length in range(max_try, 0, -1):
+                if text[i:i + length] in self._seg_keys:
+                    matched_len = length
+                    break
+            if matched_len is None:
+                matched_len = 1
+            segments.append(text[i:i + matched_len])
+            i += matched_len
+        return segments
+
+    def _get_jieba(self):
+        try:
+            from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+                get_jieba,
+            )
+        except Exception:
+            try:
+                import os
+                import sys
+                resources_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                if resources_dir not in sys.path:
+                    sys.path.insert(0, resources_dir)
+                from jieba_loader import get_jieba
+            except Exception as exc:
+                print('Jieba segmentation unavailable (%s); falling back to mmseg.' % exc)
+                return None
+        try:
+            return get_jieba()
+        except Exception as exc:
+            print('Jieba segmentation failed to initialize (%s); falling back to mmseg.' % exc)
+            return None
 
     def clear_replacement_counts(self):
         self.replacement_counts.clear()
+        self.clear_jieba_samples()
         for child in self._chain_converters.values():
             child.clear_replacement_counts()
+
+    def clear_jieba_samples(self):
+        self._jieba_samples = []
+        self._jieba_sample_keys = set()
+        for child in self._chain_converters.values():
+            child.clear_jieba_samples()
+
+    def get_jieba_samples(self):
+        samples = list(self._jieba_samples)
+        seen = set(self._jieba_sample_keys)
+        chain = CHAINED_CONVERSIONS.get(self.conversion)
+        if chain is not None:
+            for mode in chain:
+                for sample in self._get_chain_converter(mode).get_jieba_samples():
+                    key = sample.get('text')
+                    if not key or key in seen or len(samples) >= self._jieba_sample_limit:
+                        continue
+                    seen.add(key)
+                    samples.append(sample)
+        return samples
 
     def get_replacement_counts(self):
         merged = dict(self.replacement_counts)
@@ -121,6 +244,21 @@ class OpenCC:
                 for key, count in self._get_chain_converter(mode).get_replacement_counts().items():
                     merged[key] = merged.get(key, 0) + count
         return merged
+
+    def get_segmentation_mode(self):
+        return self._segmentation_mode
+
+    def set_segmentation_mode(self, mode):
+        """
+        Set segmentation backend: 'mmseg' (default, OpenCC config) or 'jieba'.
+        """
+        if mode not in (SEGMENTATION_MMSEG, SEGMENTATION_JIEBA):
+            raise ValueError('unsupported segmentation mode: %s' % mode)
+        if self._segmentation_mode == mode:
+            return
+        self._segmentation_mode = mode
+        for child in self._chain_converters.values():
+            child.set_segmentation_mode(mode)
 
     def _convert(self, string, dictionary = [], is_dict_group = False, match_policy = 'short_circuit', counts = None):
         """
@@ -163,7 +301,9 @@ class OpenCC:
 
     def _get_chain_converter(self, mode):
         if mode not in self._chain_converters:
-            self._chain_converters[mode] = OpenCC(self.resource_getter, mode)
+            child = OpenCC(self.resource_getter, mode)
+            child.set_segmentation_mode(self._segmentation_mode)
+            self._chain_converters[mode] = child
         return self._chain_converters[mode]
 
     def _init_dict(self):
@@ -178,13 +318,15 @@ class OpenCC:
             self.conversion_name = CHAINED_CONVERSION_NAMES[self.conversion]
             self._dict_chain_data = []
             self._normalization_chain_data = []
+            self._segmentation_chain = []
+            self._seg_keys = set()
+            self._seg_max_len = 1
+            self._has_segmentation = False
             self._dict_init_done = True
             return
 
         self._dict_chain = []
-##        print(self.conversion)
         config = self.conversion + '.json'
-##        print(config)
         bytes = self.resource_getter(CONFIG_FILE, config)
         if bytes is not None:
             setting_json = json.loads(bytes.decode("utf-8"))
@@ -197,6 +339,11 @@ class OpenCC:
         for step in setting_json.get('normalization', []):
             self._add_dict_chain(self._normalization_chain, step.get('dict'))
 
+        self._segmentation_chain = []
+        segmentation = setting_json.get('segmentation')
+        if segmentation and segmentation.get('dict'):
+            self._add_dict_chain(self._segmentation_chain, segmentation.get('dict'))
+
         for chain in setting_json.get('conversion_chain'):
             self._add_dict_chain(self._dict_chain, chain.get('dict'))
 
@@ -204,7 +351,26 @@ class OpenCC:
         self._add_dictionaries(self._normalization_chain, self._normalization_chain_data)
         self._dict_chain_data = []
         self._add_dictionaries(self._dict_chain, self._dict_chain_data)
+
+        seg_dict_data = []
+        self._add_dictionaries(self._segmentation_chain, seg_dict_data)
+        self._seg_keys, self._seg_max_len = self._collect_segmentation_keys(seg_dict_data)
+        self._has_segmentation = bool(self._seg_keys)
         self._dict_init_done = True
+
+    def _collect_segmentation_keys(self, chain_data):
+        keys = set()
+        max_len = 1
+        for item in chain_data:
+            if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
+                child_keys, child_max = self._collect_segmentation_keys(item[2])
+                keys.update(child_keys)
+                max_len = max(max_len, child_max)
+            elif isinstance(item, tuple) and len(item) == 2:
+                entry_max, map_dict = item
+                keys.update(map_dict.keys())
+                max_len = max(max_len, entry_max)
+        return keys, max_len
 
     def _add_dictionaries(self, chain_list, chain_data):
         for item in chain_list:
@@ -395,4 +561,3 @@ class StringTree:
         if self.right is not None:
             result += self.right.inorder()
         return result
-

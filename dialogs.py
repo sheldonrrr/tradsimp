@@ -363,10 +363,6 @@ class ConversionDialog(Dialog):
          self.text_dir_horizontal_button,
          self.text_dir_vertical_button) = text_direction_buttons
         apply_text_direction_icons(self.text_dir_horizontal_button, self.text_dir_vertical_button)
-        tip = _('Select the desired text orientation')
-        self.text_direction_group_box.setToolTip(tip)
-        for btn in text_direction_buttons:
-            btn.setToolTip(tip)
         self.text_direction_group.buttonClicked.connect(self._on_text_direction_clicked)
 
         self.operation_group_box, operation_group_box_layout = build_section_group(
@@ -420,7 +416,6 @@ class ConversionDialog(Dialog):
         self.input_combo = NoWheelComboBox()
         input_layout.addWidget(self.input_combo, 1)
         self.input_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')])
-        self.input_combo.setToolTip(_('Select the origin region of the input'))
         self.input_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.input_combo.activated.connect(self._mark_input_locale_user_set)
 
@@ -433,7 +428,6 @@ class ConversionDialog(Dialog):
         self.output_combo = NoWheelComboBox()
         output_layout.addWidget(self.output_combo, 1)
         self.output_combo.addItems([_('Mainland'), _('Hong Kong'), _('Taiwan'), _('Japanese Kanji')])
-        self.output_combo.setToolTip(_('Select the desired region of the output'))
         self.output_combo.currentIndexChanged.connect(self._on_locale_changed)
         self.output_combo.activated.connect(self._mark_output_locale_user_set)
 
@@ -448,6 +442,18 @@ class ConversionDialog(Dialog):
         style_group_box_layout.addWidget(self.use_target_phrases_help_row)
         self._update_target_phrases_help_text()
         self.use_target_phrases.stateChanged.connect(self._on_use_target_phrases_changed)
+
+        self.use_jieba_segmentation = QCheckBox(_('Use Jieba segmentation (experimental)'))
+        style_group_box_layout.addWidget(self.use_jieba_segmentation)
+        self.use_jieba_segmentation_help = QLabel()
+        self.use_jieba_segmentation_help.setWordWrap(True)
+        self.use_jieba_segmentation_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.use_jieba_segmentation_help)
+        self.use_jieba_segmentation_help_row = help_text_row(self, self.use_jieba_segmentation_help)
+        self.use_jieba_segmentation_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        style_group_box_layout.addWidget(self.use_jieba_segmentation_help_row)
+        self._update_jieba_segmentation_help_text()
+        self.use_jieba_segmentation.stateChanged.connect(self._on_use_jieba_segmentation_changed)
 
         source_group=QButtonGroup(self)
         self.book_source_button = QRadioButton(_('Entire eBook'))
@@ -588,17 +594,22 @@ class ConversionDialog(Dialog):
     def _update_target_phrases_help_text(self):
         help_text = _('Use target region phrases help')
         self.use_target_phrases_help.setText(help_text)
-        self.use_target_phrases.setToolTip(help_text)
+        self.use_target_phrases.setToolTip('')
+
+    def _update_jieba_segmentation_help_text(self):
+        help_text = _('Use Jieba segmentation help')
+        self.use_jieba_segmentation_help.setText(help_text)
+        self.use_jieba_segmentation.setToolTip('')
 
     def _update_include_metadata_help_text(self):
         help_text = _('Include metadata help')
         self.include_metadata_help.setText(help_text)
-        self.include_metadata.setToolTip(help_text)
+        self.include_metadata.setToolTip('')
 
     def _update_bilingual_annotation_help_text(self):
         help_text = _('Bilingual annotation help')
         self.bilingual_annotation_help.setText(help_text)
-        self.bilingual_annotation.setToolTip(help_text)
+        self.bilingual_annotation.setToolTip('')
 
     def _update_trad_to_trad_help_text(self):
         self.trad_to_trad_help.setText(_('Traditional to Traditional help'))
@@ -837,6 +848,10 @@ class ConversionDialog(Dialog):
         self.prefs['use_target_phrases'] = self.use_target_phrases.isChecked()
         self.prefs.commit()
 
+    def _on_use_jieba_segmentation_changed(self, _state):
+        self.prefs['use_jieba_segmentation'] = self.use_jieba_segmentation.isChecked()
+        self.prefs.commit()
+
     def apply_translations(self):
         self.setWindowTitle(_('Chinese Conversion'))
         self.ui_lang_label.setText(_('Interface Language:'))
@@ -870,20 +885,21 @@ class ConversionDialog(Dialog):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
             combo.blockSignals(False)
-        self.input_combo.setToolTip(_('Select the origin region of the input'))
-        self.output_combo.setToolTip(_('Select the desired region of the output'))
+        self.input_combo.setToolTip('')
+        self.output_combo.setToolTip('')
         self.use_target_phrases.setText(_('Use output target phrases if possible'))
         self._update_target_phrases_help_text()
+        self.use_jieba_segmentation.setText(_('Use Jieba segmentation (experimental)'))
+        self._update_jieba_segmentation_help_text()
 
         self.text_direction_group_box.setTitle(_('Text Direction:'))
-        tip = _('Select the desired text orientation')
-        self.text_direction_group_box.setToolTip(tip)
+        self.text_direction_group_box.setToolTip('')
         self.text_dir_no_change_button.setText(_('No Change'))
         self.text_dir_horizontal_button.setText(_('Horizontal'))
         self.text_dir_vertical_button.setText(_('Vertical'))
         for btn in (self.text_dir_no_change_button, self.text_dir_horizontal_button,
                     self.text_dir_vertical_button):
-            btn.setToolTip(tip)
+            btn.setToolTip('')
 
         self.advanced_group_box.setTitle(_('Advanced options'))
         self.quotation_heading.setText(_('Quotation Marks'))
@@ -937,6 +953,7 @@ class ConversionDialog(Dialog):
         self.input_combo.blockSignals(state)
         self.output_combo.blockSignals(state)
         self.use_target_phrases.blockSignals(state)
+        self.use_jieba_segmentation.blockSignals(state)
         self.no_conversion_button.blockSignals(state)
         self.trad_to_simp_button.blockSignals(state)
         self.simp_to_trad_button.blockSignals(state)
@@ -963,6 +980,7 @@ class ConversionDialog(Dialog):
         self.input_combo.setCurrentIndex(self.prefs['input_locale'])
         self.output_combo.setCurrentIndex(self.prefs['output_locale'])
         self.use_target_phrases.setChecked(bool(self.prefs.get('use_target_phrases', True)))
+        self.use_jieba_segmentation.setChecked(bool(self.prefs.get('use_jieba_segmentation', False)))
 
         if self.prefs['conversion_type'] == 0:
             self.no_conversion_button.setChecked(True)
@@ -1015,8 +1033,8 @@ class ConversionDialog(Dialog):
         if self.no_conversion_button.isChecked():
             self.input_combo.setEnabled(False)
             self.output_combo.setEnabled(False)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nNot Applicable'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nNot Applicable'))
+            self.input_combo.setToolTip('')
+            self.output_combo.setToolTip('')
             self.output_region_label.setEnabled(False)
             self.input_region_label.setEnabled(False)
             self.style_group_box.setEnabled(False)
@@ -1027,15 +1045,15 @@ class ConversionDialog(Dialog):
             self.use_target_phrases.setEnabled(True)
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nHong Kong/Mainland\nMainland/Mainland\nTaiwan/Mainland\nMainland/Japanese Kanji'))
+            self.input_combo.setToolTip('')
+            self.output_combo.setToolTip('')
             self.style_group_box.setEnabled(True)
 
         elif self.simp_to_trad_button.isChecked():
             self.input_combo.setEnabled(True)
             self.output_combo.setEnabled(True)
-            self.input_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland'))
-            self.output_combo.setToolTip(_('Valid input/output combinations:\nMainland/Hong Kong\nMainland/Mainland\nMainland/Taiwan\nJapanese Kanji/Mainland'))
+            self.input_combo.setToolTip('')
+            self.output_combo.setToolTip('')
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
@@ -1043,12 +1061,8 @@ class ConversionDialog(Dialog):
         elif self.trad_to_trad_button.isChecked():
             self.input_combo.setEnabled(True)
             self.output_combo.setEnabled(True)
-            trad_trad_tooltip = _(
-                'Valid input/output combinations:\nHong Kong/Mainland\nMainland/Hong Kong\n'
-                'Taiwan/Mainland\nMainland/Taiwan\nMainland/Mainland\nHong Kong/Hong Kong\n'
-                'Taiwan/Taiwan\nHong Kong/Taiwan\nTaiwan/Hong Kong')
-            self.input_combo.setToolTip(trad_trad_tooltip)
-            self.output_combo.setToolTip(trad_trad_tooltip)
+            self.input_combo.setToolTip('')
+            self.output_combo.setToolTip('')
             self.output_region_label.setEnabled(True)
             self.input_region_label.setEnabled(True)
             self.style_group_box.setEnabled(True)
@@ -1059,13 +1073,15 @@ class ConversionDialog(Dialog):
             self.use_target_phrases.blockSignals(True)
             self.use_target_phrases.setEnabled(False)
             self.use_target_phrases.setChecked(False)
-            self.use_target_phrases.setToolTip(_(
+            self.use_target_phrases.setToolTip('')
+            self.use_target_phrases_help.setText(_(
                 'Target phrases not available for Hong Kong ↔ Taiwan conversion. '
                 'Only character variants are adjusted; regional wording is not swapped.'))
             self.use_target_phrases.blockSignals(False)
         else:
             self.use_target_phrases.setEnabled(True)
             self.use_target_phrases.setToolTip('')
+            self._update_target_phrases_help_text()
 
         self.update_punctuation.blockSignals(True)
         self.update_punctuation.setEnabled(True)
@@ -1179,6 +1195,7 @@ class ConversionDialog(Dialog):
             self.prefs['input_source'] = 0
 
         self.prefs['use_target_phrases'] = self.use_target_phrases.isChecked()
+        self.prefs['use_jieba_segmentation'] = self.use_jieba_segmentation.isChecked()
 
         if self.quotation_trad_to_simp_button.isChecked():
             self.prefs['quotation_type'] = 1

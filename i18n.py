@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 22 Jul, 2026',
-        '发布：2026年7月22日',
-        '發佈：2026年7月22日'),
+        'Released: 27 Jul, 2026',
+        '发布：2026年7月27日',
+        '發佈：2026年7月27日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -154,6 +154,50 @@ _MESSAGES = {
     'Check to allow region specific word replacements if available': _T(
         'Check to allow region specific word replacements if available',
         '勾选以在可用时进行地区惯用词语替换', '勾選以在可用時進行地區慣用詞語替換'),
+    'Use Jieba segmentation (experimental)': _T(
+        'Use Jieba segmentation (experimental)',
+        '使用 Jieba 分词（实验性）',
+        '使用 Jieba 分詞（實驗性）'),
+    'Use Jieba segmentation help': _T(
+        'Segment text with Jieba before OpenCC conversion to improve phrase-level accuracy '
+        '(similar to OpenCC’s optional jieba configs). Default uses OpenCC mmseg. '
+        'First use may be slower while the dictionary loads.',
+        '转换前先用 Jieba 分词，可提升词组级准确度（类似 OpenCC 可选的 jieba 配置）。'
+        '默认使用 OpenCC mmseg 分词。首次启用时加载词典可能稍慢。',
+        '轉換前先用 Jieba 分詞，可提升詞組級準確度（類似 OpenCC 可選的 jieba 配置）。'
+        '預設使用 OpenCC mmseg 分詞。首次啟用時載入詞典可能稍慢。'),
+    'OpenCC segmentation mode: {0}': _T(
+        'OpenCC segmentation mode: {0}',
+        'OpenCC 分词模式：{0}',
+        'OpenCC 分詞模式：{0}'),
+    'Segmentation: Jieba': _T(
+        'Segmentation: Jieba',
+        '分词：Jieba',
+        '分詞：Jieba'),
+    'Segmentation: OpenCC mmseg': _T(
+        'Segmentation: OpenCC mmseg',
+        '分词：OpenCC mmseg',
+        '分詞：OpenCC mmseg'),
+    'Jieba segmentation samples:': _T(
+        'Jieba segmentation samples:',
+        'Jieba 分词样例：',
+        'Jieba 分詞樣例：'),
+    'No Jieba segmentation samples recorded for this book.': _T(
+        'No Jieba segmentation samples recorded for this book.',
+        '本书未记录到 Jieba 分词样例。',
+        '本書未記錄到 Jieba 分詞樣例。'),
+    '----Log Jieba samples begin----': _T(
+        '----Log Jieba samples begin----',
+        '----Jieba 分词样例开始----',
+        '----Jieba 分詞樣例開始----'),
+    '----Log Jieba samples end----': _T(
+        '----Log Jieba samples end----',
+        '----Jieba 分词样例结束----',
+        '----Jieba 分詞樣例結束----'),
+    'Use Jieba segmentation before OpenCC conversion (Default: False)': _T(
+        'Use Jieba segmentation before OpenCC conversion (Default: False)',
+        '转换前使用 Jieba 分词（默认：否）',
+        '轉換前使用 Jieba 分詞（預設：否）'),
     'Quotation Marks': _T('Set language symbols', '设置语言符号', '設定語言符號'),
     'Advanced options': _T('Advanced options', '高级选项', '進階選項'),
     'Text Direction:': _T('Set text direction:', '设置文字方向：', '設定文字方向：'),

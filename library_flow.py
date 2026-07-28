@@ -222,6 +222,7 @@ def unsupported_language_skip_set_or_cancel(gui, flagged_books):
 
 LIBRARY_PREVIEW_MAX_CHARS = 500
 LIBRARY_REPLACEMENT_SAMPLE_LIMIT = 20
+LIBRARY_JIEBA_SAMPLE_LIMIT = 8
 OCR_LARGE_IMAGE_COUNT_THRESHOLD = 5
 
 
@@ -255,6 +256,22 @@ def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMP
     remaining = unique - min(unique, max_samples)
     if remaining > 0:
         lines.append(_('… and {} more unique pairs not shown').format(remaining))
+    return '\n'.join(lines)
+
+
+def format_jieba_samples_log(converter, max_samples=LIBRARY_JIEBA_SAMPLE_LIMIT):
+    """Human-readable Jieba cut samples: original → tokens → converted tokens."""
+    samples = list(converter.get_jieba_samples() or [])
+    if not samples:
+        return _('No Jieba segmentation samples recorded for this book.')
+    lines = [_('Jieba segmentation samples:')]
+    for sample in samples[:max_samples]:
+        text = sample.get('text') or ''
+        segs = sample.get('segments') or []
+        conv = sample.get('converted_segments') or []
+        cut = ' / '.join(segs)
+        out = ' / '.join(conv)
+        lines.append('  {} → {} → {}'.format(text, cut, out))
     return '\n'.join(lines)
 
 
@@ -440,11 +457,14 @@ def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix
     new_mi.comments = append_library_conversion_comments(
         new_mi.comments, build_library_conversion_comments_note())
 
+    # Keep notify=False; GUI row insertion is handled in ui._refresh_library_new_books
+    # via model.books_added() (Calibre plugin pattern). Avoid set_cover(notify=True)
+    # here so a partial metadata notify cannot desync the view before books_added.
     new_id = db.import_book(new_mi, [converted_path], notify=False, apply_import_tags=True)
     try:
         cover = db.cover(source_book_id, index_is_id=True)
         if cover:
-            db.set_cover(new_id, cover, notify=True)
+            db.set_cover(new_id, cover, notify=False)
     except Exception:
         pass
     return new_id, new_mi.title

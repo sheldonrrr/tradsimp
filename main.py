@@ -77,16 +77,20 @@ PUNC_REGEX = 9             # precompiled regex expression to swap punctuation, m
 ENABLE_VISION_OCR = 10     # True/False
 INCLUDE_METADATA = 11      # True/False — convert OPF + Calibre library metadata
 BILINGUAL_ANNOTATION = 12  # True/False — converted primary + original on smaller line below
+USE_JIEBA_SEGMENTATION = 13  # True/False — optional Jieba before OpenCC conversion
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
 BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
 # Native ruby layout keeps converted text on the paragraph baseline while placing
 # the original below it without turning each changed run into a flex formatting box.
+# Extra padding on each <rt> keeps the sparse original line clear of the next
+# text line inside the same paragraph (not a paragraph-level margin).
 BILINGUAL_STYLE_CSS = (
     '.ctc-bi{ruby-position:under;ruby-align:end}'
     '.ctc-bi-main{line-height:inherit}'
-    '.ctc-bi-rt{font-size:.75em;line-height:1;color:inherit;opacity:.55;white-space:nowrap}'
+    '.ctc-bi-rt{font-size:.75em;line-height:1;color:inherit;opacity:.55;'
+    'white-space:nowrap;padding-bottom:0.55em}'
 )
 BILINGUAL_STYLE_BLOCK = (
     '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
@@ -98,7 +102,8 @@ BILINGUAL_BI_STYLE_CSS_TEXT = (
 )
 BILINGUAL_MAIN_STYLE_CSS_TEXT = 'line-height:inherit'
 BILINGUAL_RT_STYLE_CSS_TEXT = (
-    'font-size:.75em;line-height:1;color:inherit;opacity:.55;white-space:nowrap'
+    'font-size:.75em;line-height:1;color:inherit;opacity:.55;'
+    'white-space:nowrap;padding-bottom:0.55em'
 )
 
 # Innermost: <span class="ctc-bi"><span class="ctc-bi-main">CONV</span><span class="ctc-bi-rt">ORIG</span></span>
@@ -569,6 +574,7 @@ class TradSimpChinese(Tool):
                     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
                     QApplication.processEvents()
                     self.converter.set_conversion(conversion)
+                    apply_converter_segmentation(self.converter, criteria, verbose=True)
                     self.process_files(criteria)
                     QApplication.restoreOverrideCursor()
             except Exception:
@@ -683,6 +689,7 @@ def prepare_prefs(prefs):
     prefs.defaults['input_locale_user_set'] = False
     prefs.defaults['output_locale_user_set'] = False
     prefs.defaults['use_target_phrases'] = True
+    prefs.defaults['use_jieba_segmentation'] = False
     prefs.defaults['quotation_type'] = 0
     prefs.defaults['output_orientation'] = 0
     prefs.defaults['output_orientation_user_set'] = False
@@ -738,13 +745,29 @@ def build_criteria(prefs):
         prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
         prefs.get('enable_vision_ocr_enhancement', False),
         prefs.get('include_metadata', True),
-        prefs.get('bilingual_annotation', False))
+        prefs.get('bilingual_annotation', False),
+        prefs.get('use_jieba_segmentation', False))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
     values = list(criteria)
     values[ENABLE_VISION_OCR] = bool(enabled)
     return tuple(values)
+
+
+def apply_converter_segmentation(converter, criteria, verbose=False):
+    """Apply mmseg (default) or optional Jieba segmentation to an OpenCC converter."""
+    from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc import (
+        SEGMENTATION_JIEBA, SEGMENTATION_MMSEG,
+    )
+    use_jieba = False
+    if criteria is not None and len(criteria) > USE_JIEBA_SEGMENTATION:
+        use_jieba = bool(criteria[USE_JIEBA_SEGMENTATION])
+    mode = SEGMENTATION_JIEBA if use_jieba else SEGMENTATION_MMSEG
+    converter.set_segmentation_mode(mode)
+    if verbose:
+        print(_('OpenCC segmentation mode: {0}').format(mode))
+    return mode
 
 
 def getPrefs():
@@ -1369,7 +1392,8 @@ def cli_get_criteria(args):
         bool(prefs.get('enable_vision_ocr_enhancement', False))
         and is_vision_ocr_supported(),
         bool(prefs.get('include_metadata', True)),
-        bool(getattr(args, 'bilingual_opt', False)))
+        bool(getattr(args, 'bilingual_opt', False)),
+        bool(getattr(args, 'jieba_opt', False)))
 
     return criteria
 
@@ -1500,6 +1524,9 @@ def main(argv, plugin_version, usage=None):
                         help=_('Set to the ebook conversion direction (Default: none)'), choices=list_of_directions)
     parser.add_argument('-p', '--phrase_convert', dest='phrase_opt', help=_('Convert phrases to target locale versions (Default: False)'),
                         action='store_true')
+    parser.add_argument('-j', '--jieba', dest='jieba_opt',
+                        help=_('Use Jieba segmentation before OpenCC conversion (Default: False)'),
+                        action='store_true')
     parser.add_argument('-ba', '--bilingual-annotation', dest='bilingual_opt',
                         help=_('Keep original text with converted forms as bilingual annotations (Default: False)'),
                         action='store_true')
@@ -1591,6 +1618,8 @@ def main(argv, plugin_version, usage=None):
         if args.verbose_opt and not args.quiet_opt:
             print(_('Using opencc-python conversion configuration file: ') + conversion + '.json')
         converter.set_conversion(conversion)
+        apply_converter_segmentation(
+            converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
 ##        converter.clear_counts()
 
     #Print out the conversion info

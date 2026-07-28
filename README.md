@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese in your Calibre library on your own m
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.6.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.7.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -40,6 +40,7 @@ Then install again via **Load plugin from file**.
 - **Quotation marks** (Western vs. East Asian styles), **horizontal/vertical layout**, and **punctuation** adjustments
 - Process **EPUB / AZW3** books in the library: conversion **adds a new book** and **does not modify** the original file
 - UI languages: **English**, **简体中文**, **繁体中文（台湾）**, **繁体中文（香港）**
+- Conversion uses OpenCC **mmseg** segmentation by default (aligned with upstream OpenCC). An optional experimental **Jieba** segmentation checkbox can improve phrase-level accuracy for some texts (first use may load the dictionary more slowly).
 
 ### Why it is safe to use: fully offline
 
@@ -105,3 +106,4 @@ source scripts/caldbg.fish
 
 - Plugin code: [GPL v3](LICENSE)
 - OpenCC data and opencc-python components: Apache License 2.0 (see `resources/opencc_python/`)
+- Optional Jieba segmentation: MIT (vendored slim copy under `resources/jieba/`, based on [fxsjy/jieba](https://github.com/fxsjy/jieba) v0.42.1)

@@ -8,7 +8,7 @@
 
 本仓库在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 插件基础上继续开发与维护。
 
-**当前版本：3.6.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
+**当前版本：3.7.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
 
 ---
 
@@ -40,6 +40,7 @@ calibre-customize -r "Chinese Conversion · 简繁转换"
 - **引号**（西式 / 东亚）、**横竖排版**与**标点**调整
 - 在书库中处理 **EPUB / AZW3**：转换后**新增一本书**，**不修改**你原来的文件
 - 界面语言：**English**、**简体中文**、**繁体中文（台湾）**、**繁体中文（香港）**
+- 转换默认使用 OpenCC **mmseg** 分词（与上游 OpenCC 对齐）；可选实验性 **Jieba** 分词选项，有助于提升部分文本的词组转换准确度（首次启用加载词典可能稍慢）
 
 ### 为什么放心用：全程离线
 
@@ -104,3 +105,4 @@ source scripts/caldbg.fish
 
 - 插件代码：[GPL v3](LICENSE)
 - OpenCC 数据与 opencc-python 组件：Apache License 2.0（见 `resources/opencc_python/`）
+- 可选 Jieba 分词：MIT（精简内置副本见 `resources/jieba/`，基于 [fxsjy/jieba](https://github.com/fxsjy/jieba) v0.42.1）

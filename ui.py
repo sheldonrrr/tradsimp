@@ -22,7 +22,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
-    format_replacement_stats_log, ocr_summary_line,
+    format_replacement_stats_log, format_jieba_samples_log, ocr_summary_line,
     languages_from_metadata, books_with_unsupported_language_items,
     count_image_resources_from_path,
     OCR_LARGE_IMAGE_COUNT_THRESHOLD, unsupported_language_skip_set_or_cancel,
@@ -30,8 +30,8 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
 from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
     get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR,
-    INCLUDE_METADATA, INPUT_LOCALE,
-    HTML_TextProcessor, OpenCC, criteria_with_ocr_enabled,
+    INCLUDE_METADATA, INPUT_LOCALE, USE_JIEBA_SEGMENTATION,
+    HTML_TextProcessor, OpenCC, apply_converter_segmentation, criteria_with_ocr_enabled,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
     get_missing_ocr_language_notice, format_ocr_language_notice_message,
@@ -57,6 +57,7 @@ class LibraryConversionWorker(QObject):
         total = len(self.work)
         converter = OpenCC(get_resource_file)
         converter.set_conversion(self.conversion)
+        apply_converter_segmentation(converter, self.criteria, verbose=True)
         parser = HTML_TextProcessor(converter)
         lang = get_language_code(self.criteria)
         if lang != 'None':
@@ -98,6 +99,13 @@ class LibraryConversionWorker(QObject):
                 else:
                     self.progress.emit(1, 1, processing_message)
                 replacement_log = format_replacement_stats_log(converter)
+                jieba_log = None
+                if (
+                    self.criteria is not None
+                    and len(self.criteria) > USE_JIEBA_SEGMENTATION
+                    and bool(self.criteria[USE_JIEBA_SEGMENTATION])
+                ):
+                    jieba_log = format_jieba_samples_log(converter)
                 self.book_done.emit({
                     'book_id': book_id,
                     'title': title,
@@ -108,6 +116,7 @@ class LibraryConversionWorker(QObject):
                     'ocr_samples': ocr_samples,
                     'ocr_stats': ocr_stats,
                     'replacement_log': replacement_log,
+                    'jieba_log': jieba_log,
                     'suffix': suffix,
                     'generated_at': generated_at,
                 })
@@ -304,6 +313,7 @@ class ChineseTextAction(InterfaceAction):
             'recognized_images': [],
             'recognized_no_change': 0,
             'reason': '',
+            'jieba_sample_lines': [],
         }
         self._start_library_conversion_worker(work, criteria, conversion, status_dlg, state)
 
@@ -382,6 +392,7 @@ class ChineseTextAction(InterfaceAction):
                     if conversion and conversion != 'no_conversion':
                         meta_converter = OpenCC(get_resource_file)
                         meta_converter.set_conversion(conversion)
+                        apply_converter_segmentation(meta_converter, criteria)
                         state['meta_converter'] = meta_converter
             new_id, new_title = import_converted_book_as_new(
                 db, result['book_id'], temp_path, fmt, result['suffix'],
@@ -414,6 +425,26 @@ class ChineseTextAction(InterfaceAction):
                 _('----Log preview end----'),
                 [excerpt])
             status_dlg.log_result('')
+            # Jieba runs before OpenCC conversion; show samples after conversion
+            # results so the log reads: convert first, then how Jieba split it.
+            jieba_log = result.get('jieba_log')
+            if jieba_log:
+                log_section(
+                    status_dlg,
+                    _('----Log Jieba samples begin----'),
+                    _('----Log Jieba samples end----'),
+                    [jieba_log])
+                status_dlg.log_result('')
+                for line in str(jieba_log).splitlines():
+                    text = line.strip()
+                    if ' → ' not in text:
+                        continue
+                    sample_line = '  ' + text
+                    if (
+                        sample_line not in state['jieba_sample_lines']
+                        and len(state['jieba_sample_lines']) < 8
+                    ):
+                        state['jieba_sample_lines'].append(sample_line)
         except Exception:
             state['failed'].append((title, traceback.format_exc()))
             status_dlg.log_processing(_('Failed: {}').format(title))
@@ -479,6 +510,18 @@ class ChineseTextAction(InterfaceAction):
         )
         if ocr_line:
             summary.append(ocr_line)
+        criteria = state['criteria']
+        use_jieba = (
+            criteria is not None
+            and len(criteria) > USE_JIEBA_SEGMENTATION
+            and bool(criteria[USE_JIEBA_SEGMENTATION])
+        )
+        summary.append(
+            _('Segmentation: Jieba') if use_jieba else _('Segmentation: OpenCC mmseg')
+        )
+        if use_jieba and state.get('jieba_sample_lines'):
+            summary.append(_('Jieba segmentation samples:'))
+            summary.extend(state['jieba_sample_lines'][:8])
         if summary:
             log_section(
                 status_dlg,
@@ -514,12 +557,17 @@ class ChineseTextAction(InterfaceAction):
         if not new_book_ids:
             return
         model = self.gui.library_view.model()
-        # import_book() already calls db.data.books_added(); model.books_added(n)
-        # only inserts empty placeholder rows at the top (Calibre BooksModel API).
-        model.refresh_ids(new_book_ids)
+        # db.import_book(notify=False) updates db.data but not the Qt model.
+        # Insert GUI rows first, then fill metadata (kiwidude / Kovid pattern).
+        model.books_added(len(new_book_ids))
+        model.refresh_ids(list(new_book_ids))
         try:
             if getattr(self.gui, 'db_images', None) is not None:
                 self.gui.db_images.reset()
+        except Exception:
+            pass
+        try:
+            self.gui.tags_view.recount()
         except Exception:
             pass
         QApplication.processEvents()
