@@ -61,6 +61,10 @@ class OpenCC:
         self.conversion_name = ''
         self.conversion = conversion
         self.replacement_counts = {}
+        self.diagnostic_counts = {}
+        self._diagnostic_samples = []
+        self._diagnostic_sample_keys = set()
+        self._diagnostic_sample_limit = 20
         self._dict_init_done = False
         self._dict_chain = list()
         self._dict_chain_data = list()
@@ -73,6 +77,7 @@ class OpenCC:
         self._jieba_samples = []
         self._jieba_sample_keys = set()
         self._jieba_sample_limit = 8
+        self._jieba_overrides_loaded = False
         self.dict_cache = dict()
         self._chain_converters = {}
         self.resource_getter = resource_getter
@@ -88,48 +93,161 @@ class OpenCC:
         """
         Convert string from Simplified Chinese to Traditional Chinese or vice versa
         """
+        converted, _spans = self.convert_with_details(string)
+        return converted
+
+    def convert_with_details(self, string):
+        """
+        Convert text and return source-aligned spans for bilingual rendering.
+
+        Spans are exact for a conversion stage whose output length is stable. If a
+        later regional-phrase stage changes length, the affected segmentation unit
+        is deliberately returned as one span so callers never lose or misalign text.
+        """
 
         # echo the input if no conversion is wanted
         if self.conversion == "no_conversion":
-            return string
+            return string, [self._make_span(0, len(string), string, string)]
 
         chain = CHAINED_CONVERSIONS.get(self.conversion)
         if chain is not None:
             result = string
             for mode in chain:
                 result = self._get_chain_converter(mode).convert(result)
-            return result
+            return result, [self._make_span(0, len(string), string, result)]
 
         if not self._dict_init_done:
             self._init_dict()
             self._dict_init_done = True
 
+        self._record_mixed_input_diagnostics(string)
+        original = string
         if self._normalization_chain_data:
             string = self._convert(string, self._normalization_chain_data)
 
         result = []
+        spans = []
+        source_offset = 0
         # Separate string using the list of separators in a regular expression
         split_string_list = self.split_chars_re.split(string)
         for i in range(0, len(split_string_list)):
             if i % 2 == 0:
-                result.append(self._convert_text_unit(split_string_list[i]))
+                converted, unit_spans = self._convert_text_unit_with_details(
+                    split_string_list[i], source_offset)
+                result.append(converted)
+                spans.extend(unit_spans)
             else:
-                result.append(split_string_list[i])
-        return "".join(result)
+                separator = split_string_list[i]
+                result.append(separator)
+                spans.append(self._make_span(
+                    source_offset, source_offset + len(separator),
+                    separator, separator))
+            source_offset += len(split_string_list[i])
+        converted = "".join(result)
+        if original != string:
+            # Compatibility normalization can change source coordinates. Preserve
+            # content correctness and use one safe bilingual span in that rare case.
+            spans = [self._make_span(0, len(original), original, converted)]
+        return converted, self._merge_adjacent_spans(spans)
 
     def _convert_text_unit(self, text):
         """Segment (optional) then apply the conversion chain to each piece."""
+        converted, _spans = self._convert_text_unit_with_details(text, 0)
+        return converted
+
+    def _convert_text_unit_with_details(self, text, source_offset):
+        """Convert one punctuation-delimited unit and retain source boundaries."""
         if not text:
-            return text
+            return text, []
         if self._should_segment():
             segments = self._segment(text)
-            converted_parts = [
-                self._convert(segment, self._dict_chain_data) for segment in segments
-            ]
+            converted_parts = []
+            spans = []
+            offset = source_offset
+            for segment in segments:
+                converted, segment_spans = self._convert_segment_with_details(
+                    segment, offset)
+                converted_parts.append(converted)
+                spans.extend(segment_spans)
+                offset += len(segment)
             if self._segmentation_mode == SEGMENTATION_JIEBA:
                 self._maybe_record_jieba_sample(text, segments, converted_parts)
-            return "".join(converted_parts)
-        return self._convert(text, self._dict_chain_data)
+            return "".join(converted_parts), spans
+        return self._convert_segment_with_details(text, source_offset)
+
+    def _convert_segment_with_details(self, text, source_offset):
+        if not self._dict_chain_data:
+            return text, [self._make_span(
+                source_offset, source_offset + len(text), text, text)]
+
+        events = []
+        first_tree = self._convert_to_tree(
+            text, [self._dict_chain_data[0]], events=events)
+        first_output = "".join(first_tree.inorder())
+        final_output = first_output
+        for item in self._dict_chain_data[1:]:
+            final_output = self._convert(
+                final_output, [item], events=events)
+        self._record_conversion_events(events)
+
+        records = first_tree.inorder_records()
+        if len(first_output) != len(final_output):
+            return final_output, [self._make_span(
+                source_offset, source_offset + len(text), text, final_output,
+                kind='fallback')]
+
+        spans = []
+        output_offset = 0
+        for record in records:
+            target_len = len(record['target'])
+            target = final_output[output_offset:output_offset + target_len]
+            start = source_offset + record['source_start']
+            end = source_offset + record['source_end']
+            source = text[record['source_start']:record['source_end']]
+            match = record.get('match') or {}
+            spans.append(self._make_span(
+                start, end, source, target,
+                kind=match.get('kind', 'unmatched'),
+                dictionary=match.get('dictionary'),
+                ambiguous=bool(match.get('ambiguous'))))
+            output_offset += target_len
+        return final_output, spans
+
+    @staticmethod
+    def _make_span(start, end, source, target, kind='unmatched',
+                   dictionary=None, ambiguous=False):
+        return {
+            'source_start': start,
+            'source_end': end,
+            'source': source,
+            'target': target,
+            'kind': kind,
+            'dictionary': dictionary,
+            'ambiguous': ambiguous,
+        }
+
+    @staticmethod
+    def _merge_adjacent_spans(spans):
+        merged = []
+        for span in spans:
+            if not span.get('source') and not span.get('target'):
+                continue
+            if merged:
+                previous = merged[-1]
+                same_metadata = all(
+                    previous.get(key) == span.get(key)
+                    for key in ('kind', 'dictionary', 'ambiguous'))
+                same_change_state = (
+                    (previous['source'] == previous['target'])
+                    == (span['source'] == span['target']))
+                if (previous['source_end'] == span['source_start']
+                        and same_metadata and same_change_state):
+                    previous['source_end'] = span['source_end']
+                    previous['source'] += span['source']
+                    previous['target'] += span['target']
+                    continue
+            merged.append(dict(span))
+        return merged
 
     def _maybe_record_jieba_sample(self, text, segments, converted_parts):
         """Keep a few multi-token cuts so logs can show how Jieba split the text."""
@@ -161,10 +279,20 @@ class OpenCC:
         if self._segmentation_mode == SEGMENTATION_JIEBA:
             jieba_mod = self._get_jieba()
             if jieba_mod is not None:
+                self._load_jieba_plugin_overrides(jieba_mod)
                 return list(jieba_mod.lcut(text, cut_all=False))
         if self._has_segmentation:
             return self._mmseg(text)
         return [text]
+
+    def _load_jieba_plugin_overrides(self, jieba_mod):
+        if self._jieba_overrides_loaded:
+            return
+        entry = self.dict_cache.get('CTCSTPhrases.txt')
+        if entry:
+            for phrase in entry[1]:
+                jieba_mod.add_word(phrase, freq=1000000)
+        self._jieba_overrides_loaded = True
 
     def _mmseg(self, text):
         """Forward maximum matching using the config segmentation dictionaries."""
@@ -212,6 +340,9 @@ class OpenCC:
 
     def clear_replacement_counts(self):
         self.replacement_counts.clear()
+        self.diagnostic_counts.clear()
+        self._diagnostic_samples = []
+        self._diagnostic_sample_keys = set()
         self.clear_jieba_samples()
         for child in self._chain_converters.values():
             child.clear_replacement_counts()
@@ -245,6 +376,71 @@ class OpenCC:
                     merged[key] = merged.get(key, 0) + count
         return merged
 
+    def get_conversion_diagnostics(self):
+        counts = dict(self.diagnostic_counts)
+        samples = list(self._diagnostic_samples)
+        chain = CHAINED_CONVERSIONS.get(self.conversion)
+        if chain is not None:
+            for mode in chain:
+                child = self._get_chain_converter(mode).get_conversion_diagnostics()
+                for key, count in child.get('counts', {}).items():
+                    counts[key] = counts.get(key, 0) + count
+                for sample in child.get('samples', []):
+                    sample_key = (
+                        sample.get('kind'), sample.get('source'),
+                        sample.get('target'), sample.get('context'))
+                    if (sample_key not in self._diagnostic_sample_keys
+                            and len(samples) < self._diagnostic_sample_limit):
+                        samples.append(sample)
+        return {'counts': counts, 'samples': samples}
+
+    def _record_diagnostic(self, kind, source, target=None, context=None,
+                           dictionary=None):
+        key = (kind, source, target or '')
+        self.diagnostic_counts[key] = self.diagnostic_counts.get(key, 0) + 1
+        sample_key = (kind, source, target or '', context or '')
+        if (sample_key in self._diagnostic_sample_keys
+                or len(self._diagnostic_samples) >= self._diagnostic_sample_limit):
+            return
+        self._diagnostic_sample_keys.add(sample_key)
+        self._diagnostic_samples.append({
+            'kind': kind,
+            'source': source,
+            'target': target or '',
+            'context': context or '',
+            'dictionary': dictionary or '',
+        })
+
+    def _record_conversion_events(self, events):
+        for event in events:
+            if (not event.get('ambiguous')
+                    or event.get('dictionary') != 'STCharacters.txt'):
+                continue
+            self._record_diagnostic(
+                'ambiguous_character_fallback',
+                event.get('source', ''),
+                event.get('target', ''),
+                dictionary=event.get('dictionary'))
+
+    def _record_mixed_input_diagnostics(self, string):
+        if not (self.conversion or '').startswith('s2'):
+            return
+        entry = self.dict_cache.get('STCharacters.txt')
+        if not entry:
+            return
+        map_dict = entry[1]
+        simplified_keys = set(map_dict)
+        traditional_only = set()
+        for value in map_dict.values():
+            traditional_only.update(value.split(' '))
+        traditional_only.difference_update(simplified_keys)
+        for index, char in enumerate(string):
+            if char not in traditional_only:
+                continue
+            context = string[max(0, index - 6):index + 7]
+            self._record_diagnostic(
+                'traditional_input_in_simplified_mode', char, context=context)
+
     def get_segmentation_mode(self):
         return self._segmentation_mode
 
@@ -260,15 +456,19 @@ class OpenCC:
         for child in self._chain_converters.values():
             child.set_segmentation_mode(mode)
 
-    def _convert(self, string, dictionary = [], is_dict_group = False, match_policy = 'short_circuit', counts = None):
+    def _convert(self, string, dictionary = [], is_dict_group = False,
+                 match_policy = 'short_circuit', counts = None, events=None):
         """
         Convert string using one or more dictionaries. Group policies follow OpenCC
         short_circuit (first match wins) and union (longest match across dicts).
         """
-        tree = self._convert_to_tree(string, dictionary, is_dict_group, match_policy, counts)
+        tree = self._convert_to_tree(
+            string, dictionary, is_dict_group, match_policy, counts, events)
         return "".join(tree.inorder())
 
-    def _convert_to_tree(self, string, dictionary = [], is_dict_group = False, match_policy = 'short_circuit', counts = None):
+    def _convert_to_tree(self, string, dictionary = [], is_dict_group = False,
+                         match_policy = 'short_circuit', counts = None,
+                         events=None):
         """
         Like _convert, but keep StringTree.matched so nested short_circuit groups
         do not re-apply later dictionaries (e.g. STCharacters) to identity phrases.
@@ -277,7 +477,8 @@ class OpenCC:
             counts = self.replacement_counts
 
         if is_dict_group and match_policy == 'union':
-            return self._convert_union_group_to_tree(string, dictionary, counts)
+            return self._convert_union_group_to_tree(
+                string, dictionary, counts, events)
 
         tree = StringTree(string)
         for c_dict in dictionary:
@@ -285,14 +486,15 @@ class OpenCC:
                 _, policy, chain = c_dict
                 # Preserve matched spans from the nested group; do not flatten.
                 tree = self._convert_to_tree(
-                    "".join(tree.inorder()), chain, True, policy, counts)
+                    "".join(tree.inorder()), chain, True, policy, counts, events)
             elif isinstance(c_dict, tuple):
-                tree.convert_tree(c_dict, counts)
+                tree.convert_tree(c_dict, counts, events)
                 if not is_dict_group:
                     tree = StringTree("".join(tree.inorder()))
         return tree
 
-    def _convert_union_group_to_tree(self, string, dictionary, counts = None):
+    def _convert_union_group_to_tree(self, string, dictionary, counts = None,
+                                     events=None):
         if counts is None:
             counts = self.replacement_counts
 
@@ -302,11 +504,11 @@ class OpenCC:
             if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
                 _, policy, chain = item
                 tree = self._convert_to_tree(
-                    "".join(tree.inorder()), chain, True, policy, counts)
+                    "".join(tree.inorder()), chain, True, policy, counts, events)
             else:
                 dicts.append(item)
         if dicts:
-            tree.convert_tree_union(dicts, counts)
+            tree.convert_tree_union(dicts, counts, events)
         return tree
 
     def _get_chain_converter(self, mode):
@@ -376,8 +578,9 @@ class OpenCC:
                 child_keys, child_max = self._collect_segmentation_keys(item[2])
                 keys.update(child_keys)
                 max_len = max(max_len, child_max)
-            elif isinstance(item, tuple) and len(item) == 2:
-                entry_max, map_dict = item
+            elif (isinstance(item, tuple) and len(item) == 3
+                    and item[0] != 'group'):
+                entry_max, map_dict, _dict_name = item
                 keys.update(map_dict.keys())
                 max_len = max(max_len, entry_max)
         return keys, max_len
@@ -405,7 +608,7 @@ class OpenCC:
                             map_dict[key] = value
                             if len(key) > max_len:
                                 max_len = len(key)
-                        entry = (max_len, map_dict)
+                        entry = (max_len, map_dict, item)
                         chain_data.append(entry)
                         self.dict_cache[item] = entry
                     else:
@@ -446,7 +649,11 @@ class OpenCC:
         else:
             self._dict_init_done = False
             self._chain_converters = {}
+            self._jieba_overrides_loaded = False
             self.replacement_counts.clear()
+            self.diagnostic_counts.clear()
+            self._diagnostic_samples = []
+            self._diagnostic_sample_keys = set()
             self.conversion = conversion
 
 
@@ -454,14 +661,17 @@ class StringTree:
     """
     Class to hold string during modification process.
     """
-    def __init__(self, string):
+    def __init__(self, string, source_start=0):
         self.string = string
         self.left = None
         self.right = None
         self.string_len = len(string)
+        self.source_start = source_start
+        self.source_end = source_start + len(string)
+        self.match = None
         self.matched = False
 
-    def convert_tree(self, test_dict, counts = None):
+    def convert_tree(self, test_dict, counts = None, events=None):
         """
         Compare smaller and smaller sub-strings going from left to
         right against test_dict. If an entry is found, place the remaining
@@ -473,9 +683,9 @@ class StringTree:
         """
         if self.matched == True:
             if self.left is not None:
-                self.left.convert_tree(test_dict, counts)
+                self.left.convert_tree(test_dict, counts, events)
             if self.right is not None:
-                self.right.convert_tree(test_dict, counts)
+                self.right.convert_tree(test_dict, counts, events)
         else:
             test_len = min(self.string_len, test_dict[0])
             while test_len != 0:
@@ -486,38 +696,61 @@ class StringTree:
                         # Match found.
                         if i > 0:
                             # Put everything to the left of the match into the left sub-tree and further process it
-                            self.left = StringTree(self.string[:i])
-                            self.left.convert_tree(test_dict, counts)
+                            self.left = StringTree(
+                                self.string[:i], self.source_start)
+                            self.left.convert_tree(test_dict, counts, events)
                         if (i+test_len) < self.string_len:
                             # Put everything to the right of the match into the right sub-tree and further process it
-                            self.right = StringTree(self.string[i+test_len:])
-                            self.right.convert_tree(test_dict, counts)
+                            self.right = StringTree(
+                                self.string[i+test_len:],
+                                self.source_start + i + test_len)
+                            self.right.convert_tree(test_dict, counts, events)
                         # Save the dictionary value in this tree
-                        value = test_dict[1][fragment]
-                        if len(value.split(' ')) > 1:
+                        raw_value = test_dict[1][fragment]
+                        candidates = raw_value.split(' ')
+                        value = raw_value
+                        if len(candidates) > 1:
                             # multiple mapping, use the first one for now
-                            value = value.split(' ')[0]
+                            value = candidates[0]
                         if counts is not None and fragment != value:
                             pair = (fragment, value)
                             counts[pair] = counts.get(pair, 0) + 1
+                        dict_name = test_dict[2]
+                        kind = (
+                            'phrase'
+                            if len(fragment) > 1 or 'Phrases' in dict_name
+                            else 'character')
+                        self.source_start += i
+                        self.source_end = self.source_start + test_len
+                        self.match = {
+                            'source': fragment,
+                            'target': value,
+                            'dictionary': dict_name,
+                            'kind': kind,
+                            'ambiguous': len(candidates) > 1,
+                            'candidates': candidates,
+                        }
+                        if events is not None:
+                            events.append(dict(self.match))
                         self.string = value
                         self.string_len = len(self.string)
                         self.matched = True
                         return
                 test_len -= 1
 
-    def convert_tree_union(self, test_dicts, counts = None):
+    def convert_tree_union(self, test_dicts, counts = None, events=None):
         if self.matched:
             if self.left is not None:
-                self.left.convert_tree_union(test_dicts, counts)
+                self.left.convert_tree_union(test_dicts, counts, events)
             if self.right is not None:
-                self.right.convert_tree_union(test_dicts, counts)
+                self.right.convert_tree_union(test_dicts, counts, events)
             return
 
         best_len = 0
         best_index = -1
         best_value = None
         best_fragment = None
+        best_dict = None
         max_key_len = 0
         for test_dict in test_dicts:
             max_key_len = max(max_key_len, test_dict[0])
@@ -533,27 +766,60 @@ class StringTree:
                             best_index = i
                             best_fragment = fragment
                             best_value = test_dict[1][fragment]
+                            best_dict = test_dict
             if best_len:
                 break
             test_len -= 1
 
         if best_len:
             if best_index > 0:
-                self.left = StringTree(self.string[:best_index])
-                self.left.convert_tree_union(test_dicts, counts)
+                self.left = StringTree(
+                    self.string[:best_index], self.source_start)
+                self.left.convert_tree_union(test_dicts, counts, events)
             end = best_index + best_len
             if end < self.string_len:
-                self.right = StringTree(self.string[end:])
-                self.right.convert_tree_union(test_dicts, counts)
-            value = best_value
-            if len(value.split(' ')) > 1:
-                value = value.split(' ')[0]
+                self.right = StringTree(
+                    self.string[end:], self.source_start + end)
+                self.right.convert_tree_union(test_dicts, counts, events)
+            candidates = best_value.split(' ')
+            value = candidates[0]
             if counts is not None and best_fragment != value:
                 pair = (best_fragment, value)
                 counts[pair] = counts.get(pair, 0) + 1
+            dict_name = best_dict[2]
+            kind = (
+                'phrase'
+                if len(best_fragment) > 1 or 'Phrases' in dict_name
+                else 'character')
+            self.source_start += best_index
+            self.source_end = self.source_start + best_len
+            self.match = {
+                'source': best_fragment,
+                'target': value,
+                'dictionary': dict_name,
+                'kind': kind,
+                'ambiguous': len(candidates) > 1,
+                'candidates': candidates,
+            }
+            if events is not None:
+                events.append(dict(self.match))
             self.string = value
             self.string_len = len(self.string)
             self.matched = True
+
+    def inorder_records(self):
+        records = []
+        if self.left is not None:
+            records.extend(self.left.inorder_records())
+        records.append({
+            'source_start': self.source_start,
+            'source_end': self.source_end,
+            'target': self.string,
+            'match': self.match,
+        })
+        if self.right is not None:
+            records.extend(self.right.inorder_records())
+        return records
 
     def inorder(self):
         """

@@ -3,10 +3,8 @@
 __license__ = 'GPL 3'
 __copyright__ = '2022, Hopkins'
 
-import difflib
 import re, os.path
 from css_parser import  css, stylesheets
-from html import escape as html_escape
 from html.parser import HTMLParser
 from html.entities import name2codepoint
 
@@ -28,6 +26,12 @@ except:
 from calibre_plugins.chinese_text_conversion.__init__ import (PLUGIN_NAME, PLUGIN_SAFE_NAME)
 from calibre_plugins.chinese_text_conversion.i18n import _, apply_ui_language_from_prefs, detect_calibre_ui_language
 from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc import OpenCC
+from calibre_plugins.chinese_text_conversion.resources.bilingual import (
+    BILINGUAL_STYLE_MARKER, BILINGUAL_STYLE_CSS, BILINGUAL_STYLE_BLOCK,
+    BILINGUAL_BI_STYLE_CSS_TEXT, BILINGUAL_MAIN_STYLE_CSS_TEXT,
+    BILINGUAL_RT_STYLE_CSS_TEXT, align_conversion_segments,
+    format_bilingual_html, strip_bilingual_annotations,
+)
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
     is_vision_ocr_supported, enrich_images_with_ocr,
     get_preferred_ocr_languages, get_missing_ocr_language_notice,
@@ -81,74 +85,6 @@ USE_JIEBA_SEGMENTATION = 13  # True/False — optional Jieba before OpenCC conve
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
-BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
-# Native ruby layout keeps converted text on the paragraph baseline while placing
-# the original below it without turning each changed run into a flex formatting box.
-# Extra padding on each <rt> keeps the sparse original line clear of the next
-# text line inside the same paragraph (not a paragraph-level margin).
-BILINGUAL_STYLE_CSS = (
-    '.ctc-bi{ruby-position:under;ruby-align:end}'
-    '.ctc-bi-main{line-height:inherit}'
-    '.ctc-bi-rt{font-size:.75em;line-height:1;color:inherit;opacity:.55;'
-    'white-space:nowrap;padding-bottom:0.55em}'
-)
-BILINGUAL_STYLE_BLOCK = (
-    '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
-    + BILINGUAL_STYLE_CSS +
-    '</style>'
-)
-BILINGUAL_BI_STYLE_CSS_TEXT = (
-    'ruby-position:under;ruby-align:end'
-)
-BILINGUAL_MAIN_STYLE_CSS_TEXT = 'line-height:inherit'
-BILINGUAL_RT_STYLE_CSS_TEXT = (
-    'font-size:.75em;line-height:1;color:inherit;opacity:.55;'
-    'white-space:nowrap;padding-bottom:0.55em'
-)
-
-# Innermost: <span class="ctc-bi"><span class="ctc-bi-main">CONV</span><span class="ctc-bi-rt">ORIG</span></span>
-# Also accepts legacy form without ctc-bi-main.
-# (?<=["\'\s])ctc-bi(?=["\'\s]) avoids matching the "ctc-bi" prefix inside "ctc-bi-rt".
-_BILINGUAL_UNWRAP_RE = re.compile(
-    r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi(?=["\'\s]))[^>]*>'
-    r'(?:<span\b(?=[^>]*\bctc-bi-main\b)[^>]*>)?([^<]*)(?:</span>)?'
-    r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi-rt(?=["\'\s]))[^>]*>'
-    r'(.*?)'
-    r'</span>\s*</span>',
-    re.IGNORECASE | re.DOTALL,
-)
-_BILINGUAL_RUBY_UNWRAP_RE = re.compile(
-    r'<ruby\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=[\"\'\s])ctc-bi(?=[\"\'\s]))[^>]*>'
-    r'<rb\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bctc-bi-main\b)[^>]*>.*?</rb>'
-    r'<rt\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bctc-bi-rt\b)[^>]*>(.*?)</rt>'
-    r'\s*</ruby>',
-    re.IGNORECASE | re.DOTALL,
-)
-_BILINGUAL_STYLE_BLOCK_RE = re.compile(
-    r'<style\b[^>]*\bid\s*=\s*["\']'
-    + re.escape(BILINGUAL_STYLE_MARKER)
-    + r'["\'][^>]*>.*?</style>\s*',
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-def strip_bilingual_annotations(html):
-    """
-    Unwrap existing bilingual shells back to original text (ctc-bi-rt content)
-    and drop previously injected bilingual <style> blocks.
-    Applies innermost-first until stable so nested re-conversions rebuild cleanly.
-    """
-    if not html or ('ctc-bi' not in html and BILINGUAL_STYLE_MARKER not in html):
-        return html
-    html = _BILINGUAL_STYLE_BLOCK_RE.sub('', html)
-    prev = None
-    while prev != html:
-        prev = html
-        html = _BILINGUAL_RUBY_UNWRAP_RE.sub(r'\1', html)
-        html = _BILINGUAL_UNWRAP_RE.sub(r'\2', html)
-    return html
-
-
 #<!--PI_SELTEXT_START-->
 seltext_start_tag = "PI_SELTEXT_START"
 
@@ -175,60 +111,6 @@ def get_resource_file(file_type, file_name):
 
 # regular expression to remove ruby text
 # newstring = oldstring.replace(/<rb>([^<]*)<\/rb>|<rp>[^<]*<\/rp>|<rt>[^<]*<\/rt>|<\/?ruby>/g, "$1");
-
-
-def align_conversion_segments(original, converted):
-    """
-    Align original and converted strings into (orig, conv) segments.
-    Unchanged spans keep equal text; changed spans keep full-context conversion results.
-    """
-    if original == converted:
-        return [(original, converted)]
-
-    matcher = difflib.SequenceMatcher(None, original, converted, autojunk=False)
-    segments = []
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == 'equal':
-            segments.append((original[i1:i2], converted[j1:j2]))
-        elif tag == 'replace':
-            segments.append((original[i1:i2], converted[j1:j2]))
-        elif tag == 'delete':
-            segments.append((original[i1:i2], ''))
-        elif tag == 'insert':
-            inserted = converted[j1:j2]
-            if segments:
-                prev_orig, prev_conv = segments[-1]
-                segments[-1] = (prev_orig, prev_conv + inserted)
-            else:
-                segments.append(('', inserted))
-    return segments
-
-
-def format_bilingual_html(original, converted):
-    """Build bilingual HTML: converted as primary line, original as smaller line below."""
-    if original == converted:
-        return original
-
-    parts = []
-    for orig, conv in align_conversion_segments(original, converted):
-        if not orig and not conv:
-            continue
-        if orig == conv:
-            parts.append(html_escape(orig, quote=False))
-            continue
-        if not orig:
-            # Insert-only: show converted text without a bilingual shell.
-            parts.append(html_escape(conv, quote=False))
-            continue
-        if not conv:
-            parts.append(html_escape(orig, quote=False))
-            continue
-        parts.append(
-            '<ruby class="ctc-bi"><rb class="ctc-bi-main">{}</rb>'
-            '<rt class="ctc-bi-rt">{}</rt></ruby>'.format(
-                html_escape(conv, quote=False),
-                html_escape(orig, quote=False)))
-    return ''.join(parts)
 
 
 class HTML_TextProcessor(HTMLParser):
@@ -402,10 +284,15 @@ class HTML_TextProcessor(HTMLParser):
 ##            print('handle_data CONVERSION_TYPE criteria = ', self.criteria[CONVERSION_TYPE])
             if self.criteria[CONVERSION_TYPE] != 0 and self.converting:
 ##                print('handle_data calling self.textConverter.convert(text)')
-                converted = self.textConverter.convert(text)
                 if self._bilingual_enabled():
-                    self.result.append(format_bilingual_html(text, converted))
+                    if hasattr(self.textConverter, 'convert_with_details'):
+                        converted, spans = self.textConverter.convert_with_details(text)
+                    else:
+                        converted = self.textConverter.convert(text)
+                        spans = None
+                    self.result.append(format_bilingual_html(text, converted, spans))
                 else:
+                    converted = self.textConverter.convert(text)
                     self.result.append(converted)
             else:
 ##                print('handle_data NOT calling self.textConverter.convert(text)')
@@ -574,6 +461,7 @@ class TradSimpChinese(Tool):
                     QApplication.setOverrideCursor(QCursor(Qt.WaitCursor))
                     QApplication.processEvents()
                     self.converter.set_conversion(conversion)
+                    self.converter.clear_replacement_counts()
                     apply_converter_segmentation(self.converter, criteria, verbose=True)
                     self.process_files(criteria)
                     QApplication.restoreOverrideCursor()
@@ -599,6 +487,18 @@ class TradSimpChinese(Tool):
                 elif conversion != 'unsupported_conversion':
                     info_dialog(self.gui, _('No Changes'),
                                 _('No text meeting your criteria was found to change.\nNo changes made.'), show=True)
+                if conversion != 'unsupported_conversion':
+                    from calibre_plugins.chinese_text_conversion.library_flow import (
+                        format_conversion_diagnostics_log,
+                    )
+                    diagnostic_log = format_conversion_diagnostics_log(self.converter)
+                    if diagnostic_log:
+                        info_dialog(
+                            self.gui,
+                            _('Conversion diagnostics'),
+                            _('Conversion completed with suspicious text that may need review.'),
+                            det_msg=diagnostic_log,
+                            show=True)
 
     def process_files(self, criteria):
         container = self.current_container  # The book being edited as a container object
@@ -1652,6 +1552,7 @@ def main(argv, plugin_version, usage=None):
         #Create a Container object from the file
         container = get_container(filename)
         #Update the container
+        converter.clear_replacement_counts()
         changed_files = cli_process_files(criteria, container, converter, html_parser)
         if (len(changed_files) > 0) and not args.quiet_opt:
             print(_('Changed'))
@@ -1661,6 +1562,13 @@ def main(argv, plugin_version, usage=None):
         else:
             if not args.quiet_opt:
                 print(_('Unchanged - No file written'))
+        if not args.quiet_opt:
+            from calibre_plugins.chinese_text_conversion.library_flow import (
+                format_conversion_diagnostics_log,
+            )
+            diagnostic_log = format_conversion_diagnostics_log(converter)
+            if diagnostic_log:
+                print(diagnostic_log)
         #if changes, save the container as an ebook file with a name based on the conversion criteria
         if len(changed_files) > 0:
             if (args.outdir_opt == None) and (args.append_suffix_opt == ''):

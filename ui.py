@@ -22,7 +22,8 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
-    format_replacement_stats_log, format_jieba_samples_log, ocr_summary_line,
+    format_replacement_stats_log, format_conversion_diagnostics_log,
+    format_jieba_samples_log, ocr_summary_line,
     languages_from_metadata, books_with_unsupported_language_items,
     count_image_resources_from_path,
     OCR_LARGE_IMAGE_COUNT_THRESHOLD, unsupported_language_skip_set_or_cancel,
@@ -99,6 +100,7 @@ class LibraryConversionWorker(QObject):
                 else:
                     self.progress.emit(1, 1, processing_message)
                 replacement_log = format_replacement_stats_log(converter)
+                diagnostic_log = format_conversion_diagnostics_log(converter)
                 jieba_log = None
                 if (
                     self.criteria is not None
@@ -116,6 +118,7 @@ class LibraryConversionWorker(QObject):
                     'ocr_samples': ocr_samples,
                     'ocr_stats': ocr_stats,
                     'replacement_log': replacement_log,
+                    'diagnostic_log': diagnostic_log,
                     'jieba_log': jieba_log,
                     'suffix': suffix,
                     'generated_at': generated_at,
@@ -419,6 +422,14 @@ class ChineseTextAction(InterfaceAction):
                 _('----Log replacements end----'),
                 [result.get('replacement_log')])
             status_dlg.log_result('')
+            diagnostic_log = result.get('diagnostic_log')
+            if diagnostic_log:
+                log_section(
+                    status_dlg,
+                    _('----Log conversion diagnostics begin----'),
+                    _('----Log conversion diagnostics end----'),
+                    [diagnostic_log])
+                status_dlg.log_result('')
             log_section(
                 status_dlg,
                 _('----Log preview begin----'),

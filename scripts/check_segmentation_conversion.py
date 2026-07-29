@@ -40,8 +40,13 @@ SAMPLES = [
 
 # Identity / 歷曆 phrase protection must match official OpenCC short_circuit.
 EXPECTED_PHRASES = (
+    ('只是', '只是'),
+    ('丑时', '丑時'),
     ('王后', '王后'),
     ('皇后', '皇后'),
+    ('公里', '公里'),
+    ('范公子', '范公子'),
+    ('韩国瑜', '韓國瑜'),
     ('历史', '歷史'),
     ('日历', '日曆'),
     ('经历', '經歷'),

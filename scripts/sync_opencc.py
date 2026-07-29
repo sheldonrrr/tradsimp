@@ -58,6 +58,10 @@ CONFIG_FILES = [
     's2t.json', 's2tw.json', 's2twp.json', 't2hk.json', 't2jp.json', 't2s.json',
     't2tw.json', 'tw2s.json', 'tw2sp.json', 'tw2t.json',
 ]
+SIMPLIFIED_TO_TRADITIONAL_CONFIGS = {
+    's2hk.json', 's2hkp.json', 's2t.json', 's2tw.json', 's2twp.json',
+}
+PLUGIN_ST_PHRASES = 'CTCSTPhrases.txt'
 
 
 def upstream_dict_dir(src: str) -> str:
@@ -126,9 +130,40 @@ def sync_configs(src: str) -> None:
         with open(os.path.join(upstream_config_dir(src), name), encoding='utf-8') as fh:
             data = json.load(fh)
         data = ocd2_config_to_txt(data)
+        if name in SIMPLIFIED_TO_TRADITIONAL_CONFIGS:
+            add_plugin_phrase_overrides(data)
         with open(os.path.join(CONFIG_DIR, name), 'w', encoding='utf-8') as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
             fh.write('\n')
+
+
+def add_plugin_phrase_overrides(config: dict) -> None:
+    """Prepend persistent plugin overrides to s2t phrase and segmentation groups."""
+    override = {'type': 'txt', 'file': PLUGIN_ST_PHRASES}
+
+    segmentation = config.get('segmentation') or {}
+    segmentation_dict = segmentation.get('dict') or {}
+    if segmentation_dict.get('type') == 'group':
+        dictionaries = segmentation_dict.setdefault('dicts', [])
+        if override not in dictionaries:
+            dictionaries.insert(0, dict(override))
+
+    conversion_chain = config.get('conversion_chain') or []
+    if not conversion_chain:
+        return
+    first_step = (conversion_chain[0].get('dict') or {})
+    dictionaries = first_step.get('dicts') or []
+    phrase_group = next(
+        (item for item in dictionaries
+         if item.get('type') == 'group'
+         and item.get('match_policy') == 'union'),
+        None,
+    )
+    if phrase_group is None:
+        raise ValueError('Unable to locate s2t phrase union group')
+    phrase_dicts = phrase_group.setdefault('dicts', [])
+    if override not in phrase_dicts:
+        phrase_dicts.insert(0, dict(override))
 
 
 def generate_st_phrases_from_regional(src: str) -> None:

@@ -1,0 +1,5 @@
+# Chinese Text Conversion plugin phrase overrides
+# Format: Simplified source<TAB>Traditional target
+# This file is intentionally maintained outside upstream OpenCC synchronization.
+
+范公子	范公子

@@ -20,6 +20,10 @@
             "dicts": [
               {
                 "type": "txt",
+                "file": "CTCSTPhrases.txt"
+              },
+              {
+                "type": "txt",
                 "file": "STPhrases.txt"
               },
               {

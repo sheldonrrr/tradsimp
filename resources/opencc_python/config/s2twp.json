@@ -16,6 +16,10 @@
       "dicts": [
         {
           "type": "txt",
+          "file": "CTCSTPhrases.txt"
+        },
+        {
+          "type": "txt",
           "file": "STPhrases.txt"
         },
         {
@@ -35,6 +39,10 @@
             "type": "group",
             "match_policy": "union",
             "dicts": [
+              {
+                "type": "txt",
+                "file": "CTCSTPhrases.txt"
+              },
               {
                 "type": "txt",
                 "file": "STPhrases.txt"

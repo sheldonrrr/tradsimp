@@ -222,6 +222,7 @@ def unsupported_language_skip_set_or_cancel(gui, flagged_books):
 
 LIBRARY_PREVIEW_MAX_CHARS = 500
 LIBRARY_REPLACEMENT_SAMPLE_LIMIT = 20
+LIBRARY_DIAGNOSTIC_SAMPLE_LIMIT = 12
 LIBRARY_JIEBA_SAMPLE_LIMIT = 8
 OCR_LARGE_IMAGE_COUNT_THRESHOLD = 5
 
@@ -256,6 +257,44 @@ def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMP
     remaining = unique - min(unique, max_samples)
     if remaining > 0:
         lines.append(_('… and {} more unique pairs not shown').format(remaining))
+    return '\n'.join(lines)
+
+
+def format_conversion_diagnostics_log(
+        converter, max_samples=LIBRARY_DIAGNOSTIC_SAMPLE_LIMIT):
+    diagnostics = converter.get_conversion_diagnostics()
+    counts = diagnostics.get('counts') or {}
+    samples = diagnostics.get('samples') or []
+    if not counts:
+        return ''
+
+    total = sum(counts.values())
+    mixed = sum(
+        count for (kind, _source, _target), count in counts.items()
+        if kind == 'traditional_input_in_simplified_mode')
+    ambiguous = sum(
+        count for (kind, _source, _target), count in counts.items()
+        if kind == 'ambiguous_character_fallback')
+    lines = [
+        _('Conversion diagnostics: {} suspicious hits').format(total),
+        _('  Traditional-only input in Simplified mode: {}').format(mixed),
+        _('  Ambiguous character fallbacks: {}').format(ambiguous),
+    ]
+    for sample in samples[:max_samples]:
+        kind = sample.get('kind')
+        source = sample.get('source') or ''
+        target = sample.get('target') or ''
+        context = sample.get('context') or ''
+        if kind == 'traditional_input_in_simplified_mode':
+            lines.append(
+                _('  Mixed input: {} (context: {})').format(source, context))
+        else:
+            lines.append(
+                _('  Ambiguous fallback: {} → {} ({})').format(
+                    source, target, sample.get('dictionary') or 'OpenCC'))
+    remaining = len(samples) - min(len(samples), max_samples)
+    if remaining > 0:
+        lines.append(_('… and {} more samples not shown').format(remaining))
     return '\n'.join(lines)
 
 
