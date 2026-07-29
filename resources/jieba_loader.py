@@ -49,7 +49,18 @@ def _read_package_bytes(rel_path):
     Falls back to the filesystem copy under resources/jieba/.
     """
     normalized = rel_path.replace('\\', '/')
-    data = pkgutil.get_data(JIEBA_PACKAGE, normalized)
+    # Calibre injects get_resources() for files inside a plugin zip.
+    try:
+        data = get_resources('resources/jieba/' + normalized)
+    except Exception:
+        data = None
+    if data:
+        return data
+
+    try:
+        data = pkgutil.get_data(JIEBA_PACKAGE, normalized)
+    except Exception:
+        data = None
     if data:
         return data
 
@@ -59,10 +70,16 @@ def _read_package_bytes(rel_path):
             return handle.read()
 
     # Dev/script import without the calibre_plugins prefix
-    data = pkgutil.get_data('resources.jieba', normalized)
+    try:
+        data = pkgutil.get_data('resources.jieba', normalized)
+    except Exception:
+        data = None
     if data:
         return data
-    data = pkgutil.get_data('jieba', normalized)
+    try:
+        data = pkgutil.get_data('jieba', normalized)
+    except Exception:
+        data = None
     if data:
         return data
 

@@ -532,6 +532,25 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.include_metadata_help_row)
         self._update_include_metadata_help_text()
 
+        self.append_conversion_suffix = QCheckBox(_(
+            'Add identifying suffix to generated book title'))
+        advanced_group_box_layout.addWidget(self.append_conversion_suffix)
+        self.append_conversion_suffix_help = QLabel()
+        self.append_conversion_suffix_help.setWordWrap(True)
+        self.append_conversion_suffix_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.append_conversion_suffix_help)
+        self.append_conversion_suffix_help_row = help_text_row(
+            self, self.append_conversion_suffix_help)
+        self.append_conversion_suffix_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(
+            self.append_conversion_suffix_help_row)
+        self._update_append_conversion_suffix_help_text()
+        self.append_conversion_suffix.setVisible(self.force_entire_book)
+        self.append_conversion_suffix_help_row.setVisible(
+            self.force_entire_book)
+
         self.bilingual_annotation = QCheckBox(_('Bilingual annotation'))
         advanced_group_box_layout.addWidget(self.bilingual_annotation)
         self.bilingual_annotation_help = QLabel()
@@ -542,6 +561,24 @@ class ConversionDialog(Dialog):
         self.bilingual_annotation_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.bilingual_annotation_help_row)
         self._update_bilingual_annotation_help_text()
+        self.bilingual_annotation.toggled.connect(
+            self._on_bilingual_annotation_toggled)
+
+        self.force_pivot_conversion = QCheckBox(_(
+            'Forced conversion (coverage first)'))
+        advanced_group_box_layout.addWidget(self.force_pivot_conversion)
+        self.force_pivot_conversion_help = QLabel()
+        self.force_pivot_conversion_help.setWordWrap(True)
+        self.force_pivot_conversion_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.force_pivot_conversion_help)
+        self.force_pivot_conversion_help_row = help_text_row(
+            self, self.force_pivot_conversion_help)
+        self.force_pivot_conversion_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(
+            self.force_pivot_conversion_help_row)
+        self._update_force_pivot_conversion_help_text()
 
         self._vision_ocr_unsupported_notice_pending = False
         self.enable_vision_ocr_enhancement = QCheckBox(_('Enable Vision OCR image enhancement'))
@@ -606,10 +643,27 @@ class ConversionDialog(Dialog):
         self.include_metadata_help.setText(help_text)
         self.include_metadata.setToolTip('')
 
+    def _update_append_conversion_suffix_help_text(self):
+        self.append_conversion_suffix_help.setText(_(
+            'Generated book suffix help'))
+        self.append_conversion_suffix.setToolTip('')
+
     def _update_bilingual_annotation_help_text(self):
         help_text = _('Bilingual annotation help')
         self.bilingual_annotation_help.setText(help_text)
         self.bilingual_annotation.setToolTip('')
+
+    def _update_force_pivot_conversion_help_text(self):
+        self.force_pivot_conversion_help.setText(_(
+            'Forced conversion coverage help'))
+        self.force_pivot_conversion.setToolTip('')
+
+    def _on_bilingual_annotation_toggled(self, checked):
+        if not checked:
+            self.force_pivot_conversion.blockSignals(True)
+            self.force_pivot_conversion.setChecked(False)
+            self.force_pivot_conversion.blockSignals(False)
+        self.update_gui()
 
     def _update_trad_to_trad_help_text(self):
         self.trad_to_trad_help.setText(_('Traditional to Traditional help'))
@@ -910,8 +964,14 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.setText(_('Settings...'))
         self.include_metadata.setText(_('Include metadata'))
         self._update_include_metadata_help_text()
+        self.append_conversion_suffix.setText(_(
+            'Add identifying suffix to generated book title'))
+        self._update_append_conversion_suffix_help_text()
         self.bilingual_annotation.setText(_('Bilingual annotation'))
         self._update_bilingual_annotation_help_text()
+        self.force_pivot_conversion.setText(_(
+            'Forced conversion (coverage first)'))
+        self._update_force_pivot_conversion_help_text()
         self.enable_vision_ocr_enhancement.setText(_('Enable Vision OCR image enhancement'))
 
         self.book_source_button.setText(_('Entire eBook'))
@@ -969,7 +1029,9 @@ class ConversionDialog(Dialog):
         self.text_dir_vertical_button.blockSignals(state)
         self.update_punctuation.blockSignals(state)
         self.include_metadata.blockSignals(state)
+        self.append_conversion_suffix.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
+        self.force_pivot_conversion.blockSignals(state)
         self.enable_vision_ocr_enhancement.blockSignals(state)
 
 
@@ -1013,7 +1075,12 @@ class ConversionDialog(Dialog):
         self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
         self.include_metadata.setChecked(bool(self.prefs.get('include_metadata', True)))
-        self.bilingual_annotation.setChecked(bool(self.prefs.get('bilingual_annotation', False)))
+        self.append_conversion_suffix.setChecked(bool(
+            self.prefs.get('append_conversion_suffix', True)))
+        self.bilingual_annotation.setChecked(bool(
+            self.prefs.get('bilingual_annotation', True)))
+        self.force_pivot_conversion.setChecked(bool(
+            self.prefs.get('force_pivot_conversion', True)))
         ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
         ocr_supported = is_vision_ocr_supported()
         self._vision_ocr_unsupported_notice_pending = bool(ocr_requested and not ocr_supported)
@@ -1098,6 +1165,12 @@ class ConversionDialog(Dialog):
         bilingual_enabled = not self.no_conversion_button.isChecked()
         self.bilingual_annotation.setEnabled(bilingual_enabled)
         self.bilingual_annotation_help_row.setEnabled(bilingual_enabled)
+
+        force_pivot_enabled = bool(
+            self.simp_to_trad_button.isChecked()
+            and self.bilingual_annotation.isChecked())
+        self.force_pivot_conversion.setEnabled(force_pivot_enabled)
+        self.force_pivot_conversion_help_row.setEnabled(force_pivot_enabled)
 
 
     def _ok_clicked(self):
@@ -1212,9 +1285,15 @@ class ConversionDialog(Dialog):
         self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
         self.prefs['include_metadata'] = self.include_metadata.isChecked()
+        self.prefs['append_conversion_suffix'] = (
+            self.append_conversion_suffix.isChecked())
         self.prefs['bilingual_annotation'] = (
             self.bilingual_annotation.isChecked()
             and not self.no_conversion_button.isChecked())
+        self.prefs['force_pivot_conversion'] = bool(
+            self.force_pivot_conversion.isChecked()
+            and self.bilingual_annotation.isChecked()
+            and self.simp_to_trad_button.isChecked())
         self.prefs['enable_vision_ocr_enhancement'] = (
             self.enable_vision_ocr_enhancement.isChecked()
             and is_vision_ocr_supported())

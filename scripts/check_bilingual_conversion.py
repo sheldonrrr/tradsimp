@@ -6,6 +6,8 @@ from __future__ import print_function
 
 import os
 import sys
+from html.parser import HTMLParser
+from zipfile import ZipFile
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
@@ -19,6 +21,7 @@ from resources.opencc_python.opencc import (  # noqa: E402
     CONFIG_FILE,
     DICT_FILE,
     OpenCC,
+    SEGMENTATION_JIEBA,
 )
 
 
@@ -35,6 +38,16 @@ def assert_equal(actual, expected, label):
         raise AssertionError(
             '{}\nexpected: {!r}\nactual:   {!r}'.format(
                 label, expected, actual))
+
+
+class _TextCollector(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.items = []
+
+    def handle_data(self, data):
+        if data.strip():
+            self.items.append(data.strip())
 
 
 def main():
@@ -77,10 +90,84 @@ def main():
     if 'ambiguous_character_fallback' not in kinds:
         raise AssertionError('ambiguous character fallback was not diagnosed')
 
-    converter.clear_replacement_counts()
-    assert_equal(converter.convert('范公子'), '范公子', 'plugin override')
-    if converter.get_conversion_diagnostics()['counts']:
-        raise AssertionError('protected plugin phrase emitted a diagnostic')
+    # Coverage-first mode uses only existing OpenCC reverse/forward configs.
+    forced = OpenCC(resource_getter, 's2twp')
+    forced.set_segmentation_mode(SEGMENTATION_JIEBA)
+    forced.set_force_pivot_conversion(True)
+    mixed = '皇后 \t皇後 \t皇后；公里 \t公裡 \t公里'
+    mixed_converted, mixed_spans = forced.convert_with_details(mixed)
+    assert_equal(
+        mixed_converted,
+        '皇后 \t皇后 \t皇后；公里 \t公里 \t公里',
+        'forced pivot mixed-script normalization')
+    mixed_ruby = format_bilingual_html(
+        mixed, mixed_converted, mixed_spans)
+    if ('<rb class="ctc-bi-main">后</rb>'
+            '<rt class="ctc-bi-rt">後</rt>' not in mixed_ruby):
+        raise AssertionError(
+            'forced pivot did not preserve 皇後 source: ' + mixed_ruby)
+    if ('<rb class="ctc-bi-main">里</rb>'
+            '<rt class="ctc-bi-rt">裡</rt>' not in mixed_ruby):
+        raise AssertionError(
+            'forced pivot did not preserve 公裡 source: ' + mixed_ruby)
+    assert_equal(
+        strip_bilingual_annotations('<p>' + mixed_ruby + '</p>'),
+        '<p>' + mixed + '</p>',
+        'forced pivot re-conversion must restore real source')
+
+    # The mode is intentionally coverage-first: valid regional wording can move.
+    regional, regional_spans = forced.convert_with_details('搜尋欄位')
+    assert_equal(regional, '搜尋字段', 'documented pivot regional side effect')
+    regional_ruby = format_bilingual_html(
+        '搜尋欄位', regional, regional_spans)
+    if '<rt class="ctc-bi-rt">欄位</rt>' not in regional_ruby:
+        raise AssertionError(
+            'pivot side effect source not visible in ruby: ' + regional_ruby)
+
+    # Length-changing target phrases must use a safe whole-context fallback.
+    expanded, expanded_spans = forced.convert_with_details('内存')
+    assert_equal(expanded, '記憶體', 'forced pivot length-changing phrase')
+    assert_equal(len(expanded_spans), 1, 'length-changing fallback span')
+    assert_equal(
+        format_bilingual_html('内存', expanded, expanded_spans),
+        '<ruby class="ctc-bi"><rb class="ctc-bi-main">記憶體</rb>'
+        '<rt class="ctc-bi-rt">内存</rt></ruby>',
+        'length-changing fallback ruby')
+
+    forced.set_force_pivot_conversion(False)
+    assert_equal(
+        forced.convert('皇後 公裡'),
+        '皇後 公裡',
+        'disabled pivot preserves direct OpenCC behavior')
+
+    # Exercise the repository's mixed-script EPUB fixture end to end in memory.
+    fixture = os.path.join(
+        REPO_ROOT, 'testdata', 'Test (2026) - 简繁.epub')
+    collector = _TextCollector()
+    with ZipFile(fixture) as archive:
+        for name in archive.namelist():
+            if name.lower().endswith(('.xhtml', '.html', '.htm')):
+                collector.feed(
+                    archive.read(name).decode('utf-8', errors='replace'))
+    fixture_converter = OpenCC(resource_getter, 's2twp')
+    fixture_converter.set_segmentation_mode(SEGMENTATION_JIEBA)
+    fixture_converter.set_force_pivot_conversion(True)
+    fixture_cases = {
+        '只是 \t隻是 \t只是/衹是': '只是 \t只是 \t只是/衹是',
+        '丑时 \t醜時 \t丑時': '丑時 \t丑時 \t丑時',
+        '皇后 \t皇後 \t皇后': '皇后 \t皇后 \t皇后',
+        '公里 \t公裡 \t公里': '公里 \t公里 \t公里',
+        # Upstream OpenCC does not know that 范 is a surname here.
+        '范公子 \t範公子 \t范公子': '範公子 \t範公子 \t範公子',
+        # 南韓 is valid regional wording; no private name override is used.
+        '韩国瑜 \t南韓瑜\t韓國瑜': '韓國瑜 \t南韓瑜\t韓國瑜',
+    }
+    for source, expected in fixture_cases.items():
+        if source not in collector.items:
+            raise AssertionError('fixture row not found: ' + source)
+        assert_equal(
+            fixture_converter.convert(source), expected,
+            'fixture forced pivot: ' + source)
 
     print('Bilingual conversion assertions passed')
     return 0

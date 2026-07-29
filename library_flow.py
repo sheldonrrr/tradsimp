@@ -3,8 +3,10 @@
 __license__ = 'GPL 3'
 
 import os
+import random
 import re
 import shutil
+import string
 import tempfile
 from datetime import datetime
 
@@ -244,12 +246,16 @@ def count_image_resources_from_path(book_path):
 
 def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMPLE_LIMIT):
     counts = converter.get_replacement_counts()
+    prefix = []
+    if getattr(converter, 'get_force_pivot_conversion', lambda: False)():
+        prefix.append(_('Forced pivot conversion: {0}').format(_('enabled')))
     if not counts:
-        return _('No OpenCC replacements recorded for this book.')
+        prefix.append(_('No OpenCC replacements recorded for this book.'))
+        return '\n'.join(prefix)
     total = sum(counts.values())
     unique = len(counts)
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
-    lines = [
+    lines = prefix + [
         _('OpenCC replacements: {} hits, {} unique pairs').format(total, unique),
     ]
     for (old, new), n in ranked[:max_samples]:
@@ -325,6 +331,49 @@ def make_conversion_suffix():
     return suffix_tag, generated_at
 
 
+def make_random_book_code():
+    """Return four filename-safe characters containing letters and digits."""
+    rng = random.SystemRandom()
+    chars = [
+        rng.choice(string.ascii_letters),
+        rng.choice(string.digits),
+        rng.choice(string.ascii_letters + string.digits),
+        rng.choice(string.ascii_letters + string.digits),
+    ]
+    rng.shuffle(chars)
+    return ''.join(chars)
+
+
+def make_converted_title_suffix(
+        conversion_type, output_locale, bilingual=False, enabled=True,
+        random_code=None):
+    """Build the visible suffix appended to each generated library-book title."""
+    if not enabled:
+        return ''
+
+    if output_locale == 1:
+        target = '繁体中文_香港'
+    elif output_locale == 2:
+        target = '繁体中文_台湾'
+    elif output_locale == 3:
+        target = '日文汉字'
+    elif conversion_type == 1:
+        target = '简体中文'
+    elif conversion_type in (2, 3):
+        target = '繁体中文'
+    else:
+        target = '中文转换'
+
+    code = random_code or make_random_book_code()
+    if not re.fullmatch(r'[A-Za-z0-9]{4}', code):
+        raise ValueError('random book code must be four ASCII letters/digits')
+    parts = [target]
+    if bilingual and conversion_type != 0:
+        parts.append('双语标注')
+    parts.append(code)
+    return '_' + '_'.join(parts)
+
+
 def format_book_tag_log_lines(suffix_tag, generated_at):
     '''Human-readable conversion-time lines for the status log (not applied to titles).'''
     time_stamp = generated_at.strftime('%Y-%m-%d %H:%M:%S')
@@ -345,6 +394,9 @@ def build_library_conversion_comments_note():
 
 _PLUGIN_TITLE_SUFFIX_RE = re.compile(
     r'(?:\s+|^)' + re.escape(PLUGIN_SAFE_NAME) + r'-\d{2}-\d{2}-\d{2}(?=\s*$)')
+_GENERATED_TITLE_SUFFIX_RE = re.compile(
+    r'_(?:简体中文|繁体中文(?:_(?:香港|台湾))?|日文汉字|中文转换)'
+    r'(?:_双语标注)?_[A-Za-z0-9]{4}(?=\s*$)')
 
 _PLUGIN_COMMENT_MARKERS = (
     PLUGIN_RELEASE_THREAD_URL,
@@ -367,10 +419,11 @@ _PLUGIN_COMMENT_MARKERS = (
 
 
 def sanitize_converted_book_title(title):
-    '''Remove legacy plugin time suffixes from a title (and title_sort).'''
+    '''Remove legacy and current generated suffixes from title/title_sort.'''
     text = (title or '').strip()
     while True:
         cleaned = _PLUGIN_TITLE_SUFFIX_RE.sub('', text).strip()
+        cleaned = _GENERATED_TITLE_SUFFIX_RE.sub('', cleaned).strip()
         if cleaned == text:
             return cleaned
         text = cleaned
@@ -474,11 +527,14 @@ def convert_calibre_metadata(mi, converter):
         mi.comments = _convert_text(converter, mi.comments)
 
 
-def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix_tag=None, converter=None):
+def import_converted_book_as_new(
+        db, source_book_id, converted_path, fmt, suffix_tag=None,
+        converter=None, title_suffix=''):
     '''
     Add a new library entry with converted file; does not modify the source book.
     When converter is provided, OpenCC-converts title/authors/tags/publisher/comments
-    (简介) and sort fields. Title is not given a time suffix. After conversion,
+    (简介) and sort fields. title_suffix identifies the generated target form.
+    After conversion,
     Comments get a short plugin promo note (with ---- separator when prior comments
     exist). suffix_tag is unused (kept for call-site compat).
     Returns (new_book_id, new_title).
@@ -493,6 +549,10 @@ def import_converted_book_as_new(db, source_book_id, converted_path, fmt, suffix
     if converter is not None:
         convert_calibre_metadata(new_mi, converter)
     new_mi.title = (new_mi.title or '').strip() or _('Unknown')
+    if title_suffix:
+        new_mi.title += title_suffix
+        if getattr(new_mi, 'title_sort', None):
+            new_mi.title_sort = new_mi.title_sort.rstrip() + title_suffix
     new_mi.comments = append_library_conversion_comments(
         new_mi.comments, build_library_conversion_comments_note())
 

@@ -44,6 +44,15 @@ CHAINED_CONVERSION_NAMES = {
     'tw2hk': 'Traditional Chinese (Taiwan) to Traditional Chinese (Hong Kong)',
 }
 
+FORCED_PIVOT_REVERSE = {
+    's2t': 't2s',
+    's2tw': 'tw2sp',
+    's2twp': 'tw2sp',
+    's2hk': 'hk2sp',
+    's2hkp': 'hk2sp',
+}
+
+
 class OpenCC:
     def __init__(self, resource_getter, conversion=None):
         """
@@ -74,10 +83,10 @@ class OpenCC:
         self._seg_keys = set()
         self._has_segmentation = False
         self._segmentation_mode = SEGMENTATION_MMSEG
+        self._force_pivot_conversion = False
         self._jieba_samples = []
         self._jieba_sample_keys = set()
         self._jieba_sample_limit = 8
-        self._jieba_overrides_loaded = False
         self.dict_cache = dict()
         self._chain_converters = {}
         self.resource_getter = resource_getter
@@ -105,6 +114,16 @@ class OpenCC:
         is deliberately returned as one span so callers never lose or misalign text.
         """
 
+        pivot_mode = self._forced_pivot_reverse_mode()
+        if pivot_mode is not None:
+            pivot = self._get_chain_converter(pivot_mode).convert(string)
+            converted, _target_spans = self._convert_with_details_direct(pivot)
+            return converted, self._forced_pivot_spans(
+                string, pivot, converted, pivot_mode)
+        return self._convert_with_details_direct(string)
+
+    def _convert_with_details_direct(self, string):
+        """Run the selected config once, without the optional pivot pre-pass."""
         # echo the input if no conversion is wanted
         if self.conversion == "no_conversion":
             return string, [self._make_span(0, len(string), string, string)]
@@ -149,6 +168,31 @@ class OpenCC:
             # content correctness and use one safe bilingual span in that rare case.
             spans = [self._make_span(0, len(original), original, converted)]
         return converted, self._merge_adjacent_spans(spans)
+
+    def _forced_pivot_reverse_mode(self):
+        if not self._force_pivot_conversion:
+            return None
+        return FORCED_PIVOT_REVERSE.get(self.conversion)
+
+    def _forced_pivot_spans(self, original, pivot, converted, pivot_mode):
+        """
+        Align the real source with the final target. Most OpenCC mappings are
+        length-stable; use positional spans there. Fall back to one safe span
+        when either conversion stage changes length.
+        """
+        dictionary = 'forced-pivot:{}->{}'.format(
+            pivot_mode, self.conversion)
+        if len(original) != len(pivot) or len(pivot) != len(converted):
+            return [self._make_span(
+                0, len(original), original, converted,
+                kind='forced_pivot', dictionary=dictionary)]
+
+        spans = []
+        for index, (source, target) in enumerate(zip(original, converted)):
+            spans.append(self._make_span(
+                index, index + 1, source, target,
+                kind='forced_pivot', dictionary=dictionary))
+        return self._merge_adjacent_spans(spans)
 
     def _convert_text_unit(self, text):
         """Segment (optional) then apply the conversion chain to each piece."""
@@ -279,20 +323,10 @@ class OpenCC:
         if self._segmentation_mode == SEGMENTATION_JIEBA:
             jieba_mod = self._get_jieba()
             if jieba_mod is not None:
-                self._load_jieba_plugin_overrides(jieba_mod)
                 return list(jieba_mod.lcut(text, cut_all=False))
         if self._has_segmentation:
             return self._mmseg(text)
         return [text]
-
-    def _load_jieba_plugin_overrides(self, jieba_mod):
-        if self._jieba_overrides_loaded:
-            return
-        entry = self.dict_cache.get('CTCSTPhrases.txt')
-        if entry:
-            for phrase in entry[1]:
-                jieba_mod.add_word(phrase, freq=1000000)
-        self._jieba_overrides_loaded = True
 
     def _mmseg(self, text):
         """Forward maximum matching using the config segmentation dictionaries."""
@@ -374,6 +408,11 @@ class OpenCC:
             for mode in chain:
                 for key, count in self._get_chain_converter(mode).get_replacement_counts().items():
                     merged[key] = merged.get(key, 0) + count
+        pivot_mode = self._forced_pivot_reverse_mode()
+        if pivot_mode is not None:
+            for key, count in self._get_chain_converter(
+                    pivot_mode).get_replacement_counts().items():
+                merged[key] = merged.get(key, 0) + count
         return merged
 
     def get_conversion_diagnostics(self):
@@ -392,6 +431,19 @@ class OpenCC:
                     if (sample_key not in self._diagnostic_sample_keys
                             and len(samples) < self._diagnostic_sample_limit):
                         samples.append(sample)
+        pivot_mode = self._forced_pivot_reverse_mode()
+        if pivot_mode is not None:
+            child = self._get_chain_converter(
+                pivot_mode).get_conversion_diagnostics()
+            for key, count in child.get('counts', {}).items():
+                counts[key] = counts.get(key, 0) + count
+            for sample in child.get('samples', []):
+                sample_key = (
+                    sample.get('kind'), sample.get('source'),
+                    sample.get('target'), sample.get('context'))
+                if (sample_key not in self._diagnostic_sample_keys
+                        and len(samples) < self._diagnostic_sample_limit):
+                    samples.append(sample)
         return {'counts': counts, 'samples': samples}
 
     def _record_diagnostic(self, kind, source, target=None, context=None,
@@ -455,6 +507,13 @@ class OpenCC:
         self._segmentation_mode = mode
         for child in self._chain_converters.values():
             child.set_segmentation_mode(mode)
+
+    def set_force_pivot_conversion(self, enabled):
+        """Enable lossy Traditional -> Simplified -> target conversion."""
+        self._force_pivot_conversion = bool(enabled)
+
+    def get_force_pivot_conversion(self):
+        return bool(self._forced_pivot_reverse_mode())
 
     def _convert(self, string, dictionary = [], is_dict_group = False,
                  match_policy = 'short_circuit', counts = None, events=None):
@@ -649,7 +708,6 @@ class OpenCC:
         else:
             self._dict_init_done = False
             self._chain_converters = {}
-            self._jieba_overrides_loaded = False
             self.replacement_counts.clear()
             self.diagnostic_counts.clear()
             self._diagnostic_samples = []

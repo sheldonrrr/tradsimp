@@ -219,6 +219,18 @@ _MESSAGES = {
         '标题、作者、标签、出版商、简介（Comments）。',
         '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
         '標題、作者、標籤、出版商、簡介（Comments）。'),
+    'Add identifying suffix to generated book title': _T(
+        'Add identifying suffix to generated book title',
+        '为新书标题增加识别后缀',
+        '為新書標題增加識別後綴'),
+    'Generated book suffix help': _T(
+        'Append the target form, bilingual status when enabled, and a random four-character '
+        'letter/digit code to each generated title—for example, '
+        '_繁体中文_香港_双语标注_A7b2. This avoids repeated conversions sharing the same name.',
+        '在每次生成的新书标题后增加目标文字类型、双语状态（若开启）及随机四位英文字母/数字，'
+        '例如「_繁体中文_香港_双语标注_A7b2」，避免多次转换产生同名书籍。',
+        '在每次產生的新書標題後增加目標文字類型、雙語狀態（若開啟）及隨機四位英文字母/數字，'
+        '例如「_繁体中文_香港_双语标注_A7b2」，避免多次轉換產生同名書籍。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',
@@ -231,6 +243,32 @@ _MESSAGES = {
         '仍按整句上下文做 OpenCC 转换以降低歧义。不应用于 Metadata。',
         '正文以轉換結果為主行，變化片段下方以更小字號右對齊顯示原文；'
         '仍按整句上下文做 OpenCC 轉換以降低歧義。不套用於 Metadata。'),
+    'Forced conversion (coverage first)': _T(
+        'Forced conversion (coverage first)',
+        '强制转换（覆盖优先）',
+        '強制轉換（覆蓋優先）'),
+    'Forced conversion coverage help': _T(
+        'First normalize mixed Simplified/Traditional text through a Simplified pivot, then rebuild '
+        'the selected Traditional form. This converts more text but can change valid regional wording. '
+        'Bilingual annotation is required so the original remains visible below.',
+        '先将混合简繁文本统一到简体枢轴，再重建所选繁体。这样可扩大转换覆盖，但也可能改变原本正确的'
+        '地区用词；必须开启双语批注，以便在下方保留原文。',
+        '先將混合簡繁文字統一到簡體樞軸，再重建所選繁體。這樣可擴大轉換覆蓋，但也可能改變原本正確的'
+        '地區用詞；必須開啟雙語批註，以便在下方保留原文。'),
+    'Forced pivot conversion: {0}': _T(
+        'Forced pivot conversion: {0}',
+        '简体枢轴强制转换：{0}',
+        '簡體樞軸強制轉換：{0}'),
+    'enabled': _T('enabled', '已开启', '已開啟'),
+    'disabled': _T('disabled', '已关闭', '已關閉'),
+    'Force coverage-first conversion through a Simplified pivot (requires --bilingual-annotation)': _T(
+        'Force coverage-first conversion through a Simplified pivot (requires --bilingual-annotation)',
+        '通过简体枢轴强制进行覆盖优先转换（需要 --bilingual-annotation）',
+        '透過簡體樞軸強制進行覆蓋優先轉換（需要 --bilingual-annotation）'),
+    '--force-pivot requires --direction s2t and --bilingual-annotation': _T(
+        '--force-pivot requires --direction s2t and --bilingual-annotation',
+        '--force-pivot 需要同时使用 --direction s2t 和 --bilingual-annotation',
+        '--force-pivot 需要同時使用 --direction s2t 和 --bilingual-annotation'),
     'Enable Vision OCR image enhancement': _T(
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',

@@ -45,7 +45,6 @@ EXPECTED_PHRASES = (
     ('王后', '王后'),
     ('皇后', '皇后'),
     ('公里', '公里'),
-    ('范公子', '范公子'),
     ('韩国瑜', '韓國瑜'),
     ('历史', '歷史'),
     ('日历', '日曆'),
@@ -54,6 +53,8 @@ EXPECTED_PHRASES = (
 )
 
 MODES = ('s2t', 's2twp', 's2hkp')
+FORCED_INPUT = '隻是 醜時 皇後 公裡 範公子 南韓瑜'
+FORCED_EXPECTED = '只是 丑時 皇后 公里 範公子 南韓瑜'
 
 
 def resource_getter(kind, name):
@@ -87,11 +88,32 @@ def check_expected_phrases():
     return failed
 
 
+def check_forced_pivot():
+    print('Forced pivot regression')
+    failed = 0
+    for mode in MODES:
+        for seg_mode in (SEGMENTATION_MMSEG, SEGMENTATION_JIEBA):
+            converter = OpenCC(resource_getter, mode)
+            converter.set_segmentation_mode(seg_mode)
+            direct = converter.convert(FORCED_INPUT)
+            converter.set_force_pivot_conversion(True)
+            got = converter.convert(FORCED_INPUT)
+            ok = got == FORCED_EXPECTED and direct != got
+            print('  [{} {}] {} [{}]{}'.format(
+                mode, seg_mode, got, 'OK' if ok else 'FAIL',
+                '' if ok else ' expected {}'.format(FORCED_EXPECTED)))
+            if not ok:
+                failed += 1
+    print('')
+    return failed
+
+
 def main():
     print('Segmentation conversion check')
     print('Repo:', REPO_ROOT)
     print('')
     failed = check_expected_phrases()
+    failed += check_forced_pivot()
     for mode in MODES:
         mmseg = OpenCC(resource_getter, mode)
         mmseg.set_segmentation_mode(SEGMENTATION_MMSEG)

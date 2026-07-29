@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese in your Calibre library on your own m
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.7.1** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.8.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -41,6 +41,8 @@ Then install again via **Load plugin from file**.
 - Process **EPUB / AZW3** books in the library: conversion **adds a new book** and **does not modify** the original file
 - UI languages: **English**, **简体中文**, **繁体中文（台湾）**, **繁体中文（香港）**
 - Conversion uses OpenCC **mmseg** segmentation by default (aligned with upstream OpenCC). An optional experimental **Jieba** segmentation checkbox can improve phrase-level accuracy for some texts (first use may load the dictionary more slowly).
+- **Forced conversion (coverage first)** normalizes mixed Simplified/Traditional text through a Simplified pivot before rebuilding the selected Traditional form. It uses only the bundled OpenCC rules and can convert more text at the cost of regional-wording precision. It is not typo proofreading. The option requires bilingual annotation so the original remains visible below; both options default to enabled for new installations.
+- Generated library books receive an identifying title suffix by default, such as `_繁体中文_香港_双语标注_A7b2`. The final four mixed letters/digits are regenerated for every book to avoid naming collisions; the suffix can be disabled in Advanced options.
 
 ### Why it is safe to use: fully offline
 

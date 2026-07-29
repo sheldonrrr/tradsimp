@@ -82,6 +82,8 @@ ENABLE_VISION_OCR = 10     # True/False
 INCLUDE_METADATA = 11      # True/False — convert OPF + Calibre library metadata
 BILINGUAL_ANNOTATION = 12  # True/False — converted primary + original on smaller line below
 USE_JIEBA_SEGMENTATION = 13  # True/False — optional Jieba before OpenCC conversion
+FORCE_PIVOT_CONVERSION = 14  # True/False — lossy T->S->target normalization
+APPEND_CONVERSION_SUFFIX = 15  # True/False — identify generated library books
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -463,6 +465,8 @@ class TradSimpChinese(Tool):
                     self.converter.set_conversion(conversion)
                     self.converter.clear_replacement_counts()
                     apply_converter_segmentation(self.converter, criteria, verbose=True)
+                    apply_converter_force_pivot(
+                        self.converter, criteria, verbose=True)
                     self.process_files(criteria)
                     QApplication.restoreOverrideCursor()
             except Exception:
@@ -575,7 +579,9 @@ def prepare_prefs(prefs):
         prefs['punc_omits'] = PUNC_OMITS
         prefs['enable_vision_ocr_enhancement'] = False
         prefs['include_metadata'] = True
-        prefs['bilingual_annotation'] = False
+        prefs['bilingual_annotation'] = True
+        prefs['force_pivot_conversion'] = True
+        prefs['append_conversion_suffix'] = True
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -598,7 +604,9 @@ def prepare_prefs(prefs):
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['enable_vision_ocr_enhancement'] = False
     prefs.defaults['include_metadata'] = True
-    prefs.defaults['bilingual_annotation'] = False
+    prefs.defaults['bilingual_annotation'] = True
+    prefs.defaults['force_pivot_conversion'] = True
+    prefs.defaults['append_conversion_suffix'] = True
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -645,8 +653,10 @@ def build_criteria(prefs):
         prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
         prefs.get('enable_vision_ocr_enhancement', False),
         prefs.get('include_metadata', True),
-        prefs.get('bilingual_annotation', False),
-        prefs.get('use_jieba_segmentation', False))
+        prefs.get('bilingual_annotation', True),
+        prefs.get('use_jieba_segmentation', False),
+        prefs.get('force_pivot_conversion', True),
+        prefs.get('append_conversion_suffix', True))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -668,6 +678,21 @@ def apply_converter_segmentation(converter, criteria, verbose=False):
     if verbose:
         print(_('OpenCC segmentation mode: {0}').format(mode))
     return mode
+
+
+def apply_converter_force_pivot(converter, criteria, verbose=False):
+    """Enable coverage-first pivot only for bilingual Simplified->Traditional."""
+    enabled = bool(
+        criteria is not None
+        and len(criteria) > FORCE_PIVOT_CONVERSION
+        and criteria[CONVERSION_TYPE] == 2
+        and criteria[BILINGUAL_ANNOTATION]
+        and criteria[FORCE_PIVOT_CONVERSION])
+    converter.set_force_pivot_conversion(enabled)
+    if verbose:
+        print(_('Forced pivot conversion: {0}').format(
+            _('enabled') if enabled else _('disabled')))
+    return enabled
 
 
 def getPrefs():
@@ -1293,7 +1318,9 @@ def cli_get_criteria(args):
         and is_vision_ocr_supported(),
         bool(prefs.get('include_metadata', True)),
         bool(getattr(args, 'bilingual_opt', False)),
-        bool(getattr(args, 'jieba_opt', False)))
+        bool(getattr(args, 'jieba_opt', False)),
+        bool(getattr(args, 'force_pivot_opt', False)),
+        False)
 
     return criteria
 
@@ -1363,6 +1390,8 @@ def print_conversion_info(args, file_set, version, configuration_filename):
         print(_('Output locale: ') + args.dest_opt.upper())
         print(_('Use destination phrases: ') + str(args.phrase_opt))
         print(_('Bilingual annotation: ') + str(args.bilingual_opt))
+        print(_('Forced pivot conversion: {0}').format(
+            str(bool(getattr(args, 'force_pivot_opt', False)))))
 
     print(_('Quotation Mark Style: '), end="")
     if args.quote_type_opt == 'no_change':
@@ -1429,6 +1458,9 @@ def main(argv, plugin_version, usage=None):
                         action='store_true')
     parser.add_argument('-ba', '--bilingual-annotation', dest='bilingual_opt',
                         help=_('Keep original text with converted forms as bilingual annotations (Default: False)'),
+                        action='store_true')
+    parser.add_argument('--force-pivot', dest='force_pivot_opt',
+                        help=_('Force coverage-first conversion through a Simplified pivot (requires --bilingual-annotation)'),
                         action='store_true')
 
     parser.add_argument('-qt', '--quotation-type', dest='quote_type_opt', default='no_change',
@@ -1502,6 +1534,10 @@ def main(argv, plugin_version, usage=None):
 
     #Determine the conversion criteria tuple values
     criteria = cli_get_criteria(args)
+    if (getattr(args, 'force_pivot_opt', False)
+            and (args.direction_opt != 's2t' or not args.bilingual_opt)):
+        parser.error(_(
+            '--force-pivot requires --direction s2t and --bilingual-annotation'))
 
     #set convertor properties
     conversion = get_configuration(criteria)
@@ -1519,6 +1555,8 @@ def main(argv, plugin_version, usage=None):
             print(_('Using opencc-python conversion configuration file: ') + conversion + '.json')
         converter.set_conversion(conversion)
         apply_converter_segmentation(
+            converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
+        apply_converter_force_pivot(
             converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
 ##        converter.clear_counts()
 

@@ -19,7 +19,8 @@ from calibre_plugins.chinese_text_conversion import PLUGIN_NAME
 from calibre_plugins.chinese_text_conversion.icons import apply_action_icon
 from calibre_plugins.chinese_text_conversion.i18n import _, ngettext, apply_ui_language_from_prefs
 from calibre_plugins.chinese_text_conversion.library_flow import (
-    make_conversion_suffix, format_book_tag_log_lines,
+    make_conversion_suffix, make_converted_title_suffix,
+    format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     format_replacement_stats_log, format_conversion_diagnostics_log,
@@ -32,7 +33,10 @@ from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
     get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR,
     INCLUDE_METADATA, INPUT_LOCALE, USE_JIEBA_SEGMENTATION,
-    HTML_TextProcessor, OpenCC, apply_converter_segmentation, criteria_with_ocr_enabled,
+    CONVERSION_TYPE, OUTPUT_LOCALE, BILINGUAL_ANNOTATION,
+    APPEND_CONVERSION_SUFFIX,
+    HTML_TextProcessor, OpenCC, apply_converter_segmentation,
+    apply_converter_force_pivot, criteria_with_ocr_enabled,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
     get_missing_ocr_language_notice, format_ocr_language_notice_message,
@@ -59,6 +63,7 @@ class LibraryConversionWorker(QObject):
         converter = OpenCC(get_resource_file)
         converter.set_conversion(self.conversion)
         apply_converter_segmentation(converter, self.criteria, verbose=True)
+        apply_converter_force_pivot(converter, self.criteria, verbose=True)
         parser = HTML_TextProcessor(converter)
         lang = get_language_code(self.criteria)
         if lang != 'None':
@@ -396,10 +401,17 @@ class ChineseTextAction(InterfaceAction):
                         meta_converter = OpenCC(get_resource_file)
                         meta_converter.set_conversion(conversion)
                         apply_converter_segmentation(meta_converter, criteria)
+                        apply_converter_force_pivot(meta_converter, criteria)
                         state['meta_converter'] = meta_converter
+            title_suffix = make_converted_title_suffix(
+                criteria[CONVERSION_TYPE],
+                criteria[OUTPUT_LOCALE],
+                bilingual=criteria[BILINGUAL_ANNOTATION],
+                enabled=criteria[APPEND_CONVERSION_SUFFIX],
+            )
             new_id, new_title = import_converted_book_as_new(
                 db, result['book_id'], temp_path, fmt, result['suffix'],
-                converter=meta_converter)
+                converter=meta_converter, title_suffix=title_suffix)
             state['new_book_ids'].append(new_id)
             state['created'].append(new_title)
             saved_path = db.format_abspath(new_id, fmt, index_is_id=True)
