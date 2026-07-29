@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese in your Calibre library on your own m
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.7.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.7.1** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 

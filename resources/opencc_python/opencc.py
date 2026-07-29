@@ -265,24 +265,34 @@ class OpenCC:
         Convert string using one or more dictionaries. Group policies follow OpenCC
         short_circuit (first match wins) and union (longest match across dicts).
         """
+        tree = self._convert_to_tree(string, dictionary, is_dict_group, match_policy, counts)
+        return "".join(tree.inorder())
+
+    def _convert_to_tree(self, string, dictionary = [], is_dict_group = False, match_policy = 'short_circuit', counts = None):
+        """
+        Like _convert, but keep StringTree.matched so nested short_circuit groups
+        do not re-apply later dictionaries (e.g. STCharacters) to identity phrases.
+        """
         if counts is None:
             counts = self.replacement_counts
 
         if is_dict_group and match_policy == 'union':
-            return self._convert_union_group(string, dictionary, counts)
+            return self._convert_union_group_to_tree(string, dictionary, counts)
 
         tree = StringTree(string)
         for c_dict in dictionary:
             if isinstance(c_dict, tuple) and len(c_dict) == 3 and c_dict[0] == 'group':
                 _, policy, chain = c_dict
-                tree = StringTree(self._convert("".join(tree.inorder()), chain, True, policy, counts))
+                # Preserve matched spans from the nested group; do not flatten.
+                tree = self._convert_to_tree(
+                    "".join(tree.inorder()), chain, True, policy, counts)
             elif isinstance(c_dict, tuple):
                 tree.convert_tree(c_dict, counts)
                 if not is_dict_group:
                     tree = StringTree("".join(tree.inorder()))
-        return "".join(tree.inorder())
+        return tree
 
-    def _convert_union_group(self, string, dictionary, counts = None):
+    def _convert_union_group_to_tree(self, string, dictionary, counts = None):
         if counts is None:
             counts = self.replacement_counts
 
@@ -291,13 +301,13 @@ class OpenCC:
         for item in dictionary:
             if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
                 _, policy, chain = item
-                string = self._convert(string, chain, True, policy, counts)
-                tree = StringTree(string)
+                tree = self._convert_to_tree(
+                    "".join(tree.inorder()), chain, True, policy, counts)
             else:
                 dicts.append(item)
         if dicts:
             tree.convert_tree_union(dicts, counts)
-        return "".join(tree.inorder())
+        return tree
 
     def _get_chain_converter(self, mode):
         if mode not in self._chain_converters:

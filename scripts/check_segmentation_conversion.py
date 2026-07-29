@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 """Compare OpenCC mmseg vs Jieba segmentation on phrase-sensitive samples.
 
+Also asserts short_circuit identity phrases (e.g. 王后) are not overwritten
+by STCharacters after nested group conversion.
+
 Run from repo root:
   python3 scripts/check_segmentation_conversion.py
 """
@@ -35,6 +38,16 @@ SAMPLES = [
     '默认',
 ]
 
+# Identity / 歷曆 phrase protection must match official OpenCC short_circuit.
+EXPECTED_PHRASES = (
+    ('王后', '王后'),
+    ('皇后', '皇后'),
+    ('历史', '歷史'),
+    ('日历', '日曆'),
+    ('经历', '經歷'),
+    ('中国历史上的王后', '中國歷史上的王后'),
+)
+
 MODES = ('s2t', 's2twp', 's2hkp')
 
 
@@ -49,10 +62,31 @@ def resource_getter(kind, name):
         return handle.read()
 
 
+def check_expected_phrases():
+    print('Expected phrase regression')
+    failed = 0
+    for mode in MODES:
+        for seg_mode in (SEGMENTATION_MMSEG, SEGMENTATION_JIEBA):
+            converter = OpenCC(resource_getter, mode)
+            converter.set_segmentation_mode(seg_mode)
+            for src, expect in EXPECTED_PHRASES:
+                got = converter.convert(src)
+                ok = got == expect
+                marker = 'OK' if ok else 'FAIL'
+                print('  [{} {}] {} -> {} [{}]{}'.format(
+                    mode, seg_mode, src, got, marker,
+                    '' if ok else ' expected {}'.format(expect)))
+                if not ok:
+                    failed += 1
+    print('')
+    return failed
+
+
 def main():
     print('Segmentation conversion check')
     print('Repo:', REPO_ROOT)
     print('')
+    failed = check_expected_phrases()
     for mode in MODES:
         mmseg = OpenCC(resource_getter, mode)
         mmseg.set_segmentation_mode(SEGMENTATION_MMSEG)
@@ -67,6 +101,10 @@ def main():
             print('{:<12}  {:<24}  {}{}'.format(sample, left, right, marker))
         print('')
     print('* marks rows where mmseg and jieba differ')
+    if failed:
+        print('FAILED: {} phrase assertion(s)'.format(failed))
+        return 1
+    print('All phrase assertions passed')
     return 0
 
 
