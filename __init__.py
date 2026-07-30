@@ -8,12 +8,12 @@ PLUGIN_NAME = 'Chinese Conversion · 简繁转换'
 PLUGIN_NAME_EN = 'Chinese Conversion'
 PLUGIN_SAFE_NAME = 'chinese_text_conversion'
 # Calibre catalog static parser: must be a plain string literal, not join()/computed.
-PLUGIN_DESCRIPTION = 'Fully offline conversion between Simplified and Traditional Chinese. Community-maintained version powered by OpenCC.'
-PLUGIN_VERSION_TUPLE = (3, 8, 0)
-PLUGIN_VERSION = '3.8.0'
+PLUGIN_DESCRIPTION = 'Offline ebook conversion powered by OpenCC, with an optional ZhConvert online short-text tool. Community-maintained.'
+PLUGIN_VERSION_TUPLE = (3, 9, 0)
+PLUGIN_VERSION = '3.9.0'
 PLUGIN_MINIMUM_CALIBRE_VERSION = (6, 0, 0)
-PLUGIN_RELEASED = '28 Jul, 2026'
-PLUGIN_ABOUT_LAST_UPDATED = '2026-07-28'
+PLUGIN_RELEASED = '29 Jul, 2026'
+PLUGIN_ABOUT_LAST_UPDATED = '2026-07-29'
 PLUGIN_RELEASE_THREAD_URL = (
     'https://www.mobileread.com/forums/showthread.php?t=373788')
 PLUGIN_AUTHOR = 'Sheldon (community fork of Hopkins1)'

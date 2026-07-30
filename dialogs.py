@@ -8,17 +8,17 @@ try:
     from qt.core import (Qt, QUrl, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
-                  QPushButton, QPlainTextEdit, QProgressBar)
+                  QPushButton, QPlainTextEdit, QProgressBar, QObject, QThread, pyqtSignal)
 except ImportError:
     from PyQt5.Qt import (Qt, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                           QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                           QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                           QPushButton, QPlainTextEdit, QProgressBar)
-    from PyQt5.QtCore import QUrl
+    from PyQt5.QtCore import QUrl, QObject, QThread, pyqtSignal
 
 from calibre.utils.config import config_dir
 
-from calibre.gui2 import info_dialog, open_url
+from calibre.gui2 import info_dialog, open_url, question_dialog
 from calibre.gui2.tweak_book.widgets import Dialog
 
 from calibre_plugins.chinese_text_conversion import (
@@ -35,6 +35,10 @@ from calibre_plugins.chinese_text_conversion.ui_style import (
     style_recommend_card, style_subheading_label,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import is_vision_ocr_supported
+from calibre_plugins.chinese_text_conversion.zhconvert_api import (
+    ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_SITE_URL,
+    ZhConvertError, convert_text as zhconvert_text,
+)
 
 '''
 ConversionDialog
@@ -54,6 +58,7 @@ Note: This code is based on the Calibre plugin Diap's Editing Toolbag
 LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 760)
 LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 560)
 ABOUT_DIALOG_SIZE = QSize(560, 480)
+ZHCONVERT_DIALOG_SIZE = QSize(780, 640)
 
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
@@ -68,6 +73,241 @@ class NoWheelComboBox(QComboBox):
         if self.view().isVisible():
             return super().wheelEvent(event)
         event.ignore()
+
+
+class ZhConvertWorker(QObject):
+    succeeded = pyqtSignal(object)
+    failed = pyqtSignal(object)
+
+    def __init__(self, text, converter):
+        super().__init__()
+        self.text = text
+        self.converter = converter
+
+    def run(self):
+        try:
+            self.succeeded.emit(zhconvert_text(self.text, self.converter))
+        except Exception as err:
+            self.failed.emit(err)
+
+
+class ZhConvertDialog(QDialog):
+    '''Optional online short-text converter backed by the public ZhConvert API.'''
+
+    def __init__(self, parent, prefs):
+        super().__init__(parent)
+        self.prefs = prefs
+        self._thread = None
+        self._worker = None
+        self._build_ui()
+        apply_ui_language_from_prefs(self.prefs)
+        self.apply_translations()
+
+    def _build_ui(self):
+        self.setMinimumSize(ZHCONVERT_DIALOG_SIZE)
+        self.resize(ZHCONVERT_DIALOG_SIZE)
+        layout = QVBoxLayout(self)
+        configure_layout(layout, 'dialog')
+
+        self.privacy_label = QLabel()
+        self.privacy_label.setWordWrap(True)
+        self.privacy_label.setTextFormat(Qt.RichText)
+        self.privacy_label.setOpenExternalLinks(False)
+        self.privacy_label.linkActivated.connect(
+            lambda _url: open_url(QUrl(ZHCONVERT_SITE_URL)))
+        style_help_label(self.privacy_label)
+        layout.addWidget(self.privacy_label)
+
+        mode_row = QHBoxLayout()
+        configure_layout(mode_row, 'form')
+        self.converter_label = QLabel()
+        configure_form_label(self.converter_label)
+        mode_row.addWidget(self.converter_label)
+        self.converter_combo = NoWheelComboBox()
+        mode_row.addWidget(self.converter_combo, 1)
+        layout.addLayout(mode_row)
+
+        self.input_label = QLabel()
+        layout.addWidget(self.input_label)
+        self.input_text = QPlainTextEdit()
+        self.input_text.setMinimumHeight(180)
+        self.input_text.textChanged.connect(self._update_input_count)
+        layout.addWidget(self.input_text, 1)
+        self.input_count_label = QLabel()
+        style_help_label(self.input_count_label)
+        layout.addWidget(self.input_count_label)
+
+        self.output_label = QLabel()
+        layout.addWidget(self.output_label)
+        self.output_text = QPlainTextEdit()
+        self.output_text.setReadOnly(True)
+        self.output_text.setMinimumHeight(180)
+        layout.addWidget(self.output_text, 1)
+
+        self.result_meta_label = QLabel()
+        self.result_meta_label.setWordWrap(True)
+        style_help_label(self.result_meta_label)
+        layout.addWidget(self.result_meta_label)
+
+        self.button_box = QDialogButtonBox()
+        self.clear_button = self.button_box.addButton(
+            '', QDialogButtonBox.ResetRole)
+        self.copy_button = self.button_box.addButton(
+            '', QDialogButtonBox.ActionRole)
+        self.convert_button = self.button_box.addButton(
+            '', QDialogButtonBox.AcceptRole)
+        self.close_button = self.button_box.addButton(
+            '', QDialogButtonBox.RejectRole)
+        self.clear_button.clicked.connect(self._clear_text)
+        self.copy_button.clicked.connect(self._copy_result)
+        self.convert_button.clicked.connect(self._start_conversion)
+        self.close_button.clicked.connect(self.reject)
+        layout.addWidget(self.button_box)
+        apply_dialog_stylesheet(self)
+
+    def apply_translations(self):
+        self.setWindowTitle(_('ZhConvert online short-text conversion'))
+        self.privacy_label.setText(
+            _('ZhConvert persistent privacy notice').format(
+                url=ZHCONVERT_SITE_URL))
+        self.converter_label.setText(_('Conversion mode:'))
+        selected = self.converter_combo.currentData()
+        self.converter_combo.clear()
+        for converter_id, label_msgid in ZHCONVERT_CONVERTERS:
+            self.converter_combo.addItem(_(label_msgid), converter_id)
+        selected_index = self.converter_combo.findData(selected or 'Traditional')
+        self.converter_combo.setCurrentIndex(max(0, selected_index))
+        self.input_label.setText(_('Text to send:'))
+        self.output_label.setText(_('Converted result:'))
+        self.clear_button.setText(_('Clear'))
+        self.copy_button.setText(_('Copy result'))
+        self.convert_button.setText(_('Send for conversion'))
+        self.close_button.setText(_('Close'))
+        self._update_input_count()
+
+    def _update_input_count(self):
+        byte_count = len(self.input_text.toPlainText().encode('utf-8'))
+        self.input_count_label.setText(
+            _('ZhConvert input byte count').format(
+                count=byte_count, limit=ZHCONVERT_MAX_INPUT_BYTES))
+        self.convert_button.setEnabled(
+            self._thread is None
+            and byte_count > 0
+            and byte_count <= ZHCONVERT_MAX_INPUT_BYTES)
+
+    def _clear_text(self):
+        if self._thread is not None:
+            return
+        self.input_text.clear()
+        self.output_text.clear()
+        self.result_meta_label.clear()
+
+    def _copy_result(self):
+        result = self.output_text.toPlainText()
+        if result:
+            QApplication.clipboard().setText(result)
+
+    def _confirm_online_use(self):
+        if self.prefs.get('zhconvert_privacy_acknowledged', False):
+            return True
+        confirmed = question_dialog(
+            self,
+            _('Confirm online conversion'),
+            _('ZhConvert first-use privacy summary'),
+            det_msg=_('ZhConvert first-use privacy details').format(
+                url=ZHCONVERT_SITE_URL),
+            default_yes=False,
+            yes_text=_('I understand; send this text'),
+            no_text=_('Cancel'),
+        )
+        if confirmed:
+            self.prefs['zhconvert_privacy_acknowledged'] = True
+            self.prefs.commit()
+        return confirmed
+
+    def _start_conversion(self):
+        if self._thread is not None:
+            return
+        text = self.input_text.toPlainText()
+        byte_count = len(text.encode('utf-8'))
+        if not text.strip() or byte_count > ZHCONVERT_MAX_INPUT_BYTES:
+            self._update_input_count()
+            return
+        if not self._confirm_online_use():
+            return
+
+        converter = self.converter_combo.currentData()
+        self.output_text.clear()
+        self.result_meta_label.setText(_('Contacting ZhConvert…'))
+        self._set_busy(True)
+
+        thread = QThread(self)
+        worker = ZhConvertWorker(text, converter)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.succeeded.connect(self._conversion_succeeded)
+        worker.failed.connect(self._conversion_failed)
+        worker.succeeded.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.succeeded.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._request_finished)
+        self._thread = thread
+        self._worker = worker
+        thread.start()
+
+    def _set_busy(self, busy):
+        self.converter_combo.setEnabled(not busy)
+        self.input_text.setReadOnly(busy)
+        self.clear_button.setEnabled(not busy)
+        self.close_button.setEnabled(not busy)
+        self.convert_button.setEnabled(not busy)
+
+    def _conversion_succeeded(self, result):
+        self.output_text.setPlainText(result.get('text') or '')
+        modules = ', '.join(result.get('used_modules') or []) or _('None')
+        revision = result.get('revision') or _('Unknown')
+        converter = result.get('converter') or self.converter_combo.currentData()
+        self.result_meta_label.setText(
+            _('ZhConvert result metadata').format(
+                converter=converter, modules=modules, revision=revision))
+
+    def _conversion_failed(self, err):
+        if not isinstance(err, ZhConvertError):
+            err = ZhConvertError('unknown_error', err)
+        messages = {
+            'empty_text': _('Enter text before sending.'),
+            'unsupported_converter': _('The selected conversion mode is not supported.'),
+            'text_too_long': _('The text is too long for this short-text tool.'),
+            'rate_limited': _('ZhConvert is busy or rate-limiting requests. Please try again later.'),
+            'timeout': _('The ZhConvert request timed out.'),
+            'network_error': _('Could not connect to ZhConvert. Check your network and try again.'),
+            'http_error': _('ZhConvert returned an HTTP error.'),
+            'api_error': _('ZhConvert could not convert this text.'),
+            'invalid_response': _('ZhConvert returned an invalid response.'),
+            'unknown_error': _('An unexpected error occurred during online conversion.'),
+        }
+        message = messages.get(err.kind, messages['unknown_error'])
+        if err.detail and err.kind in ('api_error', 'http_error'):
+            message += ' ' + err.detail
+        self.result_meta_label.setText(message)
+
+    def _request_finished(self):
+        self._thread = None
+        self._worker = None
+        self._set_busy(False)
+        self._update_input_count()
+
+    def reject(self):
+        if self._thread is None:
+            super().reject()
+
+    def closeEvent(self, event):
+        if self._thread is not None:
+            event.ignore()
+            return
+        super().closeEvent(event)
 
 
 class PluginAboutDialog(QDialog):

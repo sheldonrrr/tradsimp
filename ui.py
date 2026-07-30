@@ -7,9 +7,9 @@ import shutil
 import traceback
 
 try:
-    from qt.core import QApplication, QObject, QThread, pyqtSignal
+    from qt.core import QApplication, QMenu, QObject, QThread, pyqtSignal
 except ImportError:
-    from PyQt5.Qt import QApplication
+    from PyQt5.Qt import QApplication, QMenu
     from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
 from calibre.gui2.actions import InterfaceAction
@@ -20,6 +20,7 @@ from calibre_plugins.chinese_text_conversion.icons import apply_action_icon
 from calibre_plugins.chinese_text_conversion.i18n import _, ngettext, apply_ui_language_from_prefs
 from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, make_converted_title_suffix,
+    collect_generated_book_time_codes,
     format_book_tag_log_lines,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
@@ -159,12 +160,43 @@ class ChineseTextAction(InterfaceAction):
     _library_conversion_thread = None
     _library_conversion_worker = None
     _library_conversion_status_dialog = None
+    _zhconvert_dialog = None
 
     def genesis(self):
+        prefs = getPrefs()
+        prepare_prefs(prefs)
+        apply_ui_language_from_prefs(prefs)
         apply_action_icon(self.qaction, PLUGIN_NAME)
         apply_action_icon(self.menuless_qaction, PLUGIN_NAME)
         self.qaction.triggered.connect(self.convert_selected_books)
         self.menuless_qaction.triggered.connect(self.convert_selected_books)
+        self._action_menu = QMenu(self.gui)
+        self._convert_menu_action = self._action_menu.addAction('')
+        self._convert_menu_action.triggered.connect(self.convert_selected_books)
+        self._zhconvert_menu_action = self._action_menu.addAction('')
+        self._zhconvert_menu_action.triggered.connect(self.open_zhconvert_dialog)
+        self.qaction.setMenu(self._action_menu)
+        self._update_action_translations()
+
+    def _update_action_translations(self):
+        if getattr(self, '_convert_menu_action', None) is not None:
+            self._convert_menu_action.setText(_('Convert selected books'))
+        if getattr(self, '_zhconvert_menu_action', None) is not None:
+            self._zhconvert_menu_action.setText(
+                _('ZhConvert online short-text conversion'))
+
+    def open_zhconvert_dialog(self):
+        prefs = getPrefs()
+        prepare_prefs(prefs)
+        apply_ui_language_from_prefs(prefs)
+        self._update_action_translations()
+        from calibre_plugins.chinese_text_conversion.dialogs import ZhConvertDialog
+        dlg = ZhConvertDialog(self.gui, prefs)
+        self._zhconvert_dialog = dlg
+        try:
+            dlg.exec_()
+        finally:
+            self._zhconvert_dialog = None
 
     def location_selected(self, loc):
         enabled = loc == 'library'
@@ -188,6 +220,7 @@ class ChineseTextAction(InterfaceAction):
         prefs = getPrefs()
         prepare_prefs(prefs)
         apply_ui_language_from_prefs(prefs)
+        self._update_action_translations()
 
         from calibre_plugins.chinese_text_conversion.dialogs import ConversionDialog
         dlg = ConversionDialog(
@@ -310,6 +343,10 @@ class ChineseTextAction(InterfaceAction):
             'db': db,
             'criteria': criteria,
             'conversion': conversion,
+            'used_book_time_codes': (
+                collect_generated_book_time_codes(db)
+                if criteria[APPEND_CONVERSION_SUFFIX] else set()
+            ),
             'ocr_total_images': total_images if criteria[ENABLE_VISION_OCR] else 0,
             'created': [],
             'unchanged': [],
@@ -408,6 +445,7 @@ class ChineseTextAction(InterfaceAction):
                 criteria[OUTPUT_LOCALE],
                 bilingual=criteria[BILINGUAL_ANNOTATION],
                 enabled=criteria[APPEND_CONVERSION_SUFFIX],
+                used_time_codes=state['used_book_time_codes'],
             )
             new_id, new_title = import_converted_book_as_new(
                 db, result['book_id'], temp_path, fmt, result['suffix'],

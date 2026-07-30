@@ -60,18 +60,18 @@ _MESSAGES = {
         'Chinese Conversion · 简繁转换',
         'Chinese Conversion · 簡繁轉換'),
     'Plugin catalog description': _T(
-        'Fully offline conversion between Simplified and Traditional Chinese. '
-        'Community-maintained version powered by OpenCC.',
-        '简体与繁体中文之间的完全离线转换。基于 OpenCC 的社区维护版本。',
-        '簡體與繁體中文之間的完全離線轉換。基於 OpenCC 的社群維護版本。'),
+        'Offline ebook conversion powered by OpenCC, with an optional ZhConvert online '
+        'short-text tool. Community-maintained.',
+        '基于 OpenCC 的离线电子书简繁转换，并提供可选的繁化姬在线短文本工具。社区维护版本。',
+        '基於 OpenCC 的離線電子書簡繁轉換，並提供可選的繁化姬線上短文字工具。社群維護版本。'),
     'Plugin catalog author': _T(
         'Sheldon (community fork of Hopkins1)',
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 28 Jul, 2026',
-        '发布：2026年7月28日',
-        '發佈：2026年7月28日'),
+        'Released: 29 Jul, 2026',
+        '发布：2026年7月29日',
+        '發佈：2026年7月29日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -81,14 +81,96 @@ _MESSAGES = {
         '平台：linux、osx、windows',
         '平台：linux、osx、windows'),
     'Brand dialog tagline': _T(
-        'Fully offline conversion between Simplified and Traditional Chinese',
-        '简体与繁体中文完全离线转换',
-        '簡體與繁體中文完全離線轉換'),
+        'Offline ebook conversion, with an optional online short-text tool',
+        '离线电子书简繁转换，并提供可选在线短文本工具',
+        '離線電子書簡繁轉換，並提供可選線上短文字工具'),
     'Chinese Punctuation': _T('Chinese Punctuation', '中文标点', '中文標點'),
     'Interface Language:': _T('Interface Language:', '界面语言：', '介面語言：'),
     'English': _T('English', 'English', 'English'),
     'Simplified Chinese': _T('Simplified Chinese', '简体中文', '簡體中文'),
     'Traditional Chinese': _T('Traditional Chinese', '繁体中文', '繁體中文'),
+    'Taiwan Chinese': _T('Taiwan Chinese', '台湾化', '台灣化'),
+    'Hong Kong Chinese': _T('Hong Kong Chinese', '香港化', '香港化'),
+    'Mainland China Chinese': _T('Mainland China Chinese', '中国化', '中國化'),
+    'Wiki Traditional Chinese': _T('Wiki Traditional Chinese', '维基繁体化', '維基繁體化'),
+    'Wiki Simplified Chinese': _T('Wiki Simplified Chinese', '维基简体化', '維基簡體化'),
+    'ZhConvert online short-text conversion': _T(
+        'ZhConvert online short-text conversion',
+        '繁化姬在线短文本转换',
+        '繁化姬線上短文字轉換'),
+    'Convert selected books': _T(
+        'Convert selected books', '转换所选书籍', '轉換所選書籍'),
+    'Conversion mode:': _T('Conversion mode:', '转换模式：', '轉換模式：'),
+    'Text to send:': _T('Text to send:', '要发送的文字：', '要傳送的文字：'),
+    'Converted result:': _T('Converted result:', '转换结果：', '轉換結果：'),
+    'Clear': _T('Clear', '清空', '清空'),
+    'Copy result': _T('Copy result', '复制结果', '複製結果'),
+    'Send for conversion': _T('Send for conversion', '发送转换', '傳送轉換'),
+    'ZhConvert input byte count': _T(
+        'UTF-8 size: {count} / {limit} bytes',
+        'UTF-8 大小：{count} / {limit} 字节',
+        'UTF-8 大小：{count} / {limit} 位元組'),
+    'ZhConvert persistent privacy notice': _T(
+        'Optional online tool: only text entered here is sent to a third-party service. '
+        'This program uses the <a href="{url}">ZhConvert API</a>; commercial use of '
+        'ZhConvert requires payment. Ebook conversion remains fully offline.',
+        '可选在线工具：仅在此处输入的文字会发送给第三方服务。本程序使用'
+        '<a href="{url}">繁化姬 API</a>；繁化姬商用必须付费。电子书转换仍完全离线。',
+        '可選線上工具：僅在此處輸入的文字會傳送給第三方服務。本程式使用'
+        '<a href="{url}">繁化姬 API</a>；繁化姬商用必須付費。電子書轉換仍完全離線。'),
+    'Confirm online conversion': _T(
+        'Confirm online conversion', '确认在线转换', '確認線上轉換'),
+    'ZhConvert first-use privacy summary': _T(
+        'The text in this window will be uploaded to ZhConvert for conversion.',
+        '此窗口中的文字将上传至繁化姬进行转换。',
+        '此視窗中的文字將上傳至繁化姬進行轉換。'),
+    'ZhConvert first-use privacy details': _T(
+        'ZhConvert is a third-party service. Its public documentation does not specify '
+        'text-retention practices. Do not send private or sensitive content. Results may '
+        'contain errors and should be reviewed. This program uses the ZhConvert API '
+        '({url}); commercial use of ZhConvert requires payment.',
+        '繁化姬是第三方服务，其公开文档未说明文字留存方式。请勿发送隐私或敏感内容；'
+        '转换结果可能出错，使用前应人工校阅。本程序使用繁化姬 API（{url}）；繁化姬商用必须付费。',
+        '繁化姬是第三方服務，其公開文件未說明文字留存方式。請勿傳送隱私或敏感內容；'
+        '轉換結果可能出錯，使用前應人工校閱。本程式使用繁化姬 API（{url}）；繁化姬商用必須付費。'),
+    'I understand; send this text': _T(
+        'I understand; send this text', '我已了解，发送文字', '我已了解，傳送文字'),
+    'Contacting ZhConvert…': _T(
+        'Contacting ZhConvert…', '正在连接繁化姬…', '正在連線繁化姬…'),
+    'ZhConvert result metadata': _T(
+        'Mode: {converter} · Modules: {modules} · Dictionary: {revision}',
+        '模式：{converter} · 模块：{modules} · 词库：{revision}',
+        '模式：{converter} · 模組：{modules} · 詞庫：{revision}'),
+    'Enter text before sending.': _T(
+        'Enter text before sending.', '请先输入要发送的文字。', '請先輸入要傳送的文字。'),
+    'The selected conversion mode is not supported.': _T(
+        'The selected conversion mode is not supported.',
+        '不支持所选转换模式。', '不支援所選轉換模式。'),
+    'The text is too long for this short-text tool.': _T(
+        'The text is too long for this short-text tool.',
+        '文字过长，超出短文本工具限制。', '文字過長，超出短文字工具限制。'),
+    'ZhConvert is busy or rate-limiting requests. Please try again later.': _T(
+        'ZhConvert is busy or rate-limiting requests. Please try again later.',
+        '繁化姬正忙或限制了请求频率，请稍后再试。',
+        '繁化姬正忙或限制了請求頻率，請稍後再試。'),
+    'The ZhConvert request timed out.': _T(
+        'The ZhConvert request timed out.', '繁化姬请求超时。', '繁化姬請求逾時。'),
+    'Could not connect to ZhConvert. Check your network and try again.': _T(
+        'Could not connect to ZhConvert. Check your network and try again.',
+        '无法连接繁化姬，请检查网络后重试。',
+        '無法連線繁化姬，請檢查網路後重試。'),
+    'ZhConvert returned an HTTP error.': _T(
+        'ZhConvert returned an HTTP error.',
+        '繁化姬返回了 HTTP 错误。', '繁化姬傳回 HTTP 錯誤。'),
+    'ZhConvert could not convert this text.': _T(
+        'ZhConvert could not convert this text.',
+        '繁化姬无法转换此文字。', '繁化姬無法轉換此文字。'),
+    'ZhConvert returned an invalid response.': _T(
+        'ZhConvert returned an invalid response.',
+        '繁化姬返回了无效响应。', '繁化姬傳回無效回應。'),
+    'An unexpected error occurred during online conversion.': _T(
+        'An unexpected error occurred during online conversion.',
+        '在线转换时发生意外错误。', '線上轉換時發生未預期的錯誤。'),
     'Traditional Chinese (Taiwan)': _T(
         'Traditional Chinese (Taiwan)',
         '繁体中文（台湾）',
@@ -224,13 +306,13 @@ _MESSAGES = {
         '为新书标题增加识别后缀',
         '為新書標題增加識別後綴'),
     'Generated book suffix help': _T(
-        'Append the target form, bilingual status when enabled, and a random four-character '
-        'letter/digit code to each generated title—for example, '
-        '_繁体中文_香港_双语标注_A7b2. This avoids repeated conversions sharing the same name.',
-        '在每次生成的新书标题后增加目标文字类型、双语状态（若开启）及随机四位英文字母/数字，'
-        '例如「_繁体中文_香港_双语标注_A7b2」，避免多次转换产生同名书籍。',
-        '在每次產生的新書標題後增加目標文字類型、雙語狀態（若開啟）及隨機四位英文字母/數字，'
-        '例如「_繁体中文_香港_双语标注_A7b2」，避免多次轉換產生同名書籍。'),
+        'Append the target form, bilingual status when enabled, and the local month-day/time '
+        'to each generated title—for example, _繁体中文_香港_双语标注_07-29_21-34. '
+        'Books generated in the same minute receive _2, _3, and so on.',
+        '在每次生成的新书标题后增加目标文字类型、双语状态（若开启）及本地月日时间，'
+        '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分钟生成多本时依次增加「_2」「_3」。',
+        '在每次產生的新書標題後增加目標文字類型、雙語狀態（若開啟）及本地月日時間，'
+        '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分鐘產生多本時依序增加「_2」「_3」。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',
@@ -769,11 +851,10 @@ _MESSAGES = {
     'Version {}': _T('Version {}', '版本 {}', '版本 {}'),
     'Version: {}': _T('Version: {}', '版本：{}', '版本：{}'),
     'Plugin description': _T(
-        'Fully offline Simplified ↔ Traditional Chinese conversion for your calibre library (OpenCC). '
-        'Adds new books; originals stay unchanged.',
-        '离线简繁中文转换（OpenCC），在书库中批量处理并新增书籍，不修改原书。',
-        '離線簡繁中文轉換（OpenCC），在書庫中批次處理並新增書籍，不修改原書。',
-        '離線簡繁中文轉換（OpenCC），在書庫中批次處理並新增書籍，不修改原書。'),
+        'Offline Simplified ↔ Traditional Chinese ebook conversion (OpenCC), plus an optional '
+        'ZhConvert online short-text tool. Ebook conversion adds new books and leaves originals unchanged.',
+        '离线简繁电子书转换（OpenCC），并提供可选的繁化姬在线短文本工具；书库转换新增书籍，不修改原书。',
+        '離線簡繁電子書轉換（OpenCC），並提供可選的繁化姬線上短文字工具；書庫轉換新增書籍，不修改原書。'),
     'About MobileRead link': _T(
         '<a href="{url}">MobileRead release thread</a>',
         '<a href="{url}">MobileRead 发布帖</a>',
@@ -805,9 +886,10 @@ _MESSAGES = {
         '3. 點擊外掛按鈕，選好選項後點「開始處理」。\n'
         '4. 完成後在書庫中查看新書（原書不變）。'),
     'About offline highlight': _T(
-        'Fully offline conversion powered by OpenCC — no AI, no cloud, no internet required.',
-        '完全离线转换，基于 OpenCC — 无需 AI、无需云端、无需联网。',
-        '完全離線轉換，基於 OpenCC — 無需 AI、無需雲端、無需連線。'),
+        'Ebook conversion stays fully offline with OpenCC. Only the optional ZhConvert short-text '
+        'window sends user-entered text online.',
+        '电子书转换仍由 OpenCC 完全离线完成；仅可选的繁化姬短文本窗口会发送用户输入的文字。',
+        '電子書轉換仍由 OpenCC 完全離線完成；僅可選的繁化姬短文字視窗會傳送使用者輸入的文字。'),
     'About features': _T(
         'About features',
         '主要功能',
@@ -817,18 +899,21 @@ _MESSAGES = {
         '• Hong Kong ↔ Taiwan Traditional conversion; Hong Kong / Taiwan phrase modes where supported\n'
         '• Quotation marks, left-to-right / top-to-bottom layout, and punctuation\n'
         '• Batch convert EPUB/AZW3 in the library; adds new books, originals unchanged\n'
+        '• Optional ZhConvert online window for manually entered short text (never reads books)\n'
         '• Library conversion log shows OpenCC replacement statistics (top word pairs sampled)\n'
         '• OpenCC ver.1.4.1 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
         '• 繁体 ↔ 简体，以及繁体地区用词互转（大陆 / 香港 / 台湾）\n'
         '• 香港 ↔ 台湾繁体互转；简繁/繁简流程中支持香港、台湾惯用词语模式\n'
         '• 引号样式、从左到右/从上到下的排版与标点调整\n'
         '• 在书库中批量处理 EPUB / AZW3；生成新书，不修改原书\n'
+        '• 可选的繁化姬在线短文本窗口，仅处理手动输入的文字（不读取书籍）\n'
         '• 书库转换日志展示 OpenCC 替换统计（高频词对取样）\n'
         '• OpenCC ver.1.4.1 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
         '• 繁體 ↔ 簡體，以及繁體地區用詞互轉（大陸 / 香港 / 臺灣）\n'
         '• 香港 ↔ 臺灣繁體互轉；簡繁/繁簡流程中支援香港、臺灣慣用詞語模式\n'
         '• 引號樣式、從左到右/從上到下的排版與標點調整\n'
         '• 在書庫中批次處理 EPUB / AZW3；產生新書，不修改原書\n'
+        '• 可選的繁化姬線上短文字視窗，僅處理手動輸入的文字（不讀取書籍）\n'
         '• 書庫轉換日誌展示 OpenCC 替換統計（高頻詞對取樣）\n'
         '• OpenCC ver.1.4.1 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
     'About quick start': _T(

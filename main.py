@@ -586,6 +586,7 @@ def prepare_prefs(prefs):
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
         prefs['about_shown'] = False
+        prefs['zhconvert_privacy_acknowledged'] = False
         changed = True
 
     prefs.defaults['input_source'] = 0
@@ -611,6 +612,7 @@ def prepare_prefs(prefs):
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
     prefs.defaults['about_shown'] = True
+    prefs.defaults['zhconvert_privacy_acknowledged'] = False
 
     # Legacy migration: older versions defaulted this to False.
     # Run once so existing users align with new default behavior.

@@ -4,11 +4,11 @@
 
 **Chinese Conversion · 简繁转换** · for Calibre
 
-Convert Simplified and Traditional Chinese in your Calibre library on your own machine. The plugin uses the built-in **OpenCC** dictionaries and rules—**no network access, no AI**—so your books never leave your computer.
+Convert Simplified and Traditional Chinese ebooks locally with built-in **OpenCC** dictionaries and rules. An optional **ZhConvert online short-text tool** is available for manually entered snippets; it never reads or uploads your books.
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.8.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.9.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -42,11 +42,14 @@ Then install again via **Load plugin from file**.
 - UI languages: **English**, **简体中文**, **繁体中文（台湾）**, **繁体中文（香港）**
 - Conversion uses OpenCC **mmseg** segmentation by default (aligned with upstream OpenCC). An optional experimental **Jieba** segmentation checkbox can improve phrase-level accuracy for some texts (first use may load the dictionary more slowly).
 - **Forced conversion (coverage first)** normalizes mixed Simplified/Traditional text through a Simplified pivot before rebuilding the selected Traditional form. It uses only the bundled OpenCC rules and can convert more text at the cost of regional-wording precision. It is not typo proofreading. The option requires bilingual annotation so the original remains visible below; both options default to enabled for new installations.
-- Generated library books receive an identifying title suffix by default, such as `_繁体中文_香港_双语标注_A7b2`. The final four mixed letters/digits are regenerated for every book to avoid naming collisions; the suffix can be disabled in Advanced options.
+- Generated library books receive an identifying title suffix by default, such as `_繁体中文_香港_双语标注_07-29_21-34`. The ending records the local month, day, hour, and minute; books generated in the same minute receive `_2`, `_3`, and so on. The suffix can be disabled in Advanced options.
+- The toolbar menu also provides an optional **ZhConvert online short-text conversion** window with Simplified, Traditional, China, Hong Kong, Taiwan, and Wiki modes.
 
-### Why it is safe to use: fully offline
+### Privacy and online use
 
-Conversion runs entirely on your computer using the plugin’s bundled OpenCC data and rules. **No online APIs or AI services are called**, and no manuscript is uploaded—ideal if you care about privacy and reliability.
+Ebook conversion runs entirely on your computer using bundled OpenCC data and rules. It calls no online API and uploads no book content. Only text that you manually enter and explicitly send from the optional ZhConvert window leaves your computer.
+
+The online window uses the third-party [ZhConvert API](https://zhconvert.org/). Its public documentation does not specify text-retention practices, so do not submit private or sensitive content. ZhConvert warns that results may contain errors and require review. This program uses the ZhConvert API service; commercial use of ZhConvert requires payment.
 
 ---
 
@@ -59,6 +62,10 @@ Conversion runs entirely on your computer using the plugin’s bundled OpenCC da
 5. Sort by date or search the library for the **new book** whose title includes a time suffix—the original remains unchanged.
 
 Default keyboard shortcut: `Ctrl+Shift+Alt+C` (customizable under Calibre **Preferences → Keyboard shortcuts**).
+
+### Optional online short-text conversion
+
+Open the toolbar button’s menu and choose **ZhConvert online short-text conversion**. Paste a short plain-text excerpt, choose a mode, and explicitly send it. The window displays the result, modules used, and server dictionary revision; it does not modify any book.
 
 ---
 

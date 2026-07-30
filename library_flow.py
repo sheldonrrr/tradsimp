@@ -3,10 +3,8 @@
 __license__ = 'GPL 3'
 
 import os
-import random
 import re
 import shutil
-import string
 import tempfile
 from datetime import datetime
 
@@ -331,22 +329,45 @@ def make_conversion_suffix():
     return suffix_tag, generated_at
 
 
-def make_random_book_code():
-    """Return four filename-safe characters containing letters and digits."""
-    rng = random.SystemRandom()
-    chars = [
-        rng.choice(string.ascii_letters),
-        rng.choice(string.digits),
-        rng.choice(string.ascii_letters + string.digits),
-        rng.choice(string.ascii_letters + string.digits),
-    ]
-    rng.shuffle(chars)
-    return ''.join(chars)
+_BOOK_TIME_CODE_RE = re.compile(
+    r'\d{2}-\d{2}_\d{2}-\d{2}(?:_(?:[2-9]|\d{2,}))?')
+_BOOK_TIME_CODE_AT_TITLE_END_RE = re.compile(
+    r'_(' + _BOOK_TIME_CODE_RE.pattern + r')(?=\s*$)')
+
+
+def collect_generated_book_time_codes(db):
+    """Return time codes already used at the end of titles in the library."""
+    codes = set()
+    for book_id in db.all_ids():
+        try:
+            title = db.title(book_id, index_is_id=True) or ''
+        except Exception:
+            continue
+        match = _BOOK_TIME_CODE_AT_TITLE_END_RE.search(title)
+        if match:
+            codes.add(match.group(1))
+    return codes
+
+
+def make_book_time_code(generated_at=None, used_codes=None):
+    """Return a readable local-time code, adding a sequence when already used."""
+    generated_at = generated_at or datetime.now()
+    base_code = generated_at.strftime('%m-%d_%H-%M')
+    if used_codes is None:
+        used_codes = set()
+
+    code = base_code
+    sequence = 2
+    while code in used_codes:
+        code = '{}_{}'.format(base_code, sequence)
+        sequence += 1
+    used_codes.add(code)
+    return code
 
 
 def make_converted_title_suffix(
         conversion_type, output_locale, bilingual=False, enabled=True,
-        random_code=None):
+        time_code=None, generated_at=None, used_time_codes=None):
     """Build the visible suffix appended to each generated library-book title."""
     if not enabled:
         return ''
@@ -364,9 +385,9 @@ def make_converted_title_suffix(
     else:
         target = '中文转换'
 
-    code = random_code or make_random_book_code()
-    if not re.fullmatch(r'[A-Za-z0-9]{4}', code):
-        raise ValueError('random book code must be four ASCII letters/digits')
+    code = time_code or make_book_time_code(generated_at, used_time_codes)
+    if not _BOOK_TIME_CODE_RE.fullmatch(code):
+        raise ValueError('book time code must use MM-DD_HH-MM with an optional sequence')
     parts = [target]
     if bilingual and conversion_type != 0:
         parts.append('双语标注')
@@ -396,7 +417,8 @@ _PLUGIN_TITLE_SUFFIX_RE = re.compile(
     r'(?:\s+|^)' + re.escape(PLUGIN_SAFE_NAME) + r'-\d{2}-\d{2}-\d{2}(?=\s*$)')
 _GENERATED_TITLE_SUFFIX_RE = re.compile(
     r'_(?:简体中文|繁体中文(?:_(?:香港|台湾))?|日文汉字|中文转换)'
-    r'(?:_双语标注)?_[A-Za-z0-9]{4}(?=\s*$)')
+    r'(?:_双语标注)?_(?:[A-Za-z0-9]{4}|'
+    + _BOOK_TIME_CODE_RE.pattern + r')(?=\s*$)')
 
 _PLUGIN_COMMENT_MARKERS = (
     PLUGIN_RELEASE_THREAD_URL,
