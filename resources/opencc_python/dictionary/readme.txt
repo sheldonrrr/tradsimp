@@ -1,6 +1,6 @@
 Upstream data source
     Dictionary text files in this folder are synced from:
-    https://github.com/BYVoid/OpenCC (commit 81223ed (ver.1.4.1))
+    https://github.com/BYVoid/OpenCC (commit 2904aa4 (master))
 
     Notes:
     - Upstream OpenCC runtime configs now use ocd2 dictionaries.

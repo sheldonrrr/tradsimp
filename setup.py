@@ -49,7 +49,7 @@ PLUGIN_FILES = [
 SKIP_DIR_NAMES = frozenset({
     '__pycache__', '__MACOSX', '.git', '.cursor', '.idea', '.vscode',
     '.windsurf', '.claude', '.codex', '.agent', '.history', '.obsidian',
-    'dist', 'scripts', 'bin', 'testdata', 'tmp_test_assets',
+    'dist', 'scripts', 'bin', 'release', 'testdata', 'tmp_test_assets',
     '.pytest_cache', '.mypy_cache', 'venv', '.venv', 'env', 'node_modules',
     'agent-transcripts', 'terminals',
     # macOS Finder / Spotlight / Trash volume metadata

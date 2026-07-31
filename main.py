@@ -118,6 +118,13 @@ def get_resource_file(file_type, file_name):
 class HTML_TextProcessor(HTMLParser):
     """
     This class takes in HTML files as a string.
+
+    Conversion inventory (intentional):
+    - OpenCC / quotes / vertical punctuation: visible text nodes only.
+    - Skipped entirely: <style>, <script> (CSS/JS/JSON-LD identifiers).
+    - Attributes: only rewrite lang="zh..." (not id/class/href/src/style=).
+    - Comments, processing instructions, doctype: preserved as-is.
+    - External CSS (OEB_STYLES): not run through this parser.
     """
 
     def __init__(self, textConvertor = None):
@@ -129,6 +136,8 @@ class HTML_TextProcessor(HTMLParser):
           self.converting = True
           self.language = None
           self._bilingual_style_injected = False
+          self._in_style = False
+          self._in_script = False
 
           # Create regular expressions to modify quote styles
           self.trad_to_simp_quotes = {'「':'“', '」':'”', '『':'‘', '』':'’'}
@@ -181,6 +190,8 @@ class HTML_TextProcessor(HTMLParser):
         self.result.clear()
         self.reset()
         self._bilingual_style_injected = False
+        self._in_style = False
+        self._in_script = False
         # Re-conversion safety: clear prior bilingual markup/style from already-converted books.
         if 'ctc-bi' in data or BILINGUAL_STYLE_MARKER in data:
             data = strip_bilingual_annotations(data)
@@ -225,6 +236,10 @@ class HTML_TextProcessor(HTMLParser):
         ##    print("     attr:", attr)
 
         tag_text = self.get_starttag_text()
+        if tag == 'style':
+            self._in_style = True
+        elif tag == 'script':
+            self._in_script = True
 
         # Direction change or bilingual annotation needs body.calibre-chinese_text
         if (tag == "body") and (
@@ -241,6 +256,10 @@ class HTML_TextProcessor(HTMLParser):
             self.result.append(tag_text)
 
     def handle_endtag(self, tag):
+        if tag == 'style':
+            self._in_style = False
+        elif tag == 'script':
+            self._in_script = False
         if tag == "head":
             self._maybe_inject_bilingual_style()
         self.result.append("</" + tag + ">")
@@ -266,6 +285,14 @@ class HTML_TextProcessor(HTMLParser):
 ##            print("handle_data is only whitespace")
             self.result.append(text)
         else:
+            # Skip opaque machine content entirely:
+            # - <style>: font-family / @font-face / CSS strings
+            # - <script>: JS / JSON-LD literals
+            # Quotes, vertical punctuation, and OpenCC all stay off here.
+            if self._in_style or self._in_script:
+                self.result.append(text)
+                return
+
             if self.converting:
                 if (self.criteria[OUTPUT_ORIENTATION] == 0) or (self.criteria[OUTPUT_ORIENTATION] == 2):
                     # Convert quotation marks
@@ -282,7 +309,7 @@ class HTML_TextProcessor(HTMLParser):
                     if (self.criteria[QUOTATION_TYPE] != 0):
                         text = self.replace_quotations(text)
 
-            # Convert text to traditional or simplified if needed
+            # Convert text to traditional or simplified if needed.
 ##            print('handle_data CONVERSION_TYPE criteria = ', self.criteria[CONVERSION_TYPE])
             if self.criteria[CONVERSION_TYPE] != 0 and self.converting:
 ##                print('handle_data calling self.textConverter.convert(text)')
@@ -886,7 +913,7 @@ def set_metadata_toc(container, language, criteria, changed_files, converter):
                         item.text = language
                     if item.text != old_item:
                         opfChanged = True
-    # Update the creator text and file-as attribute
+    # Update the creator text and file-as only (never id/role/scheme/etc.).
     items = container.opf_xpath('//opf:metadata/dc:creator')
     if len(items) > 0:
         for item in items:
@@ -895,8 +922,18 @@ def set_metadata_toc(container, language, criteria, changed_files, converter):
                 item.text = converter.convert(item.text)
                 if item.text != old_item:
                     opfChanged = True
-            for attribute in item.attrib: # update file-as attribute
-                item.attrib[attribute] = converter.convert(item.attrib[attribute])
+            for attribute in list(item.attrib):
+                # Match bare or namespaced file-as (e.g. file-as, opf:file-as).
+                local_name = attribute.split('}')[-1].split(':')[-1]
+                if local_name != 'file-as':
+                    continue
+                old_attr = item.attrib[attribute]
+                if old_attr is None:
+                    continue
+                new_attr = converter.convert(old_attr)
+                if new_attr != old_attr:
+                    item.attrib[attribute] = new_attr
+                    opfChanged = True
     # Update the remaining dc items using a loop
     for dc_item in dc_list:
         items = container.opf_xpath(dc_item)

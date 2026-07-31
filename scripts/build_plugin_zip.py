@@ -7,8 +7,8 @@ Reads PLUGIN_VERSION_TUPLE from __init__.py and writes:
   dist/chinese_text_conversion-{version}.zip
   package-version.txt (inside the zip)
 
-Excludes macOS metadata, __pycache__, .cursor, mobileread-*.md, README*.md,
-setup.py, scripts/, bin/, and other dev-only paths (see setup.py).
+Excludes macOS metadata, __pycache__, .cursor, release/, mobileread-*.md,
+README*.md, setup.py, scripts/, bin/, and other dev-only paths (see setup.py).
 
 Usage (from repo root):
   python3 scripts/build_plugin_zip.py

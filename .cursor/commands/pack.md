@@ -22,7 +22,7 @@ dist/chinese_text_conversion-X.Y.Z.zip
 
 3. Optionally list the zip briefly to verify runtime files are present and dev-only trees are absent:
    - Should include: `__init__.py`, `main.py`, `dialogs.py`, `i18n.py`, `ui.py`, `resources/`, `images/`, `package-version.txt`, `plugin-import-name-*.txt`
-   - Must **not** include: `docs/`, `scripts/`, `bin/`, `.git/`, `.cursor/`, `README*.md`, `mobileread-*.md`, `__pycache__/`
+   - Must **not** include: `docs/`, `scripts/`, `bin/`, `release/`, `.git/`, `.cursor/`, `README*.md`, `mobileread-*.md`, `__pycache__/`
 
 4. Reply with the full path to the zip and the version string.
 
@@ -33,7 +33,7 @@ Packaging is an **allowlist** (root `PLUGIN_FILES` + `images/` + `resources/` on
 - **macOS (primary pack host):** `.DS_Store`, `._*` AppleDouble, `__MACOSX/`, `.Spotlight-V100`, `.Trashes`, `.fseventsd`, `.TemporaryItems`
 - **Windows:** `Thumbs.db`, `Desktop.ini`, `$RECYCLE.BIN/`
 - **Editor / Python:** `*~`, `*.swp`, `*.swo`, `__pycache__/`, `*.py[cod]`
-- **Dev-only:** `.cursor/`, `scripts/`, `bin/`, `dist/`, `testdata/`, README / `mobileread*.md`, `setup.py`
+- **Dev-only:** `.cursor/`, `scripts/`, `bin/`, `dist/`, `release/`, `testdata/`, README / `mobileread*.md`, `setup.py`
 
 If a new junk path appears on the pack machine, add it to `setup.py` before packaging, then re-run.
 

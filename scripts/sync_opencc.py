@@ -12,8 +12,8 @@ import shutil
 import subprocess
 import sys
 
-OPENCC_COMMIT = '81223ed'
-OPENCC_TAG = 'ver.1.4.1'
+OPENCC_COMMIT = '2904aa4'
+OPENCC_TAG = 'master'
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DICT_DIR = os.path.join(PLUGIN_ROOT, 'resources', 'opencc_python', 'dictionary')

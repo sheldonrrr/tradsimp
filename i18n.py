@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 29 Jul, 2026',
-        '发布：2026年7月29日',
-        '發佈：2026年7月29日'),
+        'Released: 31 Jul, 2026',
+        '发布：2026年7月31日',
+        '發佈：2026年7月31日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
