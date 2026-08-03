@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 31 Jul, 2026',
-        '发布：2026年7月31日',
-        '發佈：2026年7月31日'),
+        'Released: 2 Aug, 2026',
+        '发布：2026年8月2日',
+        '發佈：2026年8月2日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -243,11 +243,17 @@ _MESSAGES = {
     'Use Jieba segmentation help': _T(
         'Segment text with Jieba before OpenCC conversion to improve phrase-level accuracy '
         '(similar to OpenCC’s optional jieba configs). Default uses OpenCC mmseg. '
-        'First use may be slower while the dictionary loads.',
+        'OpenCC STPhrases keys are loaded into Jieba’s user dictionary so ambiguous cuts '
+        'like 赵国王后 → 赵|国王|后 (then 王後) are avoided. First use may be slower while '
+        'the dictionary loads.',
         '转换前先用 Jieba 分词，可提升词组级准确度（类似 OpenCC 可选的 jieba 配置）。'
-        '默认使用 OpenCC mmseg 分词。首次启用时加载词典可能稍慢。',
+        '默认使用 OpenCC mmseg 分词。会把 OpenCC STPhrases 词条注入 Jieba 用户词典，'
+        '以避免错误切分（例如「赵国王后」被切成「赵|国王|后」再变成「王後」）。'
+        '首次启用时加载词典可能稍慢。',
         '轉換前先用 Jieba 分詞，可提升詞組級準確度（類似 OpenCC 可選的 jieba 配置）。'
-        '預設使用 OpenCC mmseg 分詞。首次啟用時載入詞典可能稍慢。'),
+        '預設使用 OpenCC mmseg 分詞。會把 OpenCC STPhrases 詞條注入 Jieba 用戶詞典，'
+        '以避免錯誤切分（例如「赵国王后」被切成「赵|国王|后」再變成「王後」）。'
+        '首次啟用時載入詞典可能稍慢。'),
     'OpenCC segmentation mode: {0}': _T(
         'OpenCC segmentation mode: {0}',
         'OpenCC 分词模式：{0}',

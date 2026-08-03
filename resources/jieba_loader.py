@@ -24,6 +24,11 @@ _JIEBA_PACKAGE_FILES = (
 
 _jieba_module = None
 _jieba_failed = False
+_opencc_phrases_injected = False
+
+# High enough that OpenCC phrase keys beat Jieba's default single-char cuts
+# (e.g. 赵国王后 → 赵|国王|后 without this, which then maps 后→後).
+_OPENCC_PHRASE_FREQ = 10 ** 7
 
 
 def _resources_dir():
@@ -116,6 +121,60 @@ def _import_jieba_from(parent_dir):
     return jieba
 
 
+def _read_stphrases_bytes():
+    """Load OpenCC STPhrases.txt (zip-safe via get_resources, else filesystem)."""
+    try:
+        data = get_resources(
+            'resources/opencc_python/dictionary/STPhrases.txt')
+    except Exception:
+        data = None
+    if data:
+        return data
+
+    fs_path = os.path.join(
+        _resources_dir(), 'opencc_python', 'dictionary', 'STPhrases.txt')
+    if os.path.isfile(fs_path):
+        with open(fs_path, 'rb') as handle:
+            return handle.read()
+    return None
+
+
+def _iter_stphrase_keys(raw_bytes):
+    """Yield multi-character phrase keys from an OpenCC dictionary file."""
+    if not raw_bytes:
+        return
+    text = raw_bytes.decode('utf-8', errors='replace')
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        key = line.split('\t', 1)[0].strip()
+        if len(key) >= 2:
+            yield key
+
+
+def _inject_opencc_phrases(jieba_mod):
+    """
+    Register OpenCC STPhrases keys in Jieba's user dictionary.
+
+    Without this, Jieba often splits ambiguous Simplified spans such as
+    赵国王后 into 赵|国王|后, and OpenCC's character table then maps 后→後
+    (王后 becomes 王後). Phrase keys keep 王后 intact for the STPhrases hit.
+    """
+    global _opencc_phrases_injected
+    if _opencc_phrases_injected:
+        return
+    raw = _read_stphrases_bytes()
+    if not raw:
+        print('OpenCC STPhrases unavailable; Jieba userdict not enriched.')
+        _opencc_phrases_injected = True
+        return
+    add_word = jieba_mod.add_word
+    for key in _iter_stphrase_keys(raw):
+        add_word(key, freq=_OPENCC_PHRASE_FREQ)
+    _opencc_phrases_injected = True
+
+
 def get_jieba():
     """
     Return an initialized jieba module, or raise on failure.
@@ -146,6 +205,7 @@ def get_jieba():
         if os.path.isfile(dict_path):
             jieba.set_dictionary(dict_path)
         jieba.initialize()
+        _inject_opencc_phrases(jieba)
         _jieba_module = jieba
         return jieba
     except Exception:
