@@ -29,8 +29,14 @@ from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc impo
 from calibre_plugins.chinese_text_conversion.resources.bilingual import (
     BILINGUAL_STYLE_MARKER, BILINGUAL_STYLE_CSS, BILINGUAL_STYLE_BLOCK,
     BILINGUAL_BI_STYLE_CSS_TEXT, BILINGUAL_MAIN_STYLE_CSS_TEXT,
-    BILINGUAL_RT_STYLE_CSS_TEXT, align_conversion_segments,
-    format_bilingual_html, strip_bilingual_annotations,
+    BILINGUAL_RT_STYLE_CSS_TEXT, BILINGUAL_PAIR_STYLE_CSS_TEXT,
+    BILINGUAL_PAIR_MAIN_STYLE_CSS_TEXT, BILINGUAL_PAIR_RT_STYLE_CSS_TEXT,
+    BILINGUAL_MODE_FULL, align_conversion_segments,
+    format_bilingual_html, normalize_bilingual_mode, strip_bilingual_annotations,
+)
+from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
+    CJK_FONT_POLICY_KEEP, CJK_FONT_STYLE_MARKER, apply_cjk_font_policy,
+    cjk_font_style_block, normalize_cjk_font_policy, strip_cjk_font_style_blocks,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
     is_vision_ocr_supported, enrich_images_with_ocr,
@@ -84,6 +90,8 @@ BILINGUAL_ANNOTATION = 12  # True/False — converted primary + original on smal
 USE_JIEBA_SEGMENTATION = 13  # True/False — optional Jieba before OpenCC conversion
 FORCE_PIVOT_CONVERSION = 14  # True/False — lossy T->S->target normalization
 APPEND_CONVERSION_SUFFIX = 15  # True/False — identify generated library books
+CJK_FONT_POLICY = 16  # 'keep' | 'serif' | 'sans' — unify body CJK font stack
+BILINGUAL_ANNOTATION_MODE = 17  # 'full' | 'changed' — bilingual original line mode
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -125,6 +133,7 @@ class HTML_TextProcessor(HTMLParser):
     - Attributes: only rewrite lang="zh..." (not id/class/href/src/style=).
     - Comments, processing instructions, doctype: preserved as-is.
     - External CSS (OEB_STYLES): not run through this parser.
+    - Optional CJK font policy: may inject #ctc-cjk-font-style and body.calibre-chinese_text.
     """
 
     def __init__(self, textConvertor = None):
@@ -136,6 +145,7 @@ class HTML_TextProcessor(HTMLParser):
           self.converting = True
           self.language = None
           self._bilingual_style_injected = False
+          self._cjk_font_style_injected = False
           self._in_style = False
           self._in_script = False
 
@@ -190,11 +200,14 @@ class HTML_TextProcessor(HTMLParser):
         self.result.clear()
         self.reset()
         self._bilingual_style_injected = False
+        self._cjk_font_style_injected = False
         self._in_style = False
         self._in_script = False
         # Re-conversion safety: clear prior bilingual markup/style from already-converted books.
         if 'ctc-bi' in data or BILINGUAL_STYLE_MARKER in data:
             data = strip_bilingual_annotations(data)
+        if CJK_FONT_STYLE_MARKER in data:
+            data = strip_cjk_font_style_blocks(data)
         if self.criteria[INPUT_SOURCE] == 2:
             # turn off converting until a start comment seen
             self.converting = False
@@ -213,6 +226,19 @@ class HTML_TextProcessor(HTMLParser):
             and self.criteria[CONVERSION_TYPE] != 0
             and self.criteria[BILINGUAL_ANNOTATION])
 
+    def _bilingual_mode(self):
+        if self.criteria is None or len(self.criteria) <= BILINGUAL_ANNOTATION_MODE:
+            return BILINGUAL_MODE_FULL
+        return normalize_bilingual_mode(self.criteria[BILINGUAL_ANNOTATION_MODE])
+
+    def _cjk_font_policy(self):
+        if self.criteria is None or len(self.criteria) <= CJK_FONT_POLICY:
+            return CJK_FONT_POLICY_KEEP
+        return normalize_cjk_font_policy(self.criteria[CJK_FONT_POLICY])
+
+    def _cjk_font_unify_enabled(self):
+        return self._cjk_font_policy() != CJK_FONT_POLICY_KEEP
+
     def _ensure_body_chinese_text_class(self, tag_text):
         if "calibre-chinese_text" in tag_text:
             return tag_text
@@ -229,6 +255,16 @@ class HTML_TextProcessor(HTMLParser):
         self.result.append(BILINGUAL_STYLE_BLOCK)
         self._bilingual_style_injected = True
 
+    def _maybe_inject_cjk_font_style(self):
+        if self._cjk_font_style_injected or not self._cjk_font_unify_enabled():
+            return
+        block = cjk_font_style_block(
+            self._cjk_font_policy(),
+            output_locale=self.criteria[OUTPUT_LOCALE])
+        if block:
+            self.result.append(block)
+            self._cjk_font_style_injected = True
+
     def handle_starttag(self, tag, attrs):
         ##print("Literal start tag:", self.get_starttag_text())
         ##print("Start tag:", tag)
@@ -241,13 +277,17 @@ class HTML_TextProcessor(HTMLParser):
         elif tag == 'script':
             self._in_script = True
 
-        # Direction change or bilingual annotation needs body.calibre-chinese_text
+        # Direction change, bilingual annotation, or CJK font unify needs body.calibre-chinese_text
         if (tag == "body") and (
-                self.criteria[OUTPUT_ORIENTATION] != 0 or self._bilingual_enabled()):
+                self.criteria[OUTPUT_ORIENTATION] != 0
+                or self._bilingual_enabled()
+                or self._cjk_font_unify_enabled()):
             tag_text = self._ensure_body_chinese_text_class(tag_text)
             if self._bilingual_enabled() and not self._bilingual_style_injected:
                 # No </head> seen (unusual markup) — inject style before body.
                 self._maybe_inject_bilingual_style()
+            if self._cjk_font_unify_enabled() and not self._cjk_font_style_injected:
+                self._maybe_inject_cjk_font_style()
 
         # if Chinese script is being changed, change language code inside of tags
         if self.converting and (self.criteria[CONVERSION_TYPE] != 0) and (self.language != None) and (self.zh_non_re.search(tag_text) == None):
@@ -262,6 +302,7 @@ class HTML_TextProcessor(HTMLParser):
             self._in_script = False
         if tag == "head":
             self._maybe_inject_bilingual_style()
+            self._maybe_inject_cjk_font_style()
         self.result.append("</" + tag + ">")
 
 ##        print("End tag  :", tag)
@@ -319,7 +360,8 @@ class HTML_TextProcessor(HTMLParser):
                     else:
                         converted = self.textConverter.convert(text)
                         spans = None
-                    self.result.append(format_bilingual_html(text, converted, spans))
+                    self.result.append(format_bilingual_html(
+                        text, converted, spans, mode=self._bilingual_mode()))
                 else:
                     converted = self.textConverter.convert(text)
                     self.result.append(converted)
@@ -551,6 +593,9 @@ class TradSimpChinese(Tool):
             if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
                 if ensure_bilingual_annotation_css(container, self.changed_files):
                     self.filesChanged = True
+            if apply_cjk_font_policy(
+                    container, criteria, self.changed_files, CJK_FONT_POLICY):
+                self.filesChanged = True
 
         elif criteria[INPUT_SOURCE] == 0:
             # Cover the entire book
@@ -574,6 +619,9 @@ class TradSimpChinese(Tool):
             if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
                 if ensure_bilingual_annotation_css(container, self.changed_files):
                     self.filesChanged = True
+            if apply_cjk_font_policy(
+                    container, criteria, self.changed_files, CJK_FONT_POLICY):
+                self.filesChanged = True
             ocr_changed_files, _ocr_samples, _ocr_stats = maybe_enrich_images_with_vision_ocr(
                 container, criteria, self.converter)
             if ocr_changed_files:
@@ -606,9 +654,11 @@ def prepare_prefs(prefs):
         prefs['punc_omits'] = PUNC_OMITS
         prefs['enable_vision_ocr_enhancement'] = False
         prefs['include_metadata'] = True
-        prefs['bilingual_annotation'] = True
+        prefs['bilingual_annotation'] = False
+        prefs['bilingual_annotation_mode'] = 'full'
         prefs['force_pivot_conversion'] = True
         prefs['append_conversion_suffix'] = True
+        prefs['cjk_font_policy'] = 'keep'
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -632,9 +682,11 @@ def prepare_prefs(prefs):
     prefs.defaults['punc_omits'] = PUNC_OMITS
     prefs.defaults['enable_vision_ocr_enhancement'] = False
     prefs.defaults['include_metadata'] = True
-    prefs.defaults['bilingual_annotation'] = True
+    prefs.defaults['bilingual_annotation'] = False
+    prefs.defaults['bilingual_annotation_mode'] = 'full'
     prefs.defaults['force_pivot_conversion'] = True
     prefs.defaults['append_conversion_suffix'] = True
+    prefs.defaults['cjk_font_policy'] = 'keep'
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -682,10 +734,12 @@ def build_criteria(prefs):
         prefs['output_orientation'], prefs['update_punctuation'], punc_dict, punc_regex,
         prefs.get('enable_vision_ocr_enhancement', False),
         prefs.get('include_metadata', True),
-        prefs.get('bilingual_annotation', True),
+        prefs.get('bilingual_annotation', False),
         prefs.get('use_jieba_segmentation', False),
         prefs.get('force_pivot_conversion', True),
-        prefs.get('append_conversion_suffix', True))
+        prefs.get('append_conversion_suffix', True),
+        normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
+        normalize_bilingual_mode(prefs.get('bilingual_annotation_mode', 'full')))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -1126,7 +1180,7 @@ def _ensure_style_rule(sheet, selector_text, css_text):
 def ensure_bilingual_annotation_css(container, changed_files):
     """
     Ensure bilingual annotation CSS is present and up to date in stylesheets.
-    Rewrites existing .ctc-bi / .ctc-bi-rt rules when layout CSS changes.
+    Rewrites existing .ctc-bi / .ctc-bi-rt / .ctc-bi-pair rules when layout CSS changes.
     Returns True if any stylesheet was modified.
     """
     file_changed = False
@@ -1140,6 +1194,14 @@ def ensure_bilingual_annotation_css(container, changed_files):
         if _ensure_style_rule(sheet, u'.ctc-bi-main', BILINGUAL_MAIN_STYLE_CSS_TEXT):
             sheet_changed = True
         if _ensure_style_rule(sheet, u'.ctc-bi-rt', BILINGUAL_RT_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if _ensure_style_rule(sheet, u'.ctc-bi-pair', BILINGUAL_PAIR_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if _ensure_style_rule(
+                sheet, u'.ctc-bi-pair>.ctc-bi-main', BILINGUAL_PAIR_MAIN_STYLE_CSS_TEXT):
+            sheet_changed = True
+        if _ensure_style_rule(
+                sheet, u'.ctc-bi-pair>.ctc-bi-rt', BILINGUAL_PAIR_RT_STYLE_CSS_TEXT):
             sheet_changed = True
         if not sheet_changed:
             continue
@@ -1276,7 +1338,8 @@ def cli_get_criteria(args):
     #   quote_type:         0 = No change, 1 = Western, 2 = East Asian
     #   text_direction:     0 = No change, 1 = Horizontal, 2 = Vertical
     #   update_punctuation  True - Modify punctuation to match text_direction
-    #   bilingual_annotation True - Converted primary line + original on smaller line below
+    #   bilingual_annotation False by default - optional converted primary + original below
+    #   bilingual_annotation_mode 'full'|'changed'
 
     # Set up default values
     input_source = 0            # Whole book
@@ -1359,9 +1422,37 @@ def cli_get_criteria(args):
         bool(getattr(args, 'bilingual_opt', False)),
         bool(getattr(args, 'jieba_opt', False)),
         bool(getattr(args, 'force_pivot_opt', False)),
-        False)
+        False,
+        normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
+        normalize_bilingual_mode(getattr(args, 'bilingual_mode_opt', 'full')))
 
     return criteria
+
+def count_container_progress_units(container, criteria):
+    """
+    Work units for one book (used as progress total within cli_process_files).
+    Metadata, orientation, each HTML file, one polish step, each OCR image.
+    """
+    units = 0
+    if criteria[CONVERSION_TYPE] != 0 and criteria[INCLUDE_METADATA]:
+        units += 1
+    if criteria[OUTPUT_ORIENTATION] != 0:
+        units += 1
+    html_count = sum(1 for _n, mt in container.mime_map.items() if mt in OEB_DOCS)
+    units += html_count
+    units += 1  # bilingual CSS + CJK font policy (combined polish step)
+    if criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported():
+        units += sum(
+            1 for _n, mt in container.mime_map.items()
+            if (mt or '').startswith('image/'))
+    return max(1, units)
+
+
+def estimate_library_book_progress_units(image_count, ocr_enabled):
+    """Rough units before the container is opened (placeholder for remaining books)."""
+    images = max(0, int(image_count or 0)) if ocr_enabled else 0
+    return max(1, images) + 8
+
 
 def cli_process_files(criteria, container, converter, parser, progress_callback=None):
     global _LAST_OCR_PREVIEW_SAMPLES
@@ -1375,38 +1466,84 @@ def cli_process_files(criteria, container, converter, parser, progress_callback=
     else:
         parser.setLanguageAttribute(None)
 
+    local_total = count_container_progress_units(container, criteria)
+    local_done = [0]
+
+    def report(detail=''):
+        if progress_callback is None:
+            return
+        progress_callback(
+            min(local_done[0], local_total),
+            local_total,
+            detail or '')
+
+    def bump(detail=''):
+        local_done[0] += 1
+        report(detail)
+
+    report(_('Progress stage starting'))
+
     # Cover the entire book
     # Set metadata and Table of Contents (TOC)
     changed_files = []
     if criteria[CONVERSION_TYPE] != 0 and criteria[INCLUDE_METADATA]:
         set_metadata_toc(container, lang, criteria, changed_files, converter)
+        bump(_('Progress stage metadata'))
 
     # Set text orientation
     if criteria[OUTPUT_ORIENTATION] != 0:
         set_flow_direction(container, criteria, changed_files, converter)
+        bump(_('Progress stage orientation'))
 
     # Cover the text
     file_list = [i[0] for i in container.mime_map.items() if i[1] in OEB_DOCS]
-    clean = True
-    for name in file_list:
+    html_total = len(file_list)
+    for index, name in enumerate(file_list, start=1):
         data = container.raw_data(name)
         htmlstr = parser.processText(data, criteria)
         if htmlstr != data:
             container.dirty(name)
             container.open(name, 'w').write(htmlstr)
             changed_files.append(name)
-            clean = False
+        bump(_('Progress stage html').format(index, html_total))
 
     if criteria[BILINGUAL_ANNOTATION] and criteria[CONVERSION_TYPE] != 0:
         ensure_bilingual_annotation_css(container, changed_files)
 
+    apply_cjk_font_policy(container, criteria, changed_files, CJK_FONT_POLICY)
+    bump(_('Progress stage polish'))
+
+    ocr_base = local_done[0]
+    image_files = [
+        name for name, mt in container.mime_map.items()
+        if (mt or '').startswith('image/')]
+    image_total = (
+        len(image_files)
+        if criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported()
+        else 0)
+
+    def on_ocr_progress(current, _book_total, image_name):
+        # Map OCR image count onto the shared local progress scale.
+        done = ocr_base + min(int(current or 0), image_total)
+        local_done[0] = done
+        detail = _('OCR progress status').format(
+            min(int(current or 0), image_total), image_total)
+        if image_name:
+            detail = '{} · {}'.format(detail, image_name)
+        report(detail)
+
     ocr_changed_files, ocr_samples, ocr_stats = maybe_enrich_images_with_vision_ocr(
-        container, criteria, converter, progress_callback=progress_callback)
+        container, criteria, converter,
+        progress_callback=on_ocr_progress if image_total else None)
     _LAST_OCR_PREVIEW_SAMPLES = list(ocr_samples)
     _LAST_OCR_SUMMARY_STATS = dict(ocr_stats or {})
     for changed_name in ocr_changed_files:
         if changed_name not in changed_files:
             changed_files.append(changed_name)
+
+    # Ensure bar reaches 100% for this book even if some OCR images were cached.
+    local_done[0] = local_total
+    report(_('Progress stage complete'))
 
     return(changed_files)
 
@@ -1429,6 +1566,9 @@ def print_conversion_info(args, file_set, version, configuration_filename):
         print(_('Output locale: ') + args.dest_opt.upper())
         print(_('Use destination phrases: ') + str(args.phrase_opt))
         print(_('Bilingual annotation: ') + str(args.bilingual_opt))
+        if args.bilingual_opt:
+            print(_('Bilingual original mode: {0}').format(
+                getattr(args, 'bilingual_mode_opt', 'full')))
         print(_('Forced pivot conversion: {0}').format(
             str(bool(getattr(args, 'force_pivot_opt', False)))))
 
@@ -1498,6 +1638,9 @@ def main(argv, plugin_version, usage=None):
     parser.add_argument('-ba', '--bilingual-annotation', dest='bilingual_opt',
                         help=_('Keep original text with converted forms as bilingual annotations (Default: False)'),
                         action='store_true')
+    parser.add_argument('--bilingual-mode', dest='bilingual_mode_opt', default='full',
+                        help=_('Bilingual original mode: full or changed (Default: full)'),
+                        choices=['full', 'changed'])
     parser.add_argument('--force-pivot', dest='force_pivot_opt',
                         help=_('Force coverage-first conversion through a Simplified pivot (requires --bilingual-annotation)'),
                         action='store_true')

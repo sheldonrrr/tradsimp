@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese ebooks locally with built-in **OpenCC
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.9.2** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.10.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 

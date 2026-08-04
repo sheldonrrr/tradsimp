@@ -5,23 +5,41 @@ import re
 from html import escape as html_escape
 
 
+BILINGUAL_MODE_FULL = 'full'
+BILINGUAL_MODE_CHANGED = 'changed'
+BILINGUAL_MODE_VALUES = (BILINGUAL_MODE_FULL, BILINGUAL_MODE_CHANGED)
+
 BILINGUAL_STYLE_MARKER = 'ctc-bi-annotation-style'
 BILINGUAL_STYLE_CSS = (
-    '.ctc-bi{ruby-position:under;ruby-align:end}'
+    '.ctc-bi{ruby-position:under;ruby-align:center}'
     '.ctc-bi-main{line-height:inherit}'
     '.ctc-bi-rt{font-size:.75em;line-height:1;color:inherit;opacity:.55;'
-    'white-space:nowrap;padding-bottom:0.55em}'
+    'padding-bottom:0.55em}'
+    '.ctc-bi-pair{display:inline-block;vertical-align:baseline;text-align:center;'
+    'max-width:100%;word-break:keep-all}'
+    '.ctc-bi-pair>.ctc-bi-main{display:block;line-height:inherit}'
+    '.ctc-bi-pair>.ctc-bi-rt{display:block;font-size:.75em;line-height:1;'
+    'color:inherit;opacity:.55;padding-bottom:0.15em;word-break:keep-all}'
 )
 BILINGUAL_STYLE_BLOCK = (
     '<style type="text/css" id="' + BILINGUAL_STYLE_MARKER + '">'
     + BILINGUAL_STYLE_CSS +
     '</style>'
 )
-BILINGUAL_BI_STYLE_CSS_TEXT = 'ruby-position:under;ruby-align:end'
+BILINGUAL_BI_STYLE_CSS_TEXT = 'ruby-position:under;ruby-align:center'
 BILINGUAL_MAIN_STYLE_CSS_TEXT = 'line-height:inherit'
 BILINGUAL_RT_STYLE_CSS_TEXT = (
     'font-size:.75em;line-height:1;color:inherit;opacity:.55;'
-    'white-space:nowrap;padding-bottom:0.55em'
+    'padding-bottom:0.55em'
+)
+BILINGUAL_PAIR_STYLE_CSS_TEXT = (
+    'display:inline-block;vertical-align:baseline;text-align:center;'
+    'max-width:100%;word-break:keep-all'
+)
+BILINGUAL_PAIR_MAIN_STYLE_CSS_TEXT = 'display:block;line-height:inherit'
+BILINGUAL_PAIR_RT_STYLE_CSS_TEXT = (
+    'display:block;font-size:.75em;line-height:1;color:inherit;opacity:.55;'
+    'padding-bottom:0.15em;word-break:keep-all'
 )
 
 _BILINGUAL_UNWRAP_RE = re.compile(
@@ -30,6 +48,13 @@ _BILINGUAL_UNWRAP_RE = re.compile(
     r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi-rt(?=["\'\s]))[^>]*>'
     r'(.*?)'
     r'</span>\s*</span>',
+    re.IGNORECASE | re.DOTALL,
+)
+_BILINGUAL_PAIR_UNWRAP_RE = re.compile(
+    r'<span\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*(?<=["\'\s])ctc-bi-pair(?=["\'\s]))[^>]*>'
+    r'<span\b(?=[^>]*\bctc-bi-main\b)[^>]*>.*?</span>\s*'
+    r'<span\b(?=[^>]*\bctc-bi-rt\b)[^>]*>(.*?)</span>\s*'
+    r'</span>',
     re.IGNORECASE | re.DOTALL,
 )
 _BILINGUAL_RUBY_UNWRAP_RE = re.compile(
@@ -47,8 +72,15 @@ _BILINGUAL_STYLE_BLOCK_RE = re.compile(
 )
 
 
+def normalize_bilingual_mode(value):
+    text = (value or BILINGUAL_MODE_FULL).strip().lower()
+    if text in BILINGUAL_MODE_VALUES:
+        return text
+    return BILINGUAL_MODE_FULL
+
+
 def strip_bilingual_annotations(html):
-    """Restore original <rt> text and remove plugin bilingual styles."""
+    """Restore original annotated text and remove plugin bilingual styles."""
     if not html or ('ctc-bi' not in html and BILINGUAL_STYLE_MARKER not in html):
         return html
     html = _BILINGUAL_STYLE_BLOCK_RE.sub('', html)
@@ -56,6 +88,7 @@ def strip_bilingual_annotations(html):
     while previous != html:
         previous = html
         html = _BILINGUAL_RUBY_UNWRAP_RE.sub(r'\1', html)
+        html = _BILINGUAL_PAIR_UNWRAP_RE.sub(r'\1', html)
         html = _BILINGUAL_UNWRAP_RE.sub(r'\2', html)
     return html
 
@@ -106,8 +139,41 @@ def _validated_conversion_segments(original, converted, spans):
     return pairs
 
 
-def format_bilingual_html(original, converted, spans=None):
-    """Render converted text above changed source fragments using ruby markup."""
+def _ruby_annotation(target, source):
+    return (
+        '<ruby class="ctc-bi"><rb class="ctc-bi-main">{}</rb>'
+        '<rt class="ctc-bi-rt">{}</rt></ruby>'.format(
+            html_escape(target, quote=False),
+            html_escape(source, quote=False)))
+
+
+def _pair_annotation(target, source):
+    """Length-mismatched phrase: stacked pair that wraps as one unit."""
+    return (
+        '<span class="ctc-bi ctc-bi-pair">'
+        '<span class="ctc-bi-main">{}</span>'
+        '<span class="ctc-bi-rt">{}</span>'
+        '</span>'.format(
+            html_escape(target, quote=False),
+            html_escape(source, quote=False)))
+
+
+def _annotated_segment(source, target):
+    if len(source) == len(target):
+        return _ruby_annotation(target, source)
+    return _pair_annotation(target, source)
+
+
+def format_bilingual_html(original, converted, spans=None, mode=BILINGUAL_MODE_FULL):
+    """
+    Render converted text with original forms below.
+
+    mode=full: annotate every segment (including unchanged) so the second line
+    is continuous original text.
+    mode=changed: annotate only segments where source != target (gapped second line).
+    Equal-length changes use ruby; unequal lengths use an inline-block pair.
+    """
+    mode = normalize_bilingual_mode(mode)
     if original == converted:
         return original
 
@@ -117,21 +183,20 @@ def format_bilingual_html(original, converted, spans=None):
 
     parts = []
     for source_pair, target_pair in converter_pairs:
-        # Keep OpenCC phrase boundaries for correctness, then leave equal
-        # sub-runs unannotated so only changed characters receive an <rt>.
+        # Keep OpenCC phrase boundaries; never force fake 1:1 splits on
+        # length-changing phrases (handled as one pair/ruby unit).
         for source, target in align_conversion_segments(source_pair, target_pair):
             if not source and not target:
                 continue
             if source == target:
-                parts.append(html_escape(source, quote=False))
+                if mode == BILINGUAL_MODE_FULL and source:
+                    parts.append(_ruby_annotation(target, source))
+                else:
+                    parts.append(html_escape(source, quote=False))
             elif not source:
                 parts.append(html_escape(target, quote=False))
             elif not target:
                 parts.append(html_escape(source, quote=False))
             else:
-                parts.append(
-                    '<ruby class="ctc-bi"><rb class="ctc-bi-main">{}</rb>'
-                    '<rt class="ctc-bi-rt">{}</rt></ruby>'.format(
-                        html_escape(target, quote=False),
-                        html_escape(source, quote=False)))
+                parts.append(_annotated_segment(source, target))
     return ''.join(parts)

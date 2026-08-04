@@ -35,6 +35,14 @@ from calibre_plugins.chinese_text_conversion.ui_style import (
     style_recommend_card, style_subheading_label,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import is_vision_ocr_supported
+from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
+    CJK_FONT_POLICY_KEEP, CJK_FONT_POLICY_SANS, CJK_FONT_POLICY_SERIF,
+    format_cjk_font_policy_help, normalize_cjk_font_policy,
+    scan_book_fonts_from_path,
+)
+from calibre_plugins.chinese_text_conversion.resources.bilingual import (
+    BILINGUAL_MODE_CHANGED, BILINGUAL_MODE_FULL, normalize_bilingual_mode,
+)
 from calibre_plugins.chinese_text_conversion.zhconvert_api import (
     ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_SITE_URL,
     ZhConvertError, convert_text as zhconvert_text,
@@ -509,10 +517,13 @@ class ConversionDialog(Dialog):
     # 4) The saved preference profile is updated only when the user confirms
     #    processing (savePrefs), so casual UI language browsing does not
     #    overwrite user defaults.
-    def __init__(self, parent, prefs, punc_dict, default_omitted_puncuation, force_entire_book=False):
+    def __init__(self, parent, prefs, punc_dict, default_omitted_puncuation,
+                 force_entire_book=False, book_font_scan_path=None):
         self.prefs = prefs
         self.parent = parent
         self.force_entire_book = force_entire_book
+        self.book_font_scan_path = book_font_scan_path
+        self._book_font_scan_info = None
         Dialog.__init__(self, _('Chinese Conversion'), 'chinese_conversion_dialog', parent)
         self.punctuation_dialog = PuncuationDialog(self.parent, self.prefs, punc_dict, default_omitted_puncuation)
         if self.force_entire_book:
@@ -772,6 +783,30 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.include_metadata_help_row)
         self._update_include_metadata_help_text()
 
+        cjk_font_layout = QHBoxLayout()
+        configure_layout(cjk_font_layout, 'form')
+        advanced_group_box_layout.addLayout(cjk_font_layout)
+        self.cjk_font_policy_label = QLabel(_('CJK font policy'))
+        configure_form_label(self.cjk_font_policy_label)
+        cjk_font_layout.addWidget(self.cjk_font_policy_label)
+        self.cjk_font_policy_combo = NoWheelComboBox()
+        self._populate_cjk_font_policy_combo()
+        self.cjk_font_policy_combo.currentIndexChanged.connect(
+            self._update_cjk_font_policy_help_text)
+        cjk_font_layout.addWidget(self.cjk_font_policy_combo, 1)
+        self.cjk_font_policy_help = QLabel()
+        self.cjk_font_policy_help.setWordWrap(True)
+        self.cjk_font_policy_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.cjk_font_policy_help)
+        self.cjk_font_policy_help_row = help_text_row(
+            self, self.cjk_font_policy_help)
+        self.cjk_font_policy_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.cjk_font_policy_help_row)
+        self._refresh_book_font_scan()
+        self._update_cjk_font_policy_help_text()
+
         self.append_conversion_suffix = QCheckBox(_(
             'Add identifying suffix to generated book title'))
         advanced_group_box_layout.addWidget(self.append_conversion_suffix)
@@ -803,6 +838,28 @@ class ConversionDialog(Dialog):
         self._update_bilingual_annotation_help_text()
         self.bilingual_annotation.toggled.connect(
             self._on_bilingual_annotation_toggled)
+
+        bilingual_mode_layout = QHBoxLayout()
+        configure_layout(bilingual_mode_layout, 'form')
+        advanced_group_box_layout.addLayout(bilingual_mode_layout)
+        self.bilingual_mode_label = QLabel(_('Bilingual original mode'))
+        configure_form_label(self.bilingual_mode_label)
+        bilingual_mode_layout.addWidget(self.bilingual_mode_label)
+        self.bilingual_mode_combo = NoWheelComboBox()
+        self._populate_bilingual_mode_combo()
+        self.bilingual_mode_combo.currentIndexChanged.connect(
+            self._update_bilingual_mode_help_text)
+        bilingual_mode_layout.addWidget(self.bilingual_mode_combo, 1)
+        self.bilingual_mode_help = QLabel()
+        self.bilingual_mode_help.setWordWrap(True)
+        self.bilingual_mode_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.bilingual_mode_help)
+        self.bilingual_mode_help_row = help_text_row(self, self.bilingual_mode_help)
+        self.bilingual_mode_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.bilingual_mode_help_row)
+        self._update_bilingual_mode_help_text()
 
         self.force_pivot_conversion = QCheckBox(_(
             'Forced conversion (coverage first)'))
@@ -883,6 +940,36 @@ class ConversionDialog(Dialog):
         self.include_metadata_help.setText(help_text)
         self.include_metadata.setToolTip('')
 
+    def _populate_cjk_font_policy_combo(self):
+        combo = self.cjk_font_policy_combo
+        current = normalize_cjk_font_policy(
+            combo.currentData() if combo.count() else None)
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(_('CJK font policy keep'), CJK_FONT_POLICY_KEEP)
+        combo.addItem(_('CJK font policy serif'), CJK_FONT_POLICY_SERIF)
+        combo.addItem(_('CJK font policy sans'), CJK_FONT_POLICY_SANS)
+        idx = combo.findData(current)
+        combo.setCurrentIndex(max(0, idx))
+        combo.blockSignals(False)
+
+    def _refresh_book_font_scan(self):
+        path = self.book_font_scan_path
+        if path:
+            self._book_font_scan_info = scan_book_fonts_from_path(path)
+        else:
+            self._book_font_scan_info = None
+
+    def _cjk_font_policy_value(self):
+        data = self.cjk_font_policy_combo.currentData()
+        return normalize_cjk_font_policy(data)
+
+    def _update_cjk_font_policy_help_text(self):
+        help_text = format_cjk_font_policy_help(
+            self._book_font_scan_info, self._cjk_font_policy_value())
+        self.cjk_font_policy_help.setText(help_text)
+        self.cjk_font_policy_combo.setToolTip('')
+
     def _update_append_conversion_suffix_help_text(self):
         self.append_conversion_suffix_help.setText(_(
             'Generated book suffix help'))
@@ -892,6 +979,32 @@ class ConversionDialog(Dialog):
         help_text = _('Bilingual annotation help')
         self.bilingual_annotation_help.setText(help_text)
         self.bilingual_annotation.setToolTip('')
+
+    def _populate_bilingual_mode_combo(self):
+        combo = self.bilingual_mode_combo
+        current = normalize_bilingual_mode(
+            combo.currentData() if combo.count() else None)
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(
+            _('Bilingual mode keep full original'), BILINGUAL_MODE_FULL)
+        combo.addItem(
+            _('Bilingual mode keep changed characters'), BILINGUAL_MODE_CHANGED)
+        idx = combo.findData(current)
+        combo.setCurrentIndex(max(0, idx))
+        combo.blockSignals(False)
+
+    def _bilingual_mode_value(self):
+        return normalize_bilingual_mode(self.bilingual_mode_combo.currentData())
+
+    def _update_bilingual_mode_help_text(self):
+        mode = self._bilingual_mode_value()
+        if mode == BILINGUAL_MODE_CHANGED:
+            help_text = _('Bilingual mode changed help')
+        else:
+            help_text = _('Bilingual mode full help')
+        self.bilingual_mode_help.setText(help_text)
+        self.bilingual_mode_combo.setToolTip('')
 
     def _update_force_pivot_conversion_help_text(self):
         self.force_pivot_conversion_help.setText(_(
@@ -1204,11 +1317,17 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.setText(_('Settings...'))
         self.include_metadata.setText(_('Include metadata'))
         self._update_include_metadata_help_text()
+        self.cjk_font_policy_label.setText(_('CJK font policy'))
+        self._populate_cjk_font_policy_combo()
+        self._update_cjk_font_policy_help_text()
         self.append_conversion_suffix.setText(_(
             'Add identifying suffix to generated book title'))
         self._update_append_conversion_suffix_help_text()
         self.bilingual_annotation.setText(_('Bilingual annotation'))
         self._update_bilingual_annotation_help_text()
+        self.bilingual_mode_label.setText(_('Bilingual original mode'))
+        self._populate_bilingual_mode_combo()
+        self._update_bilingual_mode_help_text()
         self.force_pivot_conversion.setText(_(
             'Forced conversion (coverage first)'))
         self._update_force_pivot_conversion_help_text()
@@ -1269,8 +1388,10 @@ class ConversionDialog(Dialog):
         self.text_dir_vertical_button.blockSignals(state)
         self.update_punctuation.blockSignals(state)
         self.include_metadata.blockSignals(state)
+        self.cjk_font_policy_combo.blockSignals(state)
         self.append_conversion_suffix.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
+        self.bilingual_mode_combo.blockSignals(state)
         self.force_pivot_conversion.blockSignals(state)
         self.enable_vision_ocr_enhancement.blockSignals(state)
 
@@ -1315,10 +1436,17 @@ class ConversionDialog(Dialog):
         self._set_output_orientation_index(self.prefs['output_orientation'])
         self.update_punctuation.setChecked(self.prefs['update_punctuation'])
         self.include_metadata.setChecked(bool(self.prefs.get('include_metadata', True)))
+        policy = normalize_cjk_font_policy(self.prefs.get('cjk_font_policy', 'keep'))
+        policy_idx = self.cjk_font_policy_combo.findData(policy)
+        self.cjk_font_policy_combo.setCurrentIndex(max(0, policy_idx))
         self.append_conversion_suffix.setChecked(bool(
             self.prefs.get('append_conversion_suffix', True)))
         self.bilingual_annotation.setChecked(bool(
-            self.prefs.get('bilingual_annotation', True)))
+            self.prefs.get('bilingual_annotation', False)))
+        mode = normalize_bilingual_mode(
+            self.prefs.get('bilingual_annotation_mode', 'full'))
+        mode_idx = self.bilingual_mode_combo.findData(mode)
+        self.bilingual_mode_combo.setCurrentIndex(max(0, mode_idx))
         self.force_pivot_conversion.setChecked(bool(
             self.prefs.get('force_pivot_conversion', True)))
         ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
@@ -1327,6 +1455,8 @@ class ConversionDialog(Dialog):
         self.enable_vision_ocr_enhancement.setChecked(bool(ocr_requested and ocr_supported))
 
         self.block_signals(False)
+        self._update_cjk_font_policy_help_text()
+        self._update_bilingual_mode_help_text()
 
 
     def direction_changed(self):
@@ -1405,6 +1535,11 @@ class ConversionDialog(Dialog):
         bilingual_enabled = not self.no_conversion_button.isChecked()
         self.bilingual_annotation.setEnabled(bilingual_enabled)
         self.bilingual_annotation_help_row.setEnabled(bilingual_enabled)
+        bilingual_mode_enabled = bool(
+            bilingual_enabled and self.bilingual_annotation.isChecked())
+        self.bilingual_mode_label.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_combo.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_help_row.setEnabled(bilingual_mode_enabled)
 
         force_pivot_enabled = bool(
             self.simp_to_trad_button.isChecked()
@@ -1525,11 +1660,13 @@ class ConversionDialog(Dialog):
         self.prefs['symbol_profile_user_set'] = self.symbol_profile_user_set
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
         self.prefs['include_metadata'] = self.include_metadata.isChecked()
+        self.prefs['cjk_font_policy'] = self._cjk_font_policy_value()
         self.prefs['append_conversion_suffix'] = (
             self.append_conversion_suffix.isChecked())
         self.prefs['bilingual_annotation'] = (
             self.bilingual_annotation.isChecked()
             and not self.no_conversion_button.isChecked())
+        self.prefs['bilingual_annotation_mode'] = self._bilingual_mode_value()
         self.prefs['force_pivot_conversion'] = bool(
             self.force_pivot_conversion.isChecked()
             and self.bilingual_annotation.isChecked()
@@ -1594,7 +1731,7 @@ class LibraryConversionStatusDialog(QDialog):
 
     def set_processing(self):
         self._processing = True
-        self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+        self.headline.setText(_('Processing progress'))
         self.status_label.setText(_('Preparing background conversion…'))
         self.hide_btn.setEnabled(True)
         self.hide_btn.setVisible(True)
@@ -1602,7 +1739,7 @@ class LibraryConversionStatusDialog(QDialog):
 
     def set_complete(self, completed_images=None):
         self._processing = False
-        self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
+        self.headline.setText(_('Processing progress'))
         if completed_images is None or not self._ocr_enabled:
             self.status_label.setText(_('Processing complete'))
         else:
@@ -1616,12 +1753,11 @@ class LibraryConversionStatusDialog(QDialog):
         self.setWindowTitle(_('Chinese Conversion'))
         self.hide_btn.setText(_('Hide'))
         self.close_btn.setText(_('Close'))
+        self.headline.setText(_('Processing progress'))
         if self.close_btn.isEnabled():
-            self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
             if not self.status_label.text():
                 self.status_label.setText(_('Processing complete'))
         else:
-            self.headline.setText(_('OCR progress') if self._ocr_enabled else _('Processing progress'))
             if not self.status_label.text():
                 self.status_label.setText(_('Preparing background conversion…'))
 

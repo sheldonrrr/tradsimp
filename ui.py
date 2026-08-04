@@ -38,6 +38,7 @@ from calibre_plugins.chinese_text_conversion.main import (
     APPEND_CONVERSION_SUFFIX,
     HTML_TextProcessor, OpenCC, apply_converter_segmentation,
     apply_converter_force_pivot, criteria_with_ocr_enabled,
+    estimate_library_book_progress_units,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import (
     get_missing_ocr_language_notice, format_ocr_language_notice_message,
@@ -72,39 +73,46 @@ class LibraryConversionWorker(QObject):
         else:
             parser.setLanguageAttribute(None)
 
-        for index, item in enumerate(self.work, start=1):
+        ocr_enabled = bool(self.criteria[ENABLE_VISION_OCR])
+        book_estimates = [
+            estimate_library_book_progress_units(
+                item.get('image_count', 0), ocr_enabled)
+            for item in self.work
+        ]
+        done_before = 0
+
+        for index, item in enumerate(self.work):
             book_id = item['book_id']
             title = item['title']
             fmt = item['fmt']
             path = item['path']
             suffix, generated_at = make_conversion_suffix()
-            book_image_total = (
-                int(item.get('image_count', 0) or 0)
-                if self.criteria[ENABLE_VISION_OCR] else 0
-            )
-            processing_message = _('Current book progress label').format(index, total, title)
-            self.progress.emit(0, book_image_total or 1, processing_message)
+            processing_message = _('Current book progress label').format(
+                index + 1, total, title)
+            remaining_est = sum(book_estimates[index + 1:])
+            book_units = [book_estimates[index]]
+
+            def on_progress(local_done, local_total, detail):
+                book_units[0] = max(int(local_total or 0), 1)
+                global_current = done_before + max(0, int(local_done or 0))
+                global_total = done_before + book_units[0] + remaining_est
+                message = processing_message
+                if detail:
+                    message = '{} — {}'.format(processing_message, detail)
+                self.progress.emit(global_current, max(global_total, 1), message)
+
+            self.progress.emit(
+                done_before, done_before + book_units[0] + remaining_est,
+                processing_message)
             tmpdir = None
             try:
-                def on_ocr_progress(current, _book_total, _image_name):
-                    if not book_image_total:
-                        return
-                    done = min(int(current or 0), book_image_total)
-                    self.progress.emit(
-                        done,
-                        book_image_total,
-                        processing_message)
-
-                tmpdir, temp_path, changed_files, ocr_samples, ocr_stats = convert_book_to_temp_copy(
-                    path, fmt, self.criteria, converter, parser,
-                    progress_callback=on_ocr_progress)
-                if book_image_total:
-                    self.progress.emit(
-                        book_image_total,
-                        book_image_total,
-                        processing_message)
-                else:
-                    self.progress.emit(1, 1, processing_message)
+                tmpdir, temp_path, changed_files, ocr_samples, ocr_stats = (
+                    convert_book_to_temp_copy(
+                        path, fmt, self.criteria, converter, parser,
+                        progress_callback=on_progress))
+                done_before += book_units[0]
+                self.progress.emit(
+                    done_before, done_before + remaining_est, processing_message)
                 replacement_log = format_replacement_stats_log(converter)
                 diagnostic_log = format_conversion_diagnostics_log(converter)
                 jieba_log = None
@@ -132,6 +140,8 @@ class LibraryConversionWorker(QObject):
             except Exception:
                 if tmpdir:
                     shutil.rmtree(tmpdir, ignore_errors=True)
+                # Keep overall bar moving past a failed book using its estimate.
+                done_before += book_units[0]
                 self.book_failed.emit({
                     'title': title,
                     'traceback': traceback.format_exc(),
@@ -223,8 +233,15 @@ class ChineseTextAction(InterfaceAction):
         self._update_action_translations()
 
         from calibre_plugins.chinese_text_conversion.dialogs import ConversionDialog
+        scan_path = None
+        for book_id in book_ids:
+            path, _fmt = self._book_format_path(db, book_id)
+            if path:
+                scan_path = path
+                break
         dlg = ConversionDialog(
-            self.gui, prefs, _h2v_master_dict, PUNC_OMITS, force_entire_book=True)
+            self.gui, prefs, _h2v_master_dict, PUNC_OMITS,
+            force_entire_book=True, book_font_scan_path=scan_path)
         dlg.apply_translations()
         if not dlg.exec_():
             return
@@ -373,13 +390,15 @@ class ChineseTextAction(InterfaceAction):
 
         thread.started.connect(worker.run)
         worker.progress.connect(status_dlg.set_progress)
-        last_progress_message = ['']
+        last_progress_book = ['']
 
         def log_current_book_once(_index, _total, message):
-            if message == last_progress_message[0]:
+            # Log once per book; stage detail stays on the status label only.
+            book_key = (message or '').split(' — ', 1)[0]
+            if book_key == last_progress_book[0]:
                 return
-            last_progress_message[0] = message
-            status_dlg.log_processing(message)
+            last_progress_book[0] = book_key
+            status_dlg.log_processing(book_key)
 
         worker.progress.connect(log_current_book_once)
         worker.book_done.connect(
@@ -393,7 +412,10 @@ class ChineseTextAction(InterfaceAction):
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._clear_library_worker_refs)
 
-        progress_total = state.get('ocr_total_images') or len(work)
+        progress_total = sum(
+            estimate_library_book_progress_units(
+                item.get('image_count', 0), bool(criteria[ENABLE_VISION_OCR]))
+            for item in work) or len(work)
         status_dlg.set_progress(0, progress_total, _('Preparing background conversion…'))
         thread.start()
 

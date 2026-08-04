@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 2 Aug, 2026',
-        '发布：2026年8月2日',
-        '發佈：2026年8月2日'),
+        'Released: 3 Aug, 2026',
+        '发布：2026年8月3日',
+        '發佈：2026年8月3日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -307,6 +307,53 @@ _MESSAGES = {
         '标题、作者、标签、出版商、简介（Comments）。',
         '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
         '標題、作者、標籤、出版商、簡介（Comments）。'),
+    'CJK font policy': _T(
+        'Chinese font strategy',
+        '中文字体策略',
+        '中文字體策略'),
+    'CJK font policy keep': _T(
+        'Keep as-is',
+        '保持原样',
+        '保持原樣'),
+    'CJK font policy serif': _T(
+        'Unify as Song/Serif style',
+        '统一为宋体风格 (Serif)',
+        '統一為宋體風格 (Serif)'),
+    'CJK font policy sans': _T(
+        'Unify as Hei/Sans style',
+        '统一为黑体风格 (Sans)',
+        '統一為黑體風格 (Sans)'),
+    'Current fonts: {0}': _T(
+        'Current fonts: {0}',
+        '当前的字体为「{0}」',
+        '目前的字體為「{0}」'),
+    'No specific fonts detected; the reader’s default fonts will be used.': _T(
+        'No specific fonts detected; the reader’s default fonts will be used.',
+        '当前无特定字体，会使用系统默认字体',
+        '目前無特定字體，會使用系統預設字體'),
+    'CJK font policy serif help': _T(
+        'Rewrites body text to a Song/Ming (serif) system font stack so Simplified and Traditional '
+        'characters share one consistent look. Host OS fonts are preferred, with other platforms as fallback.',
+        '将正文统一到宋体/明体（衬线）系统字体栈，使简繁字形共用同一字样；优先使用本机系统字体，并保留其他平台后备。',
+        '將正文統一到宋體/明體（襯線）系統字體棧，使簡繁字形共用同一字樣；優先使用本機系統字體，並保留其他平台後備。'),
+    'CJK font policy sans help': _T(
+        'Rewrites body text to a Hei/Gothic (sans-serif) system font stack so Simplified and Traditional '
+        'characters share one consistent look. Host OS fonts are preferred, with other platforms as fallback.',
+        '将正文统一到黑体/哥特（无衬线）系统字体栈，使简繁字形共用同一字样；优先使用本机系统字体，并保留其他平台后备。',
+        '將正文統一到黑體/哥德（無襯線）系統字體棧，使簡繁字形共用同一字樣；優先使用本機系統字體，並保留其他平台後備。'),
+    'CJK embedded simplified font warning': _T(
+        'This book embeds “{0}”. Simplified-only Song/Hei faces often lack Traditional glyphs '
+        '(for example 宋體). After conversion, missing characters may fall back to another font and '
+        'look inconsistent. Prefer “Unify as Song/Serif style” or “Unify as Hei/Sans style”.',
+        '本书内嵌了「{0}」。此类简体常用字体可能不支持繁体「宋體」等字形；转换后缺字时阅读器会改用其他字体，'
+        '从而出现简繁字样不一致。建议改选「统一为宋体风格」或「统一为黑体风格」。',
+        '本書內嵌了「{0}」。此類簡體常用字體可能不支援繁體「宋體」等字形；轉換後缺字時閱讀器會改用其他字體，'
+        '從而出現簡繁字樣不一致。建議改選「統一為宋體風格」或「統一為黑體風格」。'),
+    'CJK embedded font general warning': _T(
+        'This book contains embedded fonts. If the font files do not cover glyphs after Trad/Simp '
+        'conversion, keeping fonts as-is may cause some text to use the reader’s default face and look inconsistent.',
+        '本书含内嵌字体；若字库未覆盖转换后的简/繁字形，保持原样可能导致部分文字改用系统默认字体、外观不一致。',
+        '本書含內嵌字體；若字庫未覆蓋轉換後的簡/繁字形，保持原樣可能導致部分文字改用系統預設字體、外觀不一致。'),
     'Add identifying suffix to generated book title': _T(
         'Add identifying suffix to generated book title',
         '为新书标题增加识别后缀',
@@ -324,13 +371,42 @@ _MESSAGES = {
         '双语批注（原文显示在下方）',
         '雙語批註（原文顯示在下方）'),
     'Bilingual annotation help': _T(
-        'Shows the converted text as the primary line and places the original characters on a smaller '
-        'right-aligned line below each changed phrase. Conversion still uses full-sentence OpenCC '
-        'context to reduce ambiguity. Metadata is not annotated.',
-        '正文以转换结果为主行，变化片段下方以更小字号右对齐显示原文；'
-        '仍按整句上下文做 OpenCC 转换以降低歧义。不应用于 Metadata。',
-        '正文以轉換結果為主行，變化片段下方以更小字號右對齊顯示原文；'
-        '仍按整句上下文做 OpenCC 轉換以降低歧義。不套用於 Metadata。'),
+        'Off by default. When enabled, shows the converted text as the primary line and places '
+        'original characters on a smaller line below. Choose full original or changed characters only. '
+        'Phrase length changes (for example 2↔3 characters) stay aligned as whole units. '
+        'Conversion still uses full-sentence OpenCC context. Metadata is not annotated.',
+        '默认关闭。开启后正文以转换结果为主行，下方以更小字号显示原文；可选「保留原文」或「保留原文字」。'
+        '词组长短变化（如 2↔3 字）按整词对齐。仍按整句 OpenCC 转换。不应用于 Metadata。',
+        '預設關閉。開啟後正文以轉換結果為主行，下方以更小字號顯示原文；可選「保留原文」或「保留原文字」。'
+        '詞組長短變化（如 2↔3 字）按整詞對齊。仍按整句 OpenCC 轉換。不套用於 Metadata。'),
+    'Bilingual original mode': _T(
+        'Bilingual original mode',
+        '双语原文模式',
+        '雙語原文模式'),
+    'Bilingual mode keep full original': _T(
+        'Keep full original',
+        '保留原文',
+        '保留原文'),
+    'Bilingual mode keep changed characters': _T(
+        'Keep changed characters only',
+        '保留原文字',
+        '保留原文字'),
+    'Bilingual mode full help': _T(
+        'Shows the complete pre-conversion original on the second line (continuous).',
+        '第二行展示转换前的完整原文（连续）。',
+        '第二行展示轉換前的完整原文（連續）。'),
+    'Bilingual mode changed help': _T(
+        'Shows only characters that actually changed; the second line is gapped.',
+        '第二行仅保留发生转换的原文字，其余位置留空（间断）。',
+        '第二行僅保留發生轉換的原文字，其餘位置留空（間斷）。'),
+    'Bilingual original mode: {0}': _T(
+        'Bilingual original mode: {0}',
+        '双语原文模式：{0}',
+        '雙語原文模式：{0}'),
+    'Bilingual original mode: full or changed (Default: full)': _T(
+        'Bilingual original mode: full or changed (Default: full)',
+        '双语原文模式：full（保留原文）或 changed（保留原文字），默认 full',
+        '雙語原文模式：full（保留原文）或 changed（保留原文字），預設 full'),
     'Forced conversion (coverage first)': _T(
         'Forced conversion (coverage first)',
         '强制转换（覆盖优先）',
@@ -536,6 +612,30 @@ _MESSAGES = {
         'OCR progress: {}/{} image(s)',
         'OCR 进度：已处理 {}/{} 张图片',
         'OCR 進度：已處理 {}/{} 張圖片'),
+    'Progress stage starting': _T(
+        'Starting…',
+        '开始…',
+        '開始…'),
+    'Progress stage metadata': _T(
+        'Updating metadata…',
+        '正在更新元数据…',
+        '正在更新中繼資料…'),
+    'Progress stage orientation': _T(
+        'Updating text direction…',
+        '正在更新文字方向…',
+        '正在更新文字方向…'),
+    'Progress stage html': _T(
+        'Converting text {}/{}',
+        '正在转换正文 {}/{}',
+        '正在轉換正文 {}/{}'),
+    'Progress stage polish': _T(
+        'Updating styles…',
+        '正在更新样式…',
+        '正在更新樣式…'),
+    'Progress stage complete': _T(
+        'Book conversion step complete',
+        '本书转换步骤完成',
+        '本書轉換步驟完成'),
     'OCR completed status': _T(
         '{} image(s) OCR completed',
         '{} 张图片 OCR 已经处理完成',
