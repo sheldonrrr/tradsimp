@@ -8,7 +8,7 @@
 
 本仓库在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 插件基础上继续开发与维护。
 
-**当前版本：3.10.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
+**当前版本：3.10.1** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
 
 ---
 

@@ -92,6 +92,7 @@ FORCE_PIVOT_CONVERSION = 14  # True/False — lossy T->S->target normalization
 APPEND_CONVERSION_SUFFIX = 15  # True/False — identify generated library books
 CJK_FONT_POLICY = 16  # 'keep' | 'serif' | 'sans' — unify body CJK font stack
 BILINGUAL_ANNOTATION_MODE = 17  # 'full' | 'changed' — bilingual original line mode
+STORE_CONVERSION_INFO_IN_COMMENTS = 18  # True/False — write conversion stats into Comments
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -658,6 +659,7 @@ def prepare_prefs(prefs):
         prefs['bilingual_annotation_mode'] = 'full'
         prefs['force_pivot_conversion'] = True
         prefs['append_conversion_suffix'] = True
+        prefs['store_conversion_info_in_comments'] = True
         prefs['cjk_font_policy'] = 'keep'
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
@@ -686,6 +688,7 @@ def prepare_prefs(prefs):
     prefs.defaults['bilingual_annotation_mode'] = 'full'
     prefs.defaults['force_pivot_conversion'] = True
     prefs.defaults['append_conversion_suffix'] = True
+    prefs.defaults['store_conversion_info_in_comments'] = True
     prefs.defaults['cjk_font_policy'] = 'keep'
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
@@ -739,7 +742,8 @@ def build_criteria(prefs):
         prefs.get('force_pivot_conversion', True),
         prefs.get('append_conversion_suffix', True),
         normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
-        normalize_bilingual_mode(prefs.get('bilingual_annotation_mode', 'full')))
+        normalize_bilingual_mode(prefs.get('bilingual_annotation_mode', 'full')),
+        prefs.get('store_conversion_info_in_comments', True))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):

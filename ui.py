@@ -4,6 +4,7 @@ __license__ = 'GPL 3'
 
 import os
 import shutil
+import time
 import traceback
 
 try:
@@ -22,6 +23,8 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, make_converted_title_suffix,
     collect_generated_book_time_codes,
     format_book_tag_log_lines,
+    format_conversion_stats_log, format_elapsed_duration,
+    format_progress_enrichment,
     import_converted_book_as_new, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     format_replacement_stats_log, format_conversion_diagnostics_log,
@@ -35,7 +38,7 @@ from calibre_plugins.chinese_text_conversion.main import (
     get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR,
     INCLUDE_METADATA, INPUT_LOCALE, USE_JIEBA_SEGMENTATION,
     CONVERSION_TYPE, OUTPUT_LOCALE, BILINGUAL_ANNOTATION,
-    APPEND_CONVERSION_SUFFIX,
+    APPEND_CONVERSION_SUFFIX, STORE_CONVERSION_INFO_IN_COMMENTS,
     HTML_TextProcessor, OpenCC, apply_converter_segmentation,
     apply_converter_force_pivot, criteria_with_ocr_enabled,
     estimate_library_book_progress_units,
@@ -46,6 +49,30 @@ from calibre_plugins.chinese_text_conversion.ocr_compat import (
 
 
 SUPPORTED_LIBRARY_FORMATS = ('EPUB', 'AZW3')
+
+
+def _library_direction_label(criteria):
+    '''Short human-readable conversion direction for Comments / logs.'''
+    conversion_type = criteria[CONVERSION_TYPE] if criteria is not None else 0
+    if conversion_type == 0:
+        return _('No Change')
+    input_locale = criteria[INPUT_LOCALE]
+    output_locale = criteria[OUTPUT_LOCALE]
+    locale_names = {
+        0: _('Mainland'),
+        1: _('Hong Kong'),
+        2: _('Taiwan'),
+        3: _('Japanese Kanji'),
+    }
+    src = locale_names.get(input_locale, str(input_locale))
+    dst = locale_names.get(output_locale, str(output_locale))
+    if conversion_type == 1:
+        return _('Comments direction trad to simp: {} → {}').format(src, dst)
+    if conversion_type == 2:
+        return _('Comments direction simp to trad: {} → {}').format(src, dst)
+    if conversion_type == 3:
+        return _('Comments direction trad to trad: {} → {}').format(src, dst)
+    return '{} → {}'.format(src, dst)
 
 
 class LibraryConversionWorker(QObject):
@@ -80,6 +107,7 @@ class LibraryConversionWorker(QObject):
             for item in self.work
         ]
         done_before = 0
+        batch_started_at = time.time()
 
         for index, item in enumerate(self.work):
             book_id = item['book_id']
@@ -91,6 +119,7 @@ class LibraryConversionWorker(QObject):
                 index + 1, total, title)
             remaining_est = sum(book_estimates[index + 1:])
             book_units = [book_estimates[index]]
+            book_started_at = time.time()
 
             def on_progress(local_done, local_total, detail):
                 book_units[0] = max(int(local_total or 0), 1)
@@ -99,11 +128,18 @@ class LibraryConversionWorker(QObject):
                 message = processing_message
                 if detail:
                     message = '{} — {}'.format(processing_message, detail)
+                extras = format_progress_enrichment(
+                    local_done, local_total, book_started_at, converter)
+                if extras:
+                    message = '{} · {}'.format(message, extras)
                 self.progress.emit(global_current, max(global_total, 1), message)
 
             self.progress.emit(
                 done_before, done_before + book_units[0] + remaining_est,
-                processing_message)
+                '{} · {}'.format(
+                    processing_message,
+                    format_progress_enrichment(
+                        0, book_units[0], book_started_at, converter)))
             tmpdir = None
             try:
                 tmpdir, temp_path, changed_files, ocr_samples, ocr_stats = (
@@ -111,8 +147,17 @@ class LibraryConversionWorker(QObject):
                         path, fmt, self.criteria, converter, parser,
                         progress_callback=on_progress))
                 done_before += book_units[0]
+                elapsed_seconds = max(0.0, time.time() - book_started_at)
+                chars_processed = int(converter.get_chars_processed() or 0)
+                chars_converted = int(converter.get_chars_converted() or 0)
+                replacement_hits = sum(
+                    (converter.get_replacement_counts() or {}).values())
+                finish_message = '{} · {}'.format(
+                    processing_message,
+                    format_progress_enrichment(
+                        book_units[0], book_units[0], book_started_at, converter))
                 self.progress.emit(
-                    done_before, done_before + remaining_est, processing_message)
+                    done_before, done_before + remaining_est, finish_message)
                 replacement_log = format_replacement_stats_log(converter)
                 diagnostic_log = format_conversion_diagnostics_log(converter)
                 jieba_log = None
@@ -136,6 +181,11 @@ class LibraryConversionWorker(QObject):
                     'jieba_log': jieba_log,
                     'suffix': suffix,
                     'generated_at': generated_at,
+                    'elapsed_seconds': elapsed_seconds,
+                    'chars_processed': chars_processed,
+                    'chars_converted': chars_converted,
+                    'replacement_hits': replacement_hits,
+                    'batch_started_at': batch_started_at,
                 })
             except Exception:
                 if tmpdir:
@@ -376,6 +426,10 @@ class ChineseTextAction(InterfaceAction):
             'recognized_no_change': 0,
             'reason': '',
             'jieba_sample_lines': [],
+            'batch_started_at': time.time(),
+            'total_chars_processed': 0,
+            'total_chars_converted': 0,
+            'total_elapsed_seconds': 0.0,
         }
         self._start_library_conversion_worker(work, criteria, conversion, status_dlg, state)
 
@@ -394,7 +448,7 @@ class ChineseTextAction(InterfaceAction):
 
         def log_current_book_once(_index, _total, message):
             # Log once per book; stage detail stays on the status label only.
-            book_key = (message or '').split(' — ', 1)[0]
+            book_key = (message or '').split(' — ', 1)[0].split(' · ', 1)[0]
             if book_key == last_progress_book[0]:
                 return
             last_progress_book[0] = book_key
@@ -434,10 +488,31 @@ class ChineseTextAction(InterfaceAction):
                 criteria[ENABLE_VISION_OCR]
                 and int(ocr_stats.get('recognized_no_change', 0) or 0) > 0
             )
+            chars_processed = int(result.get('chars_processed', 0) or 0)
+            chars_converted = int(result.get('chars_converted', 0) or 0)
+            replacement_hits = int(result.get('replacement_hits', 0) or 0)
+            elapsed_seconds = float(result.get('elapsed_seconds', 0) or 0)
+            state['total_chars_processed'] += chars_processed
+            state['total_chars_converted'] += chars_converted
+            state['total_elapsed_seconds'] += elapsed_seconds
+            if result.get('batch_started_at') and not state.get('batch_started_at'):
+                state['batch_started_at'] = result['batch_started_at']
+
             if not changed_files and not ocr_no_delta:
                 state['unchanged'].append(title)
                 status_dlg.log_processing(
                     _('No changes for “{}”; no new book created.').format(title))
+                if chars_processed or elapsed_seconds:
+                    log_section(
+                        status_dlg,
+                        _('----Log conversion stats begin----'),
+                        _('----Log conversion stats end----'),
+                        [format_conversion_stats_log(
+                            chars_processed=chars_processed,
+                            chars_converted=chars_converted,
+                            replacement_hits=replacement_hits,
+                            elapsed_seconds=elapsed_seconds)])
+                    status_dlg.log_result('')
                 return
             if not changed_files and ocr_no_delta:
                 status_dlg.log_processing(
@@ -469,9 +544,26 @@ class ChineseTextAction(InterfaceAction):
                 enabled=criteria[APPEND_CONVERSION_SUFFIX],
                 used_time_codes=state['used_book_time_codes'],
             )
+            store_info = False
+            if (
+                criteria is not None
+                and len(criteria) > STORE_CONVERSION_INFO_IN_COMMENTS
+            ):
+                store_info = bool(criteria[STORE_CONVERSION_INFO_IN_COMMENTS])
+            conversion_stats = {
+                'chars_processed': chars_processed,
+                'chars_converted': chars_converted,
+                'replacement_hits': replacement_hits,
+                'elapsed_seconds': elapsed_seconds,
+                'suffix_tag': result.get('suffix'),
+                'generated_at': result.get('generated_at'),
+                'direction_label': _library_direction_label(criteria),
+            }
             new_id, new_title = import_converted_book_as_new(
                 db, result['book_id'], temp_path, fmt, result['suffix'],
-                converter=meta_converter, title_suffix=title_suffix)
+                converter=meta_converter, title_suffix=title_suffix,
+                conversion_stats=conversion_stats,
+                store_conversion_info=store_info)
             state['new_book_ids'].append(new_id)
             state['created'].append(new_title)
             saved_path = db.format_abspath(new_id, fmt, index_is_id=True)
@@ -487,6 +579,16 @@ class ChineseTextAction(InterfaceAction):
                 _('----Log book info begin----'),
                 _('----Log book info end----'),
                 [book_info])
+            status_dlg.log_result('')
+            log_section(
+                status_dlg,
+                _('----Log conversion stats begin----'),
+                _('----Log conversion stats end----'),
+                [format_conversion_stats_log(
+                    chars_processed=chars_processed,
+                    chars_converted=chars_converted,
+                    replacement_hits=replacement_hits,
+                    elapsed_seconds=elapsed_seconds)])
             status_dlg.log_result('')
             log_section(
                 status_dlg,
@@ -605,6 +707,15 @@ class ChineseTextAction(InterfaceAction):
         if use_jieba and state.get('jieba_sample_lines'):
             summary.append(_('Jieba segmentation samples:'))
             summary.extend(state['jieba_sample_lines'][:8])
+        batch_elapsed = state.get('total_elapsed_seconds', 0) or 0
+        if state.get('batch_started_at'):
+            batch_elapsed = max(
+                batch_elapsed, time.time() - float(state['batch_started_at']))
+        if batch_elapsed or state.get('total_chars_processed'):
+            summary.append(_('Batch conversion stats summary').format(
+                format_elapsed_duration(batch_elapsed),
+                '{:,}'.format(int(state.get('total_chars_processed', 0) or 0)),
+                '{:,}'.format(int(state.get('total_chars_converted', 0) or 0))))
         if summary:
             log_section(
                 status_dlg,

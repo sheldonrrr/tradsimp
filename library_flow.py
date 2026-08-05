@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from datetime import datetime
 
 from calibre_plugins.chinese_text_conversion.__init__ import (
@@ -404,13 +405,99 @@ def format_book_tag_log_lines(suffix_tag, generated_at):
     ])
 
 
-def build_library_conversion_comments_note():
-    '''Promo block written into the new book Comments / 简介 field.'''
+def format_elapsed_duration(seconds):
+    '''Format seconds as M:SS or H:MM:SS.'''
+    total = max(0, int(round(float(seconds or 0))))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return '{}:{:02d}:{:02d}'.format(hours, minutes, secs)
+    return '{}:{:02d}'.format(minutes, secs)
+
+
+def format_progress_enrichment(local_done, local_total, book_started_at, converter):
+    '''
+    Extra progress fragments: percent, elapsed, ETA, character counts.
+    Joined with " · " for the status label.
+    '''
+    parts = []
+    total = max(int(local_total or 0), 1)
+    done = max(0, min(int(local_done or 0), total))
+    parts.append(_('Progress percent').format(int(round(100.0 * done / total))))
+
+    elapsed = 0.0
+    if book_started_at is not None:
+        elapsed = max(0.0, time.time() - float(book_started_at))
+    parts.append(_('Progress elapsed').format(format_elapsed_duration(elapsed)))
+    if done > 0 and done < total and elapsed > 0:
+        eta = elapsed * (total - done) / float(done)
+        parts.append(_('Progress eta').format(format_elapsed_duration(eta)))
+
+    if converter is not None:
+        processed = int(converter.get_chars_processed() or 0)
+        converted = int(converter.get_chars_converted() or 0)
+        parts.append(_('Progress chars').format(
+            '{:,}'.format(processed), '{:,}'.format(converted)))
+    return ' · '.join(parts)
+
+
+def format_conversion_stats_log(
+        chars_processed=0, chars_converted=0, replacement_hits=0,
+        elapsed_seconds=0):
+    '''Human-readable per-book conversion stats for the status log.'''
     return '\n'.join([
+        _('Conversion stats total characters: {}').format(
+            '{:,}'.format(int(chars_processed or 0))),
+        _('Conversion stats converted characters: {}').format(
+            '{:,}'.format(int(chars_converted or 0))),
+        _('Conversion stats replacement hits: {}').format(
+            '{:,}'.format(int(replacement_hits or 0))),
+        _('Conversion stats process time: {}').format(
+            format_elapsed_duration(elapsed_seconds)),
+    ])
+
+
+def format_conversion_info_comment_lines(stats):
+    '''Compact conversion-info lines for Comments / 简介.'''
+    stats = stats or {}
+    lines = [
+        _('Comments conversion info header'),
+        _('Conversion stats total characters: {}').format(
+            '{:,}'.format(int(stats.get('chars_processed', 0) or 0))),
+        _('Conversion stats converted characters: {}').format(
+            '{:,}'.format(int(stats.get('chars_converted', 0) or 0))),
+        _('Conversion stats replacement hits: {}').format(
+            '{:,}'.format(int(stats.get('replacement_hits', 0) or 0))),
+        _('Conversion stats process time: {}').format(
+            format_elapsed_duration(stats.get('elapsed_seconds', 0))),
+    ]
+    suffix_tag = stats.get('suffix_tag')
+    generated_at = stats.get('generated_at')
+    if suffix_tag:
+        lines.append(_('Log conversion id: {}').format(suffix_tag))
+    if generated_at is not None:
+        try:
+            stamp = generated_at.strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            stamp = str(generated_at)
+        lines.append(_('Log generated at (local time): {}').format(stamp))
+    direction = stats.get('direction_label')
+    if direction:
+        lines.append(_('Comments conversion direction: {}').format(direction))
+    return lines
+
+
+def build_library_conversion_comments_note(stats=None, store_info=False):
+    '''Promo block (+ optional conversion stats) written into Comments / 简介.'''
+    lines = [
         _('Converted by Chinese Conversion · 简繁转换(for calibre) plugin'),
         PLUGIN_RELEASE_THREAD_URL,
         _('Plugin comments tagline'),
-    ])
+    ]
+    if store_info and stats:
+        lines.append('')
+        lines.extend(format_conversion_info_comment_lines(stats))
+    return '\n'.join(lines)
 
 
 _PLUGIN_TITLE_SUFFIX_RE = re.compile(
@@ -437,6 +524,22 @@ _PLUGIN_COMMENT_MARKERS = (
     '插件支持横竖排转换',
     '外掛支援橫豎排轉換',
     'Supports horizontal/vertical layout conversion',
+    'Comments conversion info',
+    'Conversion info',
+    '转换信息',
+    '轉換資訊',
+    'Conversion stats total characters',
+    '总字符数',
+    '總字元數',
+    'Conversion stats converted characters',
+    '已转换字符',
+    '已轉換字元',
+    'Conversion stats process time',
+    '处理耗时',
+    '處理耗時',
+    'Comments conversion direction',
+    '转换方向',
+    '轉換方向',
 )
 
 
@@ -551,14 +654,16 @@ def convert_calibre_metadata(mi, converter):
 
 def import_converted_book_as_new(
         db, source_book_id, converted_path, fmt, suffix_tag=None,
-        converter=None, title_suffix=''):
+        converter=None, title_suffix='', conversion_stats=None,
+        store_conversion_info=False):
     '''
     Add a new library entry with converted file; does not modify the source book.
     When converter is provided, OpenCC-converts title/authors/tags/publisher/comments
     (简介) and sort fields. title_suffix identifies the generated target form.
     After conversion,
     Comments get a short plugin promo note (with ---- separator when prior comments
-    exist). suffix_tag is unused (kept for call-site compat).
+    exist). When store_conversion_info is True, a compact conversion stats summary
+    is appended under the promo. suffix_tag is unused (kept for call-site compat).
     Returns (new_book_id, new_title).
     '''
     mi = db.get_metadata(source_book_id, index_is_id=True)
@@ -576,7 +681,9 @@ def import_converted_book_as_new(
         if getattr(new_mi, 'title_sort', None):
             new_mi.title_sort = new_mi.title_sort.rstrip() + title_suffix
     new_mi.comments = append_library_conversion_comments(
-        new_mi.comments, build_library_conversion_comments_note())
+        new_mi.comments,
+        build_library_conversion_comments_note(
+            stats=conversion_stats, store_info=store_conversion_info))
 
     # Keep notify=False; GUI row insertion is handled in ui._refresh_library_new_books
     # via model.books_added() (Calibre plugin pattern). Avoid set_cover(notify=True)

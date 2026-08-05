@@ -70,6 +70,7 @@ class OpenCC:
         self.conversion_name = ''
         self.conversion = conversion
         self.replacement_counts = {}
+        self.chars_processed = 0
         self.diagnostic_counts = {}
         self._diagnostic_samples = []
         self._diagnostic_sample_keys = set()
@@ -113,6 +114,9 @@ class OpenCC:
         later regional-phrase stage changes length, the affected segmentation unit
         is deliberately returned as one span so callers never lose or misalign text.
         """
+        # Count only on this instance (chain/pivot children keep their own totals).
+        if string is not None:
+            self.chars_processed += len(string)
 
         pivot_mode = self._forced_pivot_reverse_mode()
         if pivot_mode is not None:
@@ -374,12 +378,28 @@ class OpenCC:
 
     def clear_replacement_counts(self):
         self.replacement_counts.clear()
+        self.chars_processed = 0
         self.diagnostic_counts.clear()
         self._diagnostic_samples = []
         self._diagnostic_sample_keys = set()
         self.clear_jieba_samples()
         for child in self._chain_converters.values():
             child.clear_replacement_counts()
+
+    def get_chars_processed(self):
+        """Characters passed to convert/convert_with_details on this converter."""
+        return int(self.chars_processed or 0)
+
+    def get_chars_converted(self):
+        """
+        Approximate converted character count: sum of source lengths for
+        non-identity OpenCC replacements (including chain/pivot children).
+        """
+        total = 0
+        for (old, new), count in self.get_replacement_counts().items():
+            if old != new:
+                total += len(old) * int(count or 0)
+        return total
 
     def clear_jieba_samples(self):
         self._jieba_samples = []
@@ -709,6 +729,7 @@ class OpenCC:
             self._dict_init_done = False
             self._chain_converters = {}
             self.replacement_counts.clear()
+            self.chars_processed = 0
             self.diagnostic_counts.clear()
             self._diagnostic_samples = []
             self._diagnostic_sample_keys = set()

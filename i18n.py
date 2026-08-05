@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 3 Aug, 2026',
-        '发布：2026年8月3日',
-        '發佈：2026年8月3日'),
+        'Released: 4 Aug, 2026',
+        '发布：2026年8月4日',
+        '發佈：2026年8月4日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -366,6 +366,18 @@ _MESSAGES = {
         '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分钟生成多本时依次增加「_2」「_3」。',
         '在每次產生的新書標題後增加目標文字類型、雙語狀態（若開啟）及本地月日時間，'
         '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分鐘產生多本時依序增加「_2」「_3」。'),
+    'Store conversion info in Comments': _T(
+        'Store conversion info in Comments',
+        '将转换信息写入简介（Comments）',
+        '將轉換資訊寫入簡介（Comments）'),
+    'Store conversion info in Comments help': _T(
+        'When creating a new library book, append a short conversion summary to Comments '
+        '(total characters, converted characters, replacement hits, process time, conversion id). '
+        'The plugin promo note is always added. Re-converting strips prior plugin notes first.',
+        '新建入库时，在简介中追加精简转换摘要（总字符数、已转换字符、替换命中、耗时、转换标识）。'
+        '插件宣传文案仍会写入。再次转换前会先清除旧的插件备注。',
+        '新建入庫時，在簡介中追加精簡轉換摘要（總字元數、已轉換字元、替換命中、耗時、轉換識別）。'
+        '外掛宣傳文案仍會寫入。再次轉換前會先清除舊的外掛備註。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',
@@ -726,6 +738,70 @@ _MESSAGES = {
         '----Replacement statistics end----',
         '----替换统计结束----',
         '----替換統計結束----'),
+    '----Log conversion stats begin----': _T(
+        '----Conversion stats begin----',
+        '----转换统计开始----',
+        '----轉換統計開始----'),
+    '----Log conversion stats end----': _T(
+        '----Conversion stats end----',
+        '----转换统计结束----',
+        '----轉換統計結束----'),
+    'Conversion stats total characters: {}': _T(
+        'Total characters: {}',
+        '总字符数：{}',
+        '總字元數：{}'),
+    'Conversion stats converted characters: {}': _T(
+        'Converted characters: {}',
+        '已转换字符：{}',
+        '已轉換字元：{}'),
+    'Conversion stats replacement hits: {}': _T(
+        'OpenCC replacement hits: {}',
+        'OpenCC 替换命中：{}',
+        'OpenCC 替換命中：{}'),
+    'Conversion stats process time: {}': _T(
+        'Process time: {}',
+        '处理耗时：{}',
+        '處理耗時：{}'),
+    'Comments conversion info header': _T(
+        'Conversion info',
+        '转换信息',
+        '轉換資訊'),
+    'Comments conversion direction: {}': _T(
+        'Conversion direction: {}',
+        '转换方向：{}',
+        '轉換方向：{}'),
+    'Comments direction trad to simp: {} → {}': _T(
+        'Traditional → Simplified ({} → {})',
+        '繁体 → 简体（{} → {}）',
+        '繁體 → 簡體（{} → {}）'),
+    'Comments direction simp to trad: {} → {}': _T(
+        'Simplified → Traditional ({} → {})',
+        '简体 → 繁体（{} → {}）',
+        '簡體 → 繁體（{} → {}）'),
+    'Comments direction trad to trad: {} → {}': _T(
+        'Traditional → Traditional ({} → {})',
+        '繁体 → 繁体（{} → {}）',
+        '繁體 → 繁體（{} → {}）'),
+    'Progress percent': _T(
+        '{}%',
+        '{}%',
+        '{}%'),
+    'Progress elapsed': _T(
+        'Elapsed {}',
+        '已用 {}',
+        '已用 {}'),
+    'Progress eta': _T(
+        'ETA {}',
+        '剩余约 {}',
+        '剩餘約 {}'),
+    'Progress chars': _T(
+        'Chars {} / converted {}',
+        '字符 {} / 已转换 {}',
+        '字元 {} / 已轉換 {}'),
+    'Batch conversion stats summary': _T(
+        'Batch totals — time {}, characters {}, converted {}',
+        '批处理合计 — 耗时 {}，字符 {}，已转换 {}',
+        '批處理合計 — 耗時 {}，字元 {}，已轉換 {}'),
     'OpenCC replacements: {} hits, {} unique pairs': _T(
         'OpenCC replacements: {} hits, {} unique pairs',
         'OpenCC 替换：共 {} 处，{} 组不同词对',
@@ -1006,22 +1082,22 @@ _MESSAGES = {
         '• Quotation marks, left-to-right / top-to-bottom layout, and punctuation\n'
         '• Batch convert EPUB/AZW3 in the library; adds new books, originals unchanged\n'
         '• Optional ZhConvert online window for manually entered short text (never reads books)\n'
-        '• Library conversion log shows OpenCC replacement statistics (top word pairs sampled)\n'
-        '• OpenCC ver.1.4.1 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
+        '• Library conversion log shows character counts, process time, and OpenCC replacement statistics\n'
+        '• Optional conversion summary stored in book Comments; OpenCC ver.1.4.1 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
         '• 繁体 ↔ 简体，以及繁体地区用词互转（大陆 / 香港 / 台湾）\n'
         '• 香港 ↔ 台湾繁体互转；简繁/繁简流程中支持香港、台湾惯用词语模式\n'
         '• 引号样式、从左到右/从上到下的排版与标点调整\n'
         '• 在书库中批量处理 EPUB / AZW3；生成新书，不修改原书\n'
         '• 可选的繁化姬在线短文本窗口，仅处理手动输入的文字（不读取书籍）\n'
-        '• 书库转换日志展示 OpenCC 替换统计（高频词对取样）\n'
-        '• OpenCC ver.1.4.1 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
+        '• 书库转换日志展示字符数、耗时与 OpenCC 替换统计\n'
+        '• 可选将转换摘要写入书籍简介；OpenCC ver.1.4.1 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
         '• 繁體 ↔ 簡體，以及繁體地區用詞互轉（大陸 / 香港 / 臺灣）\n'
         '• 香港 ↔ 臺灣繁體互轉；簡繁/繁簡流程中支援香港、臺灣慣用詞語模式\n'
         '• 引號樣式、從左到右/從上到下的排版與標點調整\n'
         '• 在書庫中批次處理 EPUB / AZW3；產生新書，不修改原書\n'
         '• 可選的繁化姬線上短文字視窗，僅處理手動輸入的文字（不讀取書籍）\n'
-        '• 書庫轉換日誌展示 OpenCC 替換統計（高頻詞對取樣）\n'
-        '• OpenCC ver.1.4.1 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
+        '• 書庫轉換日誌展示字元數、耗時與 OpenCC 替換統計\n'
+        '• 可選將轉換摘要寫入書籍簡介；OpenCC ver.1.4.1 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
     'About quick start': _T(
         'About quick start',
         '快速上手',

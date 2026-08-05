@@ -826,6 +826,25 @@ class ConversionDialog(Dialog):
         self.append_conversion_suffix_help_row.setVisible(
             self.force_entire_book)
 
+        self.store_conversion_info_in_comments = QCheckBox(_(
+            'Store conversion info in Comments'))
+        advanced_group_box_layout.addWidget(self.store_conversion_info_in_comments)
+        self.store_conversion_info_in_comments_help = QLabel()
+        self.store_conversion_info_in_comments_help.setWordWrap(True)
+        self.store_conversion_info_in_comments_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.store_conversion_info_in_comments_help)
+        self.store_conversion_info_in_comments_help_row = help_text_row(
+            self, self.store_conversion_info_in_comments_help)
+        self.store_conversion_info_in_comments_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(
+            self.store_conversion_info_in_comments_help_row)
+        self._update_store_conversion_info_help_text()
+        self.store_conversion_info_in_comments.setVisible(self.force_entire_book)
+        self.store_conversion_info_in_comments_help_row.setVisible(
+            self.force_entire_book)
+
         self.bilingual_annotation = QCheckBox(_('Bilingual annotation'))
         advanced_group_box_layout.addWidget(self.bilingual_annotation)
         self.bilingual_annotation_help = QLabel()
@@ -974,6 +993,11 @@ class ConversionDialog(Dialog):
         self.append_conversion_suffix_help.setText(_(
             'Generated book suffix help'))
         self.append_conversion_suffix.setToolTip('')
+
+    def _update_store_conversion_info_help_text(self):
+        self.store_conversion_info_in_comments_help.setText(_(
+            'Store conversion info in Comments help'))
+        self.store_conversion_info_in_comments.setToolTip('')
 
     def _update_bilingual_annotation_help_text(self):
         help_text = _('Bilingual annotation help')
@@ -1323,6 +1347,9 @@ class ConversionDialog(Dialog):
         self.append_conversion_suffix.setText(_(
             'Add identifying suffix to generated book title'))
         self._update_append_conversion_suffix_help_text()
+        self.store_conversion_info_in_comments.setText(_(
+            'Store conversion info in Comments'))
+        self._update_store_conversion_info_help_text()
         self.bilingual_annotation.setText(_('Bilingual annotation'))
         self._update_bilingual_annotation_help_text()
         self.bilingual_mode_label.setText(_('Bilingual original mode'))
@@ -1390,6 +1417,7 @@ class ConversionDialog(Dialog):
         self.include_metadata.blockSignals(state)
         self.cjk_font_policy_combo.blockSignals(state)
         self.append_conversion_suffix.blockSignals(state)
+        self.store_conversion_info_in_comments.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
         self.bilingual_mode_combo.blockSignals(state)
         self.force_pivot_conversion.blockSignals(state)
@@ -1441,6 +1469,8 @@ class ConversionDialog(Dialog):
         self.cjk_font_policy_combo.setCurrentIndex(max(0, policy_idx))
         self.append_conversion_suffix.setChecked(bool(
             self.prefs.get('append_conversion_suffix', True)))
+        self.store_conversion_info_in_comments.setChecked(bool(
+            self.prefs.get('store_conversion_info_in_comments', True)))
         self.bilingual_annotation.setChecked(bool(
             self.prefs.get('bilingual_annotation', False)))
         mode = normalize_bilingual_mode(
@@ -1663,6 +1693,8 @@ class ConversionDialog(Dialog):
         self.prefs['cjk_font_policy'] = self._cjk_font_policy_value()
         self.prefs['append_conversion_suffix'] = (
             self.append_conversion_suffix.isChecked())
+        self.prefs['store_conversion_info_in_comments'] = (
+            self.store_conversion_info_in_comments.isChecked())
         self.prefs['bilingual_annotation'] = (
             self.bilingual_annotation.isChecked()
             and not self.no_conversion_button.isChecked())
