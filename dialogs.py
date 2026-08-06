@@ -29,8 +29,9 @@ from calibre_plugins.chinese_text_conversion.i18n import (
     UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
 )
 from calibre_plugins.chinese_text_conversion.ui_style import (
+    HELP_TEXT_INDENT,
     apply_dialog_stylesheet, apply_text_direction_icons, configure_form_label, configure_layout,
-    build_radio_group, build_section_group,
+    build_example_preview_card, build_radio_group, build_section_group,
     help_text_row, make_section_divider, polish_scroll_area, style_help_label,
     style_recommend_card, style_subheading_label,
 )
@@ -736,10 +737,19 @@ class ConversionDialog(Dialog):
         configure_layout(advanced_group_box_layout, 'section')
         self.advanced_group_box.setLayout(advanced_group_box_layout)
 
+        # --- Language symbols ---
         self.quotation_heading = QLabel(_('Quotation Marks'))
         style_subheading_label(self.quotation_heading)
         self.quotation_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.quotation_heading)
+
+        self.quotation_marks_help = QLabel()
+        self.quotation_marks_help.setWordWrap(True)
+        self.quotation_marks_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.quotation_marks_help)
+        self.quotation_marks_help_row = help_text_row(self, self.quotation_marks_help)
+        self.quotation_marks_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.quotation_marks_help_row)
 
         quotation_group = QButtonGroup(self)
         self.quotation_no_change_button = QRadioButton(_('No Change'))
@@ -751,9 +761,13 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.quotation_no_change_button)
         advanced_group_box_layout.addWidget(self.quotation_simp_to_trad_button)
         advanced_group_box_layout.addWidget(self.quotation_trad_to_simp_button)
-        self.quotation_no_change_button.toggled.connect(self.update_gui)
-        self.quotation_trad_to_simp_button.toggled.connect(self.update_gui)
-        self.quotation_simp_to_trad_button.toggled.connect(self.update_gui)
+        self.quotation_example_row, self.quotation_example_card = build_example_preview_card(
+            self, title=_('Example'))
+        self.quotation_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.quotation_example_row)
+        self.quotation_no_change_button.toggled.connect(self._on_quotation_option_changed)
+        self.quotation_trad_to_simp_button.toggled.connect(self._on_quotation_option_changed)
+        self.quotation_simp_to_trad_button.toggled.connect(self._on_quotation_option_changed)
         self.quotation_no_change_button.clicked.connect(self._mark_symbol_profile_user_set)
         self.quotation_trad_to_simp_button.clicked.connect(self._mark_symbol_profile_user_set)
         self.quotation_simp_to_trad_button.clicked.connect(self._mark_symbol_profile_user_set)
@@ -772,6 +786,12 @@ class ConversionDialog(Dialog):
         self.punc_settings_btn.clicked.connect(self.punc_settings_btn_clicked)
         self.punctuation_dialog = None
 
+        # --- Output and fonts ---
+        self.output_fonts_heading = QLabel(_('Output and fonts'))
+        style_subheading_label(self.output_fonts_heading)
+        self.output_fonts_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.output_fonts_heading)
+
         self.include_metadata = QCheckBox(_('Include metadata'))
         advanced_group_box_layout.addWidget(self.include_metadata)
         self.include_metadata_help = QLabel()
@@ -781,7 +801,6 @@ class ConversionDialog(Dialog):
         self.include_metadata_help_row = help_text_row(self, self.include_metadata_help)
         self.include_metadata_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.include_metadata_help_row)
-        self._update_include_metadata_help_text()
 
         cjk_font_layout = QHBoxLayout()
         configure_layout(cjk_font_layout, 'form')
@@ -805,7 +824,6 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.cjk_font_policy_help_row)
         self._refresh_book_font_scan()
-        self._update_cjk_font_policy_help_text()
 
         self.append_conversion_suffix = QCheckBox(_(
             'Add identifying suffix to generated book title'))
@@ -821,10 +839,13 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.append_conversion_suffix_help_row)
-        self._update_append_conversion_suffix_help_text()
+        self.suffix_example_row, self.suffix_example_card = build_example_preview_card(
+            self, title=_('Example'))
+        self.suffix_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.suffix_example_row)
         self.append_conversion_suffix.setVisible(self.force_entire_book)
-        self.append_conversion_suffix_help_row.setVisible(
-            self.force_entire_book)
+        self.append_conversion_suffix_help_row.setVisible(self.force_entire_book)
+        self.suffix_example_row.setVisible(self.force_entire_book)
 
         self.store_conversion_info_in_comments = QCheckBox(_(
             'Store conversion info in Comments'))
@@ -840,10 +861,15 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.store_conversion_info_in_comments_help_row)
-        self._update_store_conversion_info_help_text()
         self.store_conversion_info_in_comments.setVisible(self.force_entire_book)
         self.store_conversion_info_in_comments_help_row.setVisible(
             self.force_entire_book)
+
+        # --- Bilingual annotation ---
+        self.bilingual_heading = QLabel(_('Bilingual annotation section'))
+        style_subheading_label(self.bilingual_heading)
+        self.bilingual_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.bilingual_heading)
 
         self.bilingual_annotation = QCheckBox(_('Bilingual annotation'))
         advanced_group_box_layout.addWidget(self.bilingual_annotation)
@@ -854,31 +880,36 @@ class ConversionDialog(Dialog):
         self.bilingual_annotation_help_row = help_text_row(self, self.bilingual_annotation_help)
         self.bilingual_annotation_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.bilingual_annotation_help_row)
-        self._update_bilingual_annotation_help_text()
         self.bilingual_annotation.toggled.connect(
             self._on_bilingual_annotation_toggled)
 
-        bilingual_mode_layout = QHBoxLayout()
-        configure_layout(bilingual_mode_layout, 'form')
-        advanced_group_box_layout.addLayout(bilingual_mode_layout)
+        self.bilingual_example_row, self.bilingual_example_card = build_example_preview_card(
+            self, title=_('Example'))
+        self.bilingual_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.bilingual_example_row)
+
         self.bilingual_mode_label = QLabel(_('Bilingual original mode'))
-        configure_form_label(self.bilingual_mode_label)
-        bilingual_mode_layout.addWidget(self.bilingual_mode_label)
-        self.bilingual_mode_combo = NoWheelComboBox()
-        self._populate_bilingual_mode_combo()
-        self.bilingual_mode_combo.currentIndexChanged.connect(
-            self._update_bilingual_mode_help_text)
-        bilingual_mode_layout.addWidget(self.bilingual_mode_combo, 1)
-        self.bilingual_mode_help = QLabel()
-        self.bilingual_mode_help.setWordWrap(True)
-        self.bilingual_mode_help.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Maximum)
-        style_help_label(self.bilingual_mode_help)
-        self.bilingual_mode_help_row = help_text_row(self, self.bilingual_mode_help)
-        self.bilingual_mode_help_row.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Maximum)
-        advanced_group_box_layout.addWidget(self.bilingual_mode_help_row)
-        self._update_bilingual_mode_help_text()
+        self.bilingual_mode_label_row = help_text_row(self, self.bilingual_mode_label)
+        self.bilingual_mode_label_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.bilingual_mode_label_row)
+
+        bilingual_mode_group = QButtonGroup(self)
+        self.bilingual_mode_full_button = QRadioButton(
+            _('Bilingual mode keep full original'))
+        bilingual_mode_group.addButton(self.bilingual_mode_full_button)
+        self.bilingual_mode_changed_button = QRadioButton(
+            _('Bilingual mode keep changed characters'))
+        bilingual_mode_group.addButton(self.bilingual_mode_changed_button)
+        self.bilingual_mode_full_button.setChecked(True)
+        self.bilingual_mode_buttons_row = QWidget(self)
+        bilingual_mode_buttons_layout = QVBoxLayout(self.bilingual_mode_buttons_row)
+        configure_layout(bilingual_mode_buttons_layout, 'radio')
+        bilingual_mode_buttons_layout.setContentsMargins(HELP_TEXT_INDENT, 0, 0, 0)
+        bilingual_mode_buttons_layout.addWidget(self.bilingual_mode_full_button)
+        bilingual_mode_buttons_layout.addWidget(self.bilingual_mode_changed_button)
+        advanced_group_box_layout.addWidget(self.bilingual_mode_buttons_row)
+        self.bilingual_mode_full_button.toggled.connect(self._on_bilingual_mode_changed)
+        self.bilingual_mode_changed_button.toggled.connect(self._on_bilingual_mode_changed)
 
         self.force_pivot_conversion = QCheckBox(_(
             'Forced conversion (coverage first)'))
@@ -894,12 +925,26 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.force_pivot_conversion_help_row)
-        self._update_force_pivot_conversion_help_text()
+
+        # --- Image text ---
+        self.image_text_heading = QLabel(_('Image text'))
+        style_subheading_label(self.image_text_heading)
+        self.image_text_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.image_text_heading)
 
         self._vision_ocr_unsupported_notice_pending = False
         self.enable_vision_ocr_enhancement = QCheckBox(_('Enable Vision OCR image enhancement'))
         self.enable_vision_ocr_enhancement.toggled.connect(self._on_vision_ocr_toggled)
         advanced_group_box_layout.addWidget(self.enable_vision_ocr_enhancement)
+        self.vision_ocr_help = QLabel()
+        self.vision_ocr_help.setWordWrap(True)
+        self.vision_ocr_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.vision_ocr_help)
+        self.vision_ocr_help_row = help_text_row(self, self.vision_ocr_help)
+        self.vision_ocr_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.vision_ocr_help_row)
+
+        self._update_advanced_help_and_examples()
 
         self.book_source_button.toggled.connect(self.on_button_toggled)
 
@@ -954,11 +999,6 @@ class ConversionDialog(Dialog):
         self.use_jieba_segmentation_help.setText(help_text)
         self.use_jieba_segmentation.setToolTip('')
 
-    def _update_include_metadata_help_text(self):
-        help_text = _('Include metadata help')
-        self.include_metadata_help.setText(help_text)
-        self.include_metadata.setToolTip('')
-
     def _populate_cjk_font_policy_combo(self):
         combo = self.cjk_font_policy_combo
         current = normalize_cjk_font_policy(
@@ -989,51 +1029,73 @@ class ConversionDialog(Dialog):
         self.cjk_font_policy_help.setText(help_text)
         self.cjk_font_policy_combo.setToolTip('')
 
-    def _update_append_conversion_suffix_help_text(self):
-        self.append_conversion_suffix_help.setText(_(
-            'Generated book suffix help'))
-        self.append_conversion_suffix.setToolTip('')
+    def _bilingual_mode_value(self):
+        if self.bilingual_mode_changed_button.isChecked():
+            return BILINGUAL_MODE_CHANGED
+        return BILINGUAL_MODE_FULL
 
-    def _update_store_conversion_info_help_text(self):
+    def _set_bilingual_mode_value(self, mode):
+        mode = normalize_bilingual_mode(mode)
+        self.bilingual_mode_full_button.blockSignals(True)
+        self.bilingual_mode_changed_button.blockSignals(True)
+        if mode == BILINGUAL_MODE_CHANGED:
+            self.bilingual_mode_changed_button.setChecked(True)
+        else:
+            self.bilingual_mode_full_button.setChecked(True)
+        self.bilingual_mode_full_button.blockSignals(False)
+        self.bilingual_mode_changed_button.blockSignals(False)
+
+    def _update_quotation_example(self):
+        self.quotation_example_card.set_title(_('Example'))
+        if self.quotation_simp_to_trad_button.isChecked():
+            self.quotation_example_card.set_plain_example(_('Quote example to trad'))
+        elif self.quotation_trad_to_simp_button.isChecked():
+            self.quotation_example_card.set_plain_example(_('Quote example to simp'))
+        else:
+            self.quotation_example_card.set_plain_example(_('Quote example no change'))
+
+    def _update_suffix_example(self):
+        self.suffix_example_card.set_title(_('Example'))
+        self.suffix_example_card.set_code_example(_('Generated book suffix example'))
+
+    def _update_bilingual_example(self):
+        self.bilingual_example_card.set_title(_('Example'))
+        primary = _('Bilingual example primary')
+        if self._bilingual_mode_value() == BILINGUAL_MODE_CHANGED:
+            secondary = _('Bilingual example changed secondary')
+        else:
+            secondary = _('Bilingual example full secondary')
+        self.bilingual_example_card.set_bilingual_example(primary, secondary)
+
+    def _update_advanced_help_and_examples(self):
+        self.quotation_marks_help.setText(_('Quotation marks help'))
+        self.include_metadata_help.setText(_('Include metadata help'))
+        self.include_metadata.setToolTip('')
+        self._update_cjk_font_policy_help_text()
+        self.append_conversion_suffix_help.setText(_('Generated book suffix help'))
+        self.append_conversion_suffix.setToolTip('')
         self.store_conversion_info_in_comments_help.setText(_(
             'Store conversion info in Comments help'))
         self.store_conversion_info_in_comments.setToolTip('')
-
-    def _update_bilingual_annotation_help_text(self):
-        help_text = _('Bilingual annotation help')
-        self.bilingual_annotation_help.setText(help_text)
+        self.bilingual_annotation_help.setText(_('Bilingual annotation help'))
         self.bilingual_annotation.setToolTip('')
-
-    def _populate_bilingual_mode_combo(self):
-        combo = self.bilingual_mode_combo
-        current = normalize_bilingual_mode(
-            combo.currentData() if combo.count() else None)
-        combo.blockSignals(True)
-        combo.clear()
-        combo.addItem(
-            _('Bilingual mode keep full original'), BILINGUAL_MODE_FULL)
-        combo.addItem(
-            _('Bilingual mode keep changed characters'), BILINGUAL_MODE_CHANGED)
-        idx = combo.findData(current)
-        combo.setCurrentIndex(max(0, idx))
-        combo.blockSignals(False)
-
-    def _bilingual_mode_value(self):
-        return normalize_bilingual_mode(self.bilingual_mode_combo.currentData())
-
-    def _update_bilingual_mode_help_text(self):
-        mode = self._bilingual_mode_value()
-        if mode == BILINGUAL_MODE_CHANGED:
-            help_text = _('Bilingual mode changed help')
-        else:
-            help_text = _('Bilingual mode full help')
-        self.bilingual_mode_help.setText(help_text)
-        self.bilingual_mode_combo.setToolTip('')
-
-    def _update_force_pivot_conversion_help_text(self):
-        self.force_pivot_conversion_help.setText(_(
-            'Forced conversion coverage help'))
+        self.bilingual_mode_label.setText(_('Bilingual original mode'))
+        self.force_pivot_conversion_help.setText(_('Forced conversion coverage help'))
         self.force_pivot_conversion.setToolTip('')
+        self.vision_ocr_help.setText(_('Vision OCR help'))
+        self.enable_vision_ocr_enhancement.setToolTip('')
+        self._update_quotation_example()
+        self._update_suffix_example()
+        self._update_bilingual_example()
+
+    def _on_quotation_option_changed(self, _checked=False):
+        self._update_quotation_example()
+        self.update_gui()
+
+    def _on_bilingual_mode_changed(self, _checked=False):
+        if not _checked:
+            return
+        self._update_bilingual_example()
 
     def _on_bilingual_annotation_toggled(self, checked):
         if not checked:
@@ -1339,26 +1401,25 @@ class ConversionDialog(Dialog):
         self.quotation_simp_to_trad_button.setText(self.quote_for_trad_target)
         self.update_punctuation.setText(_('Update punctuation'))
         self.punc_settings_btn.setText(_('Settings...'))
+        self.output_fonts_heading.setText(_('Output and fonts'))
         self.include_metadata.setText(_('Include metadata'))
-        self._update_include_metadata_help_text()
         self.cjk_font_policy_label.setText(_('CJK font policy'))
         self._populate_cjk_font_policy_combo()
-        self._update_cjk_font_policy_help_text()
         self.append_conversion_suffix.setText(_(
             'Add identifying suffix to generated book title'))
-        self._update_append_conversion_suffix_help_text()
         self.store_conversion_info_in_comments.setText(_(
             'Store conversion info in Comments'))
-        self._update_store_conversion_info_help_text()
+        self.bilingual_heading.setText(_('Bilingual annotation section'))
         self.bilingual_annotation.setText(_('Bilingual annotation'))
-        self._update_bilingual_annotation_help_text()
-        self.bilingual_mode_label.setText(_('Bilingual original mode'))
-        self._populate_bilingual_mode_combo()
-        self._update_bilingual_mode_help_text()
+        self.bilingual_mode_full_button.setText(
+            _('Bilingual mode keep full original'))
+        self.bilingual_mode_changed_button.setText(
+            _('Bilingual mode keep changed characters'))
         self.force_pivot_conversion.setText(_(
             'Forced conversion (coverage first)'))
-        self._update_force_pivot_conversion_help_text()
+        self.image_text_heading.setText(_('Image text'))
         self.enable_vision_ocr_enhancement.setText(_('Enable Vision OCR image enhancement'))
+        self._update_advanced_help_and_examples()
 
         self.book_source_button.setText(_('Entire eBook'))
         self.file_source_button.setText(_('Current File'))
@@ -1419,7 +1480,8 @@ class ConversionDialog(Dialog):
         self.append_conversion_suffix.blockSignals(state)
         self.store_conversion_info_in_comments.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
-        self.bilingual_mode_combo.blockSignals(state)
+        self.bilingual_mode_full_button.blockSignals(state)
+        self.bilingual_mode_changed_button.blockSignals(state)
         self.force_pivot_conversion.blockSignals(state)
         self.enable_vision_ocr_enhancement.blockSignals(state)
 
@@ -1473,10 +1535,8 @@ class ConversionDialog(Dialog):
             self.prefs.get('store_conversion_info_in_comments', True)))
         self.bilingual_annotation.setChecked(bool(
             self.prefs.get('bilingual_annotation', False)))
-        mode = normalize_bilingual_mode(
+        self._set_bilingual_mode_value(
             self.prefs.get('bilingual_annotation_mode', 'full'))
-        mode_idx = self.bilingual_mode_combo.findData(mode)
-        self.bilingual_mode_combo.setCurrentIndex(max(0, mode_idx))
         self.force_pivot_conversion.setChecked(bool(
             self.prefs.get('force_pivot_conversion', True)))
         ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
@@ -1485,8 +1545,7 @@ class ConversionDialog(Dialog):
         self.enable_vision_ocr_enhancement.setChecked(bool(ocr_requested and ocr_supported))
 
         self.block_signals(False)
-        self._update_cjk_font_policy_help_text()
-        self._update_bilingual_mode_help_text()
+        self._update_advanced_help_and_examples()
 
 
     def direction_changed(self):
@@ -1565,17 +1624,25 @@ class ConversionDialog(Dialog):
         bilingual_enabled = not self.no_conversion_button.isChecked()
         self.bilingual_annotation.setEnabled(bilingual_enabled)
         self.bilingual_annotation_help_row.setEnabled(bilingual_enabled)
+        self.bilingual_example_row.setEnabled(bilingual_enabled)
+        self.bilingual_example_row.setVisible(bilingual_enabled)
         bilingual_mode_enabled = bool(
             bilingual_enabled and self.bilingual_annotation.isChecked())
         self.bilingual_mode_label.setEnabled(bilingual_mode_enabled)
-        self.bilingual_mode_combo.setEnabled(bilingual_mode_enabled)
-        self.bilingual_mode_help_row.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_label_row.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_full_button.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_changed_button.setEnabled(bilingual_mode_enabled)
+        self.bilingual_mode_label_row.setVisible(bilingual_mode_enabled)
+        self.bilingual_mode_buttons_row.setVisible(bilingual_mode_enabled)
 
         force_pivot_enabled = bool(
             self.simp_to_trad_button.isChecked()
             and self.bilingual_annotation.isChecked())
         self.force_pivot_conversion.setEnabled(force_pivot_enabled)
         self.force_pivot_conversion_help_row.setEnabled(force_pivot_enabled)
+        self._update_quotation_example()
+        if bilingual_enabled:
+            self._update_bilingual_example()
 
 
     def _ok_clicked(self):

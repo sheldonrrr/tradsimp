@@ -288,6 +288,13 @@ _MESSAGES = {
         '轉換前使用 Jieba 分詞（預設：否）'),
     'Quotation Marks': _T('Set language symbols', '设置语言符号', '設定語言符號'),
     'Advanced options': _T('Advanced options', '高级选项', '進階選項'),
+    'Output and fonts': _T('Output and fonts', '输出与字体', '輸出與字體'),
+    'Bilingual annotation section': _T(
+        'Bilingual annotation',
+        '双语批注',
+        '雙語批註'),
+    'Image text': _T('Image text', '图片文字', '圖片文字'),
+    'Example': _T('Example', '示例', '範例'),
     'Text Direction:': _T('Set text direction:', '设置文字方向：', '設定文字方向：'),
     'Horizontal': _T('Left to right (horizontal)', '从左到右（横排）', '從左到右（橫排）'),
     'Vertical': _T('Top to bottom (vertical)', '从上到下（竖排）', '從上到下（直排）'),
@@ -296,17 +303,30 @@ _MESSAGES = {
         '选择从左到右或从上到下的阅读顺序',
         '選擇從左到右或從上到下的閱讀順序'),
     'Update punctuation': _T('Update punctuation', '更新标点', '更新標點'),
+    'Quotation marks help': _T(
+        'Switch quotation marks to match the target Chinese form.',
+        '按目标文种切换引号样式。',
+        '依目標文種切換引號樣式。'),
+    'Quote example no change': _T(
+        '“你好” (unchanged)',
+        '“你好”（不更改）',
+        '“你好”（不變更）'),
+    'Quote example to trad': _T(
+        '“你好” → 「你好」',
+        '“你好” → 「你好」',
+        '“你好” → 「你好」'),
+    'Quote example to simp': _T(
+        '「你好」 → “你好”',
+        '「你好」 → “你好”',
+        '「你好」 → “你好”'),
     'Include metadata': _T(
         'Include metadata',
         '包含 Metadata 信息',
         '包含 Metadata 資訊'),
     'Include metadata help': _T(
-        'Converts Title, Author(s), Tags, Publisher, and Comments in the calibre library and in the '
-        'ebook’s OPF (Open Packaging Format) metadata.',
-        '转换 calibre 书库与电子书 OPF（Open Packaging Format，开放包装格式）中的'
-        '标题、作者、标签、出版商、简介（Comments）。',
-        '轉換 calibre 書庫與電子書 OPF（Open Packaging Format，開放包裝格式）中的'
-        '標題、作者、標籤、出版商、簡介（Comments）。'),
+        'Also convert title, authors, tags, publisher, and Comments.',
+        '同时转换书名、作者、标签、出版商和简介（Comments）。',
+        '同時轉換書名、作者、標籤、出版商和簡介（Comments）。'),
     'CJK font policy': _T(
         'Chinese font strategy',
         '中文字体策略',
@@ -332,65 +352,49 @@ _MESSAGES = {
         '当前无特定字体，会使用系统默认字体',
         '目前無特定字體，會使用系統預設字體'),
     'CJK font policy serif help': _T(
-        'Rewrites body text to a Song/Ming (serif) system font stack so Simplified and Traditional '
-        'characters share one consistent look. Host OS fonts are preferred, with other platforms as fallback.',
-        '将正文统一到宋体/明体（衬线）系统字体栈，使简繁字形共用同一字样；优先使用本机系统字体，并保留其他平台后备。',
-        '將正文統一到宋體/明體（襯線）系統字體棧，使簡繁字形共用同一字樣；優先使用本機系統字體，並保留其他平台後備。'),
+        'Unify body text to Song/Ming (serif) style fonts.',
+        '将正文统一为宋体/明体风格。',
+        '將正文統一為宋體/明體風格。'),
     'CJK font policy sans help': _T(
-        'Rewrites body text to a Hei/Gothic (sans-serif) system font stack so Simplified and Traditional '
-        'characters share one consistent look. Host OS fonts are preferred, with other platforms as fallback.',
-        '将正文统一到黑体/哥特（无衬线）系统字体栈，使简繁字形共用同一字样；优先使用本机系统字体，并保留其他平台后备。',
-        '將正文統一到黑體/哥德（無襯線）系統字體棧，使簡繁字形共用同一字樣；優先使用本機系統字體，並保留其他平台後備。'),
+        'Unify body text to Hei/Gothic (sans-serif) style fonts.',
+        '将正文统一为黑体/哥特风格。',
+        '將正文統一為黑體/哥德風格。'),
     'CJK embedded simplified font warning': _T(
-        'This book embeds “{0}”. Simplified-only Song/Hei faces often lack Traditional glyphs '
-        '(for example 宋體). After conversion, missing characters may fall back to another font and '
-        'look inconsistent. Prefer “Unify as Song/Serif style” or “Unify as Hei/Sans style”.',
-        '本书内嵌了「{0}」。此类简体常用字体可能不支持繁体「宋體」等字形；转换后缺字时阅读器会改用其他字体，'
-        '从而出现简繁字样不一致。建议改选「统一为宋体风格」或「统一为黑体风格」。',
-        '本書內嵌了「{0}」。此類簡體常用字體可能不支援繁體「宋體」等字形；轉換後缺字時閱讀器會改用其他字體，'
-        '從而出現簡繁字樣不一致。建議改選「統一為宋體風格」或「統一為黑體風格」。'),
+        'This book embeds “{0}”, which may lack Traditional glyphs. Prefer a unify option.',
+        '本书内嵌了「{0}」，可能缺少繁体字形。建议改选统一字体风格。',
+        '本書內嵌了「{0}」，可能缺少繁體字形。建議改選統一字體風格。'),
     'CJK embedded font general warning': _T(
-        'This book contains embedded fonts. If the font files do not cover glyphs after Trad/Simp '
-        'conversion, keeping fonts as-is may cause some text to use the reader’s default face and look inconsistent.',
-        '本书含内嵌字体；若字库未覆盖转换后的简/繁字形，保持原样可能导致部分文字改用系统默认字体、外观不一致。',
-        '本書含內嵌字體；若字庫未覆蓋轉換後的簡/繁字形，保持原樣可能導致部分文字改用系統預設字體、外觀不一致。'),
+        'This book has embedded fonts; keep-as-is may look inconsistent after conversion.',
+        '本书含内嵌字体；保持原样时，转换后外观可能不一致。',
+        '本書含內嵌字體；保持原樣時，轉換後外觀可能不一致。'),
     'Add identifying suffix to generated book title': _T(
         'Add identifying suffix to generated book title',
         '为新书标题增加识别后缀',
         '為新書標題增加識別後綴'),
     'Generated book suffix help': _T(
-        'Append the target form, bilingual status when enabled, and the local month-day/time '
-        'to each generated title—for example, _繁体中文_香港_双语标注_07-29_21-34. '
-        'Books generated in the same minute receive _2, _3, and so on.',
-        '在每次生成的新书标题后增加目标文字类型、双语状态（若开启）及本地月日时间，'
-        '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分钟生成多本时依次增加「_2」「_3」。',
-        '在每次產生的新書標題後增加目標文字類型、雙語狀態（若開啟）及本地月日時間，'
-        '例如「_繁体中文_香港_双语标注_07-29_21-34」。同一分鐘產生多本時依序增加「_2」「_3」。'),
+        'Append a short marker (form, region, time) to the new book title.',
+        '在新书标题末尾加上识别标记（文种、地区、时间）。',
+        '在新書標題末尾加上識別標記（文種、地區、時間）。'),
+    'Generated book suffix example': _T(
+        'BookTitle_繁体中文_香港_07-29_21-34',
+        '书名_繁体中文_香港_07-29_21-34',
+        '書名_繁體中文_香港_07-29_21-34'),
     'Store conversion info in Comments': _T(
         'Store conversion info in Comments',
         '将转换信息写入简介（Comments）',
         '將轉換資訊寫入簡介（Comments）'),
     'Store conversion info in Comments help': _T(
-        'When creating a new library book, append a short conversion summary to Comments '
-        '(total characters, converted characters, replacement hits, process time, conversion id). '
-        'The plugin promo note is always added. Re-converting strips prior plugin notes first.',
-        '新建入库时，在简介中追加精简转换摘要（总字符数、已转换字符、替换命中、耗时、转换标识）。'
-        '插件宣传文案仍会写入。再次转换前会先清除旧的插件备注。',
-        '新建入庫時，在簡介中追加精簡轉換摘要（總字元數、已轉換字元、替換命中、耗時、轉換識別）。'
-        '外掛宣傳文案仍會寫入。再次轉換前會先清除舊的外掛備註。'),
+        'Append a short conversion summary to Comments for the new book.',
+        '在简介里追加本次转换摘要。',
+        '在簡介裡追加本次轉換摘要。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',
         '雙語批註（原文顯示在下方）'),
     'Bilingual annotation help': _T(
-        'Off by default. When enabled, shows the converted text as the primary line and places '
-        'original characters on a smaller line below. Choose full original or changed characters only. '
-        'Phrase length changes (for example 2↔3 characters) stay aligned as whole units. '
-        'Conversion still uses full-sentence OpenCC context. Metadata is not annotated.',
-        '默认关闭。开启后正文以转换结果为主行，下方以更小字号显示原文；可选「保留原文」或「保留原文字」。'
-        '词组长短变化（如 2↔3 字）按整词对齐。仍按整句 OpenCC 转换。不应用于 Metadata。',
-        '預設關閉。開啟後正文以轉換結果為主行，下方以更小字號顯示原文；可選「保留原文」或「保留原文字」。'
-        '詞組長短變化（如 2↔3 字）按整詞對齊。仍按整句 OpenCC 轉換。不套用於 Metadata。'),
+        'Show converted text on the main line, with the original below in smaller type.',
+        '主行显示转换结果，下方以小字显示原文。',
+        '主行顯示轉換結果，下方以小字顯示原文。'),
     'Bilingual original mode': _T(
         'Bilingual original mode',
         '双语原文模式',
@@ -404,13 +408,25 @@ _MESSAGES = {
         '保留原文字',
         '保留原文字'),
     'Bilingual mode full help': _T(
-        'Shows the complete pre-conversion original on the second line (continuous).',
-        '第二行展示转换前的完整原文（连续）。',
-        '第二行展示轉換前的完整原文（連續）。'),
+        'Second line shows the complete original (continuous).',
+        '第二行展示完整原文（连续）。',
+        '第二行展示完整原文（連續）。'),
     'Bilingual mode changed help': _T(
-        'Shows only characters that actually changed; the second line is gapped.',
-        '第二行仅保留发生转换的原文字，其余位置留空（间断）。',
-        '第二行僅保留發生轉換的原文字，其餘位置留空（間斷）。'),
+        'Second line keeps only changed characters (gapped).',
+        '第二行仅保留发生转换的原文字（间断）。',
+        '第二行僅保留發生轉換的原文字（間斷）。'),
+    'Bilingual example primary': _T(
+        '軟件公司發佈了新程式',
+        '軟件公司發佈了新程式',
+        '軟件公司發佈了新程式'),
+    'Bilingual example full secondary': _T(
+        '原文：软件公司发布了新程序',
+        '原文：软件公司发布了新程序',
+        '原文：软件公司发布了新程序'),
+    'Bilingual example changed secondary': _T(
+        '原文：軟　　發佈　　程式',
+        '原文：軟　　發佈　　程式',
+        '原文：軟　　發佈　　程式'),
     'Bilingual original mode: {0}': _T(
         'Bilingual original mode: {0}',
         '双语原文模式：{0}',
@@ -424,13 +440,10 @@ _MESSAGES = {
         '强制转换（覆盖优先）',
         '強制轉換（覆蓋優先）'),
     'Forced conversion coverage help': _T(
-        'First normalize mixed Simplified/Traditional text through a Simplified pivot, then rebuild '
-        'the selected Traditional form. This converts more text but can change valid regional wording. '
-        'Bilingual annotation is required so the original remains visible below.',
-        '先将混合简繁文本统一到简体枢轴，再重建所选繁体。这样可扩大转换覆盖，但也可能改变原本正确的'
-        '地区用词；必须开启双语批注，以便在下方保留原文。',
-        '先將混合簡繁文字統一到簡體樞軸，再重建所選繁體。這樣可擴大轉換覆蓋，但也可能改變原本正確的'
-        '地區用詞；必須開啟雙語批註，以便在下方保留原文。'),
+        'Convert mixed Simplified/Traditional text more aggressively. Requires bilingual annotation. '
+        'Example: 软體/软件 → 軟件',
+        '混合简繁时尽量多转（需开启双语）。例如：软體/软件 → 軟件',
+        '混合簡繁時盡量多轉（需開啟雙語）。例如：軟體/軟件 → 軟件'),
     'Forced pivot conversion: {0}': _T(
         'Forced pivot conversion: {0}',
         '简体枢轴强制转换：{0}',
@@ -449,6 +462,10 @@ _MESSAGES = {
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',
         '啟用 Vision OCR 的圖片增強功能'),
+    'Vision OCR help': _T(
+        'Recognize Chinese text in images and include it in conversion (supported systems only).',
+        '识别图片中的中文并参与转换（仅支持的系统可用）。',
+        '辨識圖片中的中文並參與轉換（僅支援的系統可用）。'),
     'Vision OCR unsupported': _T(
         'Vision OCR Unsupported',
         'Vision OCR 不受支持',

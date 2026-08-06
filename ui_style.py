@@ -41,6 +41,10 @@ BRAND_TITLE_ID = 'tradSimpBrandTitle'
 BRAND_SUBTITLE_ID = 'tradSimpBrandSubtitle'
 DIVIDER_ID = 'tradSimpSectionDivider'
 RECOMMEND_CARD_ID = 'tradSimpRecommendCard'
+EXAMPLE_CARD_ID = 'tradSimpExampleCard'
+EXAMPLE_TITLE_ID = 'tradSimpExampleTitle'
+EXAMPLE_BODY_ID = 'tradSimpExampleBody'
+EXAMPLE_SECONDARY_ID = 'tradSimpExampleSecondary'
 
 
 def _palette_role(role_name, fallback):
@@ -290,11 +294,29 @@ def apply_dialog_stylesheet(widget):
             margin-top: {space_xs}px;
             margin-bottom: {space_xs}px;
         }}
+        QWidget#{example_card_id} {{
+            background-color: {alt_base};
+            border: 1px solid {mid};
+            border-radius: 8px;
+        }}
+        QWidget#{example_card_id} QLabel {{
+            background: transparent;
+        }}
+        QLabel#{example_title_id} {{
+            color: {mid};
+            font-size: 11px;
+        }}
+        QLabel#{example_secondary_id} {{
+            color: {mid};
+        }}
         '''.format(
             header_id=BRAND_HEADER_ID,
             title_id=BRAND_TITLE_ID,
             subtitle_id=BRAND_SUBTITLE_ID,
             divider_id=DIVIDER_ID,
+            example_card_id=EXAMPLE_CARD_ID,
+            example_title_id=EXAMPLE_TITLE_ID,
+            example_secondary_id=EXAMPLE_SECONDARY_ID,
             accent=highlight,
             alt_base=alt_base,
             mid=mid,
@@ -360,3 +382,72 @@ def style_recommend_card(card):
             alt_base=alt_base,
             mid=mid,
         ))
+
+
+class ExamplePreviewCard(QWidget):
+    '''Compact preview area for plain-text / code / bilingual samples.'''
+
+    def __init__(self, parent=None, title=''):
+        super(ExamplePreviewCard, self).__init__(parent)
+        self.setObjectName(EXAMPLE_CARD_ID)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+
+        outer = QVBoxLayout(self)
+        configure_layout(outer, 'zero')
+        outer.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
+        outer.setSpacing(SPACE_XS)
+
+        self.title_label = QLabel(title)
+        self.title_label.setObjectName(EXAMPLE_TITLE_ID)
+        outer.addWidget(self.title_label)
+
+        self.body_label = QLabel()
+        self.body_label.setObjectName(EXAMPLE_BODY_ID)
+        self.body_label.setWordWrap(True)
+        outer.addWidget(self.body_label)
+
+        self.secondary_label = QLabel()
+        self.secondary_label.setObjectName(EXAMPLE_SECONDARY_ID)
+        self.secondary_label.setWordWrap(True)
+        secondary_font = self.secondary_label.font()
+        if secondary_font.pointSize() > 0:
+            secondary_font.setPointSize(max(9, secondary_font.pointSize() - 1))
+        self.secondary_label.setFont(secondary_font)
+        self.secondary_label.hide()
+        outer.addWidget(self.secondary_label)
+
+        self._plain_font = self.body_label.font()
+        self._code_font = self.body_label.font()
+        self._code_font.setFamily('Menlo')
+
+    def set_title(self, title):
+        self.title_label.setText(title or '')
+        self.title_label.setVisible(bool(title))
+
+    def set_plain_example(self, text):
+        self.body_label.setFont(self._plain_font)
+        self.body_label.setText(text or '')
+        self.secondary_label.hide()
+        self.secondary_label.clear()
+
+    def set_code_example(self, text):
+        self.body_label.setFont(self._code_font)
+        self.body_label.setText(text or '')
+        self.secondary_label.hide()
+        self.secondary_label.clear()
+
+    def set_bilingual_example(self, primary, secondary):
+        self.body_label.setFont(self._plain_font)
+        self.body_label.setText(primary or '')
+        if secondary:
+            self.secondary_label.setText(secondary)
+            self.secondary_label.show()
+        else:
+            self.secondary_label.hide()
+            self.secondary_label.clear()
+
+
+def build_example_preview_card(parent=None, title=''):
+    '''Create an indented example preview card for advanced-option tips.'''
+    card = ExamplePreviewCard(parent, title=title)
+    return help_text_row(parent, card), card
