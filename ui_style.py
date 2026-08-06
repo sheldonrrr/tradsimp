@@ -7,13 +7,16 @@ __license__ = 'GPL 3'
 try:
     from qt.core import (
         QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
-        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QVBoxLayout, QWidget,
+        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QTimer, QVBoxLayout,
+        QWidget, pyqtSignal,
     )
 except ImportError:
     from PyQt5.Qt import (
         QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
-        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QVBoxLayout, QWidget,
+        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QTimer, QVBoxLayout,
+        QWidget,
     )
+    from PyQt5.QtCore import pyqtSignal
 
 ICON_RESOURCE = 'images/TradSimpIcon.png'
 BRAND_ICON_PX = 40
@@ -41,6 +44,7 @@ BRAND_TITLE_ID = 'tradSimpBrandTitle'
 BRAND_SUBTITLE_ID = 'tradSimpBrandSubtitle'
 DIVIDER_ID = 'tradSimpSectionDivider'
 RECOMMEND_CARD_ID = 'tradSimpRecommendCard'
+EXAMPLE_ZONE_ID = 'tradSimpExampleZone'
 EXAMPLE_CARD_ID = 'tradSimpExampleCard'
 EXAMPLE_TITLE_ID = 'tradSimpExampleTitle'
 EXAMPLE_BODY_ID = 'tradSimpExampleBody'
@@ -255,6 +259,7 @@ def apply_dialog_stylesheet(widget):
     '''Theme-aware chrome: brand header, group titles, nested advanced section.'''
     highlight = widget.palette().color(QPalette.ColorRole.Highlight).name()
     alt_base = widget.palette().color(QPalette.ColorRole.AlternateBase).name()
+    base = widget.palette().color(QPalette.ColorRole.Base).name()
     mid = widget.palette().color(QPalette.ColorRole.Mid).name()
     widget.setStyleSheet(
         '''
@@ -294,10 +299,30 @@ def apply_dialog_stylesheet(widget):
             margin-top: {space_xs}px;
             margin-bottom: {space_xs}px;
         }}
+        QLabel#tradSimpSubheadingBreak {{
+            color: palette(windowText);
+            font-weight: 600;
+            margin-top: {space_lg}px;
+            margin-bottom: {space_xs}px;
+            padding-top: {space_md}px;
+            border-top: 1px solid {mid};
+        }}
+        QWidget#{example_zone_id} {{
+            background: transparent;
+            margin-top: {space_xs}px;
+            margin-bottom: {space_sm}px;
+        }}
         QWidget#{example_card_id} {{
             background-color: {alt_base};
             border: 1px solid {mid};
             border-radius: 8px;
+        }}
+        QWidget#{example_card_id}[interactive=\"true\"] {{
+            border: 1px solid {accent};
+        }}
+        QWidget#{example_card_id}[flash=\"true\"] {{
+            border: 2px solid {accent};
+            background-color: {base};
         }}
         QWidget#{example_card_id} QLabel {{
             background: transparent;
@@ -314,22 +339,27 @@ def apply_dialog_stylesheet(widget):
             title_id=BRAND_TITLE_ID,
             subtitle_id=BRAND_SUBTITLE_ID,
             divider_id=DIVIDER_ID,
+            example_zone_id=EXAMPLE_ZONE_ID,
             example_card_id=EXAMPLE_CARD_ID,
             example_title_id=EXAMPLE_TITLE_ID,
             example_secondary_id=EXAMPLE_SECONDARY_ID,
             accent=highlight,
             alt_base=alt_base,
+            base=base,
             mid=mid,
             space_sm=SPACE_SM,
             space_md=SPACE_MD,
+            space_lg=SPACE_LG,
             space_xs=SPACE_XS,
             group_top=SPACE_LG,
             group_pad=SPACE_MD,
         ))
 
 
-def style_subheading_label(label):
-    label.setObjectName('tradSimpSubheading')
+def style_subheading_label(label, section_break=False):
+    '''Mark a nested advanced-options heading; section_break adds a clearer gap.'''
+    label.setObjectName(
+        'tradSimpSubheadingBreak' if section_break else 'tradSimpSubheading')
 
 
 def build_section_group(parent, title):
@@ -385,12 +415,18 @@ def style_recommend_card(card):
 
 
 class ExamplePreviewCard(QWidget):
-    '''Compact preview area for plain-text / code / bilingual samples.'''
+    '''Dedicated preview zone for plain-text / code / bilingual samples.'''
 
-    def __init__(self, parent=None, title=''):
+    clicked = pyqtSignal()
+
+    def __init__(self, parent=None, title='', interactive=False):
         super(ExamplePreviewCard, self).__init__(parent)
         self.setObjectName(EXAMPLE_CARD_ID)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self._interactive = False
+        self._flash_timer = QTimer(self)
+        self._flash_timer.setSingleShot(True)
+        self._flash_timer.timeout.connect(self._clear_flash)
 
         outer = QVBoxLayout(self)
         configure_layout(outer, 'zero')
@@ -419,24 +455,44 @@ class ExamplePreviewCard(QWidget):
         self._plain_font = self.body_label.font()
         self._code_font = self.body_label.font()
         self._code_font.setFamily('Menlo')
+        self.set_interactive(interactive)
+
+    def set_interactive(self, interactive):
+        self._interactive = bool(interactive)
+        self.setProperty('interactive', 'true' if self._interactive else 'false')
+        if self._interactive:
+            self.setCursor(Qt.PointingHandCursor)
+        else:
+            self.unsetCursor()
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     def set_title(self, title):
         self.title_label.setText(title or '')
         self.title_label.setVisible(bool(title))
 
-    def set_plain_example(self, text):
+    def set_plain_example(self, text, flash=False):
+        changed = self.body_label.text() != (text or '')
         self.body_label.setFont(self._plain_font)
         self.body_label.setText(text or '')
         self.secondary_label.hide()
         self.secondary_label.clear()
+        if flash and changed:
+            self.flash()
 
-    def set_code_example(self, text):
+    def set_code_example(self, text, flash=False):
+        changed = self.body_label.text() != (text or '')
         self.body_label.setFont(self._code_font)
         self.body_label.setText(text or '')
         self.secondary_label.hide()
         self.secondary_label.clear()
+        if flash and changed:
+            self.flash()
 
-    def set_bilingual_example(self, primary, secondary):
+    def set_bilingual_example(self, primary, secondary, flash=False):
+        changed = (
+            self.body_label.text() != (primary or '')
+            or self.secondary_label.text() != (secondary or ''))
         self.body_label.setFont(self._plain_font)
         self.body_label.setText(primary or '')
         if secondary:
@@ -445,9 +501,36 @@ class ExamplePreviewCard(QWidget):
         else:
             self.secondary_label.hide()
             self.secondary_label.clear()
+        if flash and changed:
+            self.flash()
+
+    def flash(self):
+        self.setProperty('flash', 'true')
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self._flash_timer.start(220)
+
+    def _clear_flash(self):
+        self.setProperty('flash', 'false')
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def mousePressEvent(self, event):
+        if self._interactive and event.button() == Qt.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super(ExamplePreviewCard, self).mousePressEvent(event)
 
 
-def build_example_preview_card(parent=None, title=''):
-    '''Create an indented example preview card for advanced-option tips.'''
-    card = ExamplePreviewCard(parent, title=title)
-    return help_text_row(parent, card), card
+def build_example_preview_card(parent=None, title='', interactive=False):
+    '''Create a dedicated example zone placed above feature controls.'''
+    zone = QWidget(parent)
+    zone.setObjectName(EXAMPLE_ZONE_ID)
+    zone.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+    zone_layout = QVBoxLayout(zone)
+    configure_layout(zone_layout, 'zero')
+    zone_layout.setContentsMargins(0, 0, 0, 0)
+    card = ExamplePreviewCard(zone, title=title, interactive=interactive)
+    zone_layout.addWidget(card)
+    return zone, card

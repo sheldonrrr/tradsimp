@@ -93,6 +93,8 @@ APPEND_CONVERSION_SUFFIX = 15  # True/False — identify generated library books
 CJK_FONT_POLICY = 16  # 'keep' | 'serif' | 'sans' — unify body CJK font stack
 BILINGUAL_ANNOTATION_MODE = 17  # 'full' | 'changed' — bilingual original line mode
 STORE_CONVERSION_INFO_IN_COMMENTS = 18  # True/False — write conversion stats into Comments
+REMOVE_EMBEDDED_FONTS = 19  # True/False — drop embedded font files for lighter books
+REMOVE_IMAGE_FILES = 20  # True/False — drop image files for pure-text / faster processing
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -628,6 +630,11 @@ class TradSimpChinese(Tool):
             if ocr_changed_files:
                 self.filesChanged = True
                 self.changed_files.extend(ocr_changed_files)
+            from calibre_plugins.chinese_text_conversion.resources.strip_resources import (
+                apply_resource_stripping,
+            )
+            if apply_resource_stripping(container, criteria, self.changed_files):
+                self.filesChanged = True
 
     def prefsPrep(self):
         prepare_prefs(self.prefs)
@@ -661,6 +668,8 @@ def prepare_prefs(prefs):
         prefs['append_conversion_suffix'] = True
         prefs['store_conversion_info_in_comments'] = True
         prefs['cjk_font_policy'] = 'keep'
+        prefs['remove_embedded_fonts'] = False
+        prefs['remove_image_files'] = False
         prefs['ui_language'] = detect_calibre_ui_language()
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
@@ -690,6 +699,8 @@ def prepare_prefs(prefs):
     prefs.defaults['append_conversion_suffix'] = True
     prefs.defaults['store_conversion_info_in_comments'] = True
     prefs.defaults['cjk_font_policy'] = 'keep'
+    prefs.defaults['remove_embedded_fonts'] = False
+    prefs.defaults['remove_image_files'] = False
     prefs.defaults['ui_language'] = detect_calibre_ui_language()
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
@@ -743,7 +754,9 @@ def build_criteria(prefs):
         prefs.get('append_conversion_suffix', True),
         normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
         normalize_bilingual_mode(prefs.get('bilingual_annotation_mode', 'full')),
-        prefs.get('store_conversion_info_in_comments', True))
+        prefs.get('store_conversion_info_in_comments', True),
+        prefs.get('remove_embedded_fonts', False),
+        prefs.get('remove_image_files', False))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -860,6 +873,15 @@ def get_language_code(criteria):
 
 
 def maybe_enrich_images_with_vision_ocr(container, criteria, converter, progress_callback=None):
+    if (len(criteria) > REMOVE_IMAGE_FILES and criteria[REMOVE_IMAGE_FILES]):
+        return [], [], {
+            'images_recognized': 0,
+            'recognized_images': [],
+            'text_results': 0,
+            'sample_results': [],
+            'image_file_count': 0,
+            'reason': 'images_removed',
+        }
     if not criteria[ENABLE_VISION_OCR] or not is_vision_ocr_supported():
         return [], [], {
             'images_recognized': 0,
@@ -1421,14 +1443,18 @@ def cli_get_criteria(args):
         output_locale, use_target_phrase, quote_type,
         text_direction, update_punctuation, punc_dict, punc_regex,
         bool(prefs.get('enable_vision_ocr_enhancement', False))
-        and is_vision_ocr_supported(),
+        and is_vision_ocr_supported()
+        and not bool(prefs.get('remove_image_files', False)),
         bool(prefs.get('include_metadata', True)),
         bool(getattr(args, 'bilingual_opt', False)),
         bool(getattr(args, 'jieba_opt', False)),
         bool(getattr(args, 'force_pivot_opt', False)),
         False,
         normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
-        normalize_bilingual_mode(getattr(args, 'bilingual_mode_opt', 'full')))
+        normalize_bilingual_mode(getattr(args, 'bilingual_mode_opt', 'full')),
+        bool(prefs.get('store_conversion_info_in_comments', True)),
+        bool(prefs.get('remove_embedded_fonts', False)),
+        bool(prefs.get('remove_image_files', False)))
 
     return criteria
 
@@ -1445,10 +1471,16 @@ def count_container_progress_units(container, criteria):
     html_count = sum(1 for _n, mt in container.mime_map.items() if mt in OEB_DOCS)
     units += html_count
     units += 1  # bilingual CSS + CJK font policy (combined polish step)
-    if criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported():
+    remove_images = (
+        len(criteria) > REMOVE_IMAGE_FILES and criteria[REMOVE_IMAGE_FILES])
+    if (criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported()
+            and not remove_images):
         units += sum(
             1 for _n, mt in container.mime_map.items()
             if (mt or '').startswith('image/'))
+    if ((len(criteria) > REMOVE_EMBEDDED_FONTS and criteria[REMOVE_EMBEDDED_FONTS])
+            or remove_images):
+        units += 1  # resource stripping polish step
     return max(1, units)
 
 
@@ -1518,12 +1550,15 @@ def cli_process_files(criteria, container, converter, parser, progress_callback=
     bump(_('Progress stage polish'))
 
     ocr_base = local_done[0]
+    remove_images = (
+        len(criteria) > REMOVE_IMAGE_FILES and criteria[REMOVE_IMAGE_FILES])
     image_files = [
         name for name, mt in container.mime_map.items()
         if (mt or '').startswith('image/')]
     image_total = (
         len(image_files)
-        if criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported()
+        if (criteria[ENABLE_VISION_OCR] and is_vision_ocr_supported()
+            and not remove_images)
         else 0)
 
     def on_ocr_progress(current, _book_total, image_name):
@@ -1544,6 +1579,15 @@ def cli_process_files(criteria, container, converter, parser, progress_callback=
     for changed_name in ocr_changed_files:
         if changed_name not in changed_files:
             changed_files.append(changed_name)
+
+    from calibre_plugins.chinese_text_conversion.resources.strip_resources import (
+        apply_resource_stripping,
+    )
+    if apply_resource_stripping(container, criteria, changed_files):
+        bump(_('Progress stage lighter output'))
+    elif ((len(criteria) > REMOVE_EMBEDDED_FONTS and criteria[REMOVE_EMBEDDED_FONTS])
+            or remove_images):
+        bump(_('Progress stage lighter output'))
 
     # Ensure bar reaches 100% for this book even if some OCR images were cached.
     local_done[0] = local_total

@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 4 Aug, 2026',
-        '发布：2026年8月4日',
-        '發佈：2026年8月4日'),
+        'Released: 6 Aug, 2026',
+        '发布：2026年8月6日',
+        '發佈：2026年8月6日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -237,55 +237,51 @@ _MESSAGES = {
         'Check to allow region specific word replacements if available',
         '勾选以在可用时进行地区惯用词语替换', '勾選以在可用時進行地區慣用詞語替換'),
     'Use Jieba segmentation (experimental)': _T(
-        'Use Jieba segmentation (experimental)',
-        '使用 Jieba 分词（实验性）',
-        '使用 Jieba 分詞（實驗性）'),
+        'Convert by whole words (more accurate)',
+        '按词语转换（更准确）',
+        '按詞語轉換（更準確）'),
     'Use Jieba segmentation help': _T(
-        'Segment text with Jieba before OpenCC conversion to improve phrase-level accuracy '
-        '(similar to OpenCC’s optional jieba configs). Default uses OpenCC mmseg. '
-        'OpenCC STPhrases keys are loaded into Jieba’s user dictionary so ambiguous cuts '
-        'like 赵国王后 → 赵|国王|后 (then 王後) are avoided. First use may be slower while '
-        'the dictionary loads.',
-        '转换前先用 Jieba 分词，可提升词组级准确度（类似 OpenCC 可选的 jieba 配置）。'
-        '默认使用 OpenCC mmseg 分词。会把 OpenCC STPhrases 词条注入 Jieba 用户词典，'
-        '以避免错误切分（例如「赵国王后」被切成「赵|国王|后」再变成「王後」）。'
-        '首次启用时加载词典可能稍慢。',
-        '轉換前先用 Jieba 分詞，可提升詞組級準確度（類似 OpenCC 可選的 jieba 配置）。'
-        '預設使用 OpenCC mmseg 分詞。會把 OpenCC STPhrases 詞條注入 Jieba 用戶詞典，'
-        '以避免錯誤切分（例如「赵国王后」被切成「赵|国王|后」再變成「王後」）。'
-        '首次啟用時載入詞典可能稍慢。'),
+        'Prefer converting full words/phrases instead of character by character. '
+        'Turn on if phrases look wrong after conversion '
+        '(e.g. “王后” becoming the wrong form). First use may be a bit slower.',
+        '优先按完整词语转换，而不是逐字硬转。'
+        '若转换后词组不对（例如「王后」变成错误字形），可勾选。'
+        '首次使用可能稍慢。',
+        '優先按完整詞語轉換，而不是逐字硬轉。'
+        '若轉換後詞組不對（例如「王后」變成錯誤字形），可勾選。'
+        '首次使用可能稍慢。'),
     'OpenCC segmentation mode: {0}': _T(
         'OpenCC segmentation mode: {0}',
         'OpenCC 分词模式：{0}',
         'OpenCC 分詞模式：{0}'),
     'Segmentation: Jieba': _T(
-        'Segmentation: Jieba',
-        '分词：Jieba',
-        '分詞：Jieba'),
+        'Convert by whole words: on',
+        '按词语转换：开',
+        '按詞語轉換：開'),
     'Segmentation: OpenCC mmseg': _T(
-        'Segmentation: OpenCC mmseg',
-        '分词：OpenCC mmseg',
-        '分詞：OpenCC mmseg'),
+        'Convert by whole words: off',
+        '按词语转换：关',
+        '按詞語轉換：關'),
     'Jieba segmentation samples:': _T(
-        'Jieba segmentation samples:',
-        'Jieba 分词样例：',
-        'Jieba 分詞樣例：'),
+        'Whole-word conversion samples:',
+        '按词语转换样例：',
+        '按詞語轉換樣例：'),
     'No Jieba segmentation samples recorded for this book.': _T(
-        'No Jieba segmentation samples recorded for this book.',
-        '本书未记录到 Jieba 分词样例。',
-        '本書未記錄到 Jieba 分詞樣例。'),
+        'No whole-word conversion samples recorded for this book.',
+        '本书未记录到按词语转换的样例。',
+        '本書未記錄到按詞語轉換的樣例。'),
     '----Log Jieba samples begin----': _T(
-        '----Log Jieba samples begin----',
-        '----Jieba 分词样例开始----',
-        '----Jieba 分詞樣例開始----'),
+        '----Log whole-word samples begin----',
+        '----按词语转换样例开始----',
+        '----按詞語轉換樣例開始----'),
     '----Log Jieba samples end----': _T(
-        '----Log Jieba samples end----',
-        '----Jieba 分词样例结束----',
-        '----Jieba 分詞樣例結束----'),
+        '----Log whole-word samples end----',
+        '----按词语转换样例结束----',
+        '----按詞語轉換樣例結束----'),
     'Use Jieba segmentation before OpenCC conversion (Default: False)': _T(
-        'Use Jieba segmentation before OpenCC conversion (Default: False)',
-        '转换前使用 Jieba 分词（默认：否）',
-        '轉換前使用 Jieba 分詞（預設：否）'),
+        'Convert by whole words for better phrase accuracy (Default: off)',
+        '按词语转换，提高词组准确度（默认：关）',
+        '按詞語轉換，提高詞組準確度（預設：關）'),
     'Quotation Marks': _T('Set language symbols', '设置语言符号', '設定語言符號'),
     'Advanced options': _T('Advanced options', '高级选项', '進階選項'),
     'Output and fonts': _T('Output and fonts', '输出与字体', '輸出與字體'),
@@ -295,6 +291,14 @@ _MESSAGES = {
         '雙語批註'),
     'Image text': _T('Image text', '图片文字', '圖片文字'),
     'Example': _T('Example', '示例', '範例'),
+    'Click example to switch option': _T(
+        'Click the example to switch options',
+        '点击示例可切换选项',
+        '點擊範例可切換選項'),
+    'Click example to toggle option': _T(
+        'Click the example to toggle this option',
+        '点击示例可开关此选项',
+        '點擊範例可開關此選項'),
     'Text Direction:': _T('Set text direction:', '设置文字方向：', '設定文字方向：'),
     'Horizontal': _T('Left to right (horizontal)', '从左到右（横排）', '從左到右（橫排）'),
     'Vertical': _T('Top to bottom (vertical)', '从上到下（竖排）', '從上到下（直排）'),
@@ -458,6 +462,34 @@ _MESSAGES = {
         '--force-pivot requires --direction s2t and --bilingual-annotation',
         '--force-pivot 需要同时使用 --direction s2t 和 --bilingual-annotation',
         '--force-pivot 需要同時使用 --direction s2t 和 --bilingual-annotation'),
+    'Lighter output': _T(
+        'Lighter output',
+        '轻量输出',
+        '輕量輸出'),
+    'Remove embedded font files': _T(
+        'Remove embedded font files',
+        '移除嵌入字体文件',
+        '移除嵌入字體檔案'),
+    'Remove embedded font files help': _T(
+        'Drop fonts packed in the book for a smaller, faster file; readers use system fonts.',
+        '去掉书内字体，体积更小、处理更快；阅读器用系统字体。',
+        '去掉書內字體，體積更小、處理更快；閱讀器用系統字體。'),
+    'Remove image files from book': _T(
+        'Remove image files from the book',
+        '移除书中的图片文件',
+        '移除書中的圖片檔案'),
+    'Remove image files from book help': _T(
+        'Drop illustrations and the cover for a near text-only book that processes faster.',
+        '去掉插图与封面等图片，留下偏纯文本；处理更快。',
+        '去掉插圖與封面等圖片，留下偏純文字；處理更快。'),
+    'Vision OCR disabled because images removed': _T(
+        'OCR needs images, so it is unavailable while “Remove image files” is on.',
+        'OCR 需要图片；已勾选「移除书中的图片文件」时不可用。',
+        'OCR 需要圖片；已勾選「移除書中的圖片檔案」時不可用。'),
+    'Progress stage lighter output': _T(
+        'Removing fonts/images…',
+        '正在移除字体/图片…',
+        '正在移除字體/圖片…'),
     'Enable Vision OCR image enhancement': _T(
         'Enable Vision OCR image enhancement',
         '启用 Vision OCR 的图片增强功能',

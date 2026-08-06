@@ -743,6 +743,12 @@ class ConversionDialog(Dialog):
         self.quotation_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.quotation_heading)
 
+        self.quotation_example_row, self.quotation_example_card = build_example_preview_card(
+            self, title=_('Example'), interactive=True)
+        self.quotation_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.quotation_example_row)
+        self.quotation_example_card.clicked.connect(self._on_quotation_example_clicked)
+
         self.quotation_marks_help = QLabel()
         self.quotation_marks_help.setWordWrap(True)
         self.quotation_marks_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
@@ -761,10 +767,6 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.quotation_no_change_button)
         advanced_group_box_layout.addWidget(self.quotation_simp_to_trad_button)
         advanced_group_box_layout.addWidget(self.quotation_trad_to_simp_button)
-        self.quotation_example_row, self.quotation_example_card = build_example_preview_card(
-            self, title=_('Example'))
-        self.quotation_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        advanced_group_box_layout.addWidget(self.quotation_example_row)
         self.quotation_no_change_button.toggled.connect(self._on_quotation_option_changed)
         self.quotation_trad_to_simp_button.toggled.connect(self._on_quotation_option_changed)
         self.quotation_simp_to_trad_button.toggled.connect(self._on_quotation_option_changed)
@@ -788,7 +790,7 @@ class ConversionDialog(Dialog):
 
         # --- Output and fonts ---
         self.output_fonts_heading = QLabel(_('Output and fonts'))
-        style_subheading_label(self.output_fonts_heading)
+        style_subheading_label(self.output_fonts_heading, section_break=True)
         self.output_fonts_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.output_fonts_heading)
 
@@ -825,9 +827,16 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.cjk_font_policy_help_row)
         self._refresh_book_font_scan()
 
+        self.suffix_example_row, self.suffix_example_card = build_example_preview_card(
+            self, title=_('Example'), interactive=True)
+        self.suffix_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.suffix_example_row)
+        self.suffix_example_card.clicked.connect(self._on_suffix_example_clicked)
         self.append_conversion_suffix = QCheckBox(_(
             'Add identifying suffix to generated book title'))
         advanced_group_box_layout.addWidget(self.append_conversion_suffix)
+        self.append_conversion_suffix.stateChanged.connect(
+            self._on_append_conversion_suffix_changed)
         self.append_conversion_suffix_help = QLabel()
         self.append_conversion_suffix_help.setWordWrap(True)
         self.append_conversion_suffix_help.setSizePolicy(
@@ -839,10 +848,6 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.append_conversion_suffix_help_row)
-        self.suffix_example_row, self.suffix_example_card = build_example_preview_card(
-            self, title=_('Example'))
-        self.suffix_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        advanced_group_box_layout.addWidget(self.suffix_example_row)
         self.append_conversion_suffix.setVisible(self.force_entire_book)
         self.append_conversion_suffix_help_row.setVisible(self.force_entire_book)
         self.suffix_example_row.setVisible(self.force_entire_book)
@@ -867,9 +872,15 @@ class ConversionDialog(Dialog):
 
         # --- Bilingual annotation ---
         self.bilingual_heading = QLabel(_('Bilingual annotation section'))
-        style_subheading_label(self.bilingual_heading)
+        style_subheading_label(self.bilingual_heading, section_break=True)
         self.bilingual_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.bilingual_heading)
+
+        self.bilingual_example_row, self.bilingual_example_card = build_example_preview_card(
+            self, title=_('Example'), interactive=True)
+        self.bilingual_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.bilingual_example_row)
+        self.bilingual_example_card.clicked.connect(self._on_bilingual_example_clicked)
 
         self.bilingual_annotation = QCheckBox(_('Bilingual annotation'))
         advanced_group_box_layout.addWidget(self.bilingual_annotation)
@@ -882,11 +893,6 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.bilingual_annotation_help_row)
         self.bilingual_annotation.toggled.connect(
             self._on_bilingual_annotation_toggled)
-
-        self.bilingual_example_row, self.bilingual_example_card = build_example_preview_card(
-            self, title=_('Example'))
-        self.bilingual_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        advanced_group_box_layout.addWidget(self.bilingual_example_row)
 
         self.bilingual_mode_label = QLabel(_('Bilingual original mode'))
         self.bilingual_mode_label_row = help_text_row(self, self.bilingual_mode_label)
@@ -928,7 +934,7 @@ class ConversionDialog(Dialog):
 
         # --- Image text ---
         self.image_text_heading = QLabel(_('Image text'))
-        style_subheading_label(self.image_text_heading)
+        style_subheading_label(self.image_text_heading, section_break=True)
         self.image_text_heading.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.image_text_heading)
 
@@ -943,6 +949,40 @@ class ConversionDialog(Dialog):
         self.vision_ocr_help_row = help_text_row(self, self.vision_ocr_help)
         self.vision_ocr_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.vision_ocr_help_row)
+
+        # --- Lighter output ---
+        self.lighter_output_heading = QLabel(_('Lighter output'))
+        style_subheading_label(self.lighter_output_heading, section_break=True)
+        self.lighter_output_heading.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.lighter_output_heading)
+
+        self.remove_embedded_fonts = QCheckBox(_('Remove embedded font files'))
+        advanced_group_box_layout.addWidget(self.remove_embedded_fonts)
+        self.remove_embedded_fonts_help = QLabel()
+        self.remove_embedded_fonts_help.setWordWrap(True)
+        self.remove_embedded_fonts_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.remove_embedded_fonts_help)
+        self.remove_embedded_fonts_help_row = help_text_row(
+            self, self.remove_embedded_fonts_help)
+        self.remove_embedded_fonts_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.remove_embedded_fonts_help_row)
+
+        self.remove_image_files = QCheckBox(_('Remove image files from book'))
+        advanced_group_box_layout.addWidget(self.remove_image_files)
+        self.remove_image_files_help = QLabel()
+        self.remove_image_files_help.setWordWrap(True)
+        self.remove_image_files_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.remove_image_files_help)
+        self.remove_image_files_help_row = help_text_row(
+            self, self.remove_image_files_help)
+        self.remove_image_files_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.remove_image_files_help_row)
+        self.remove_image_files.toggled.connect(self._on_remove_image_files_toggled)
 
         self._update_advanced_help_and_examples()
 
@@ -1045,27 +1085,36 @@ class ConversionDialog(Dialog):
         self.bilingual_mode_full_button.blockSignals(False)
         self.bilingual_mode_changed_button.blockSignals(False)
 
-    def _update_quotation_example(self):
+    def _update_quotation_example(self, flash=False):
         self.quotation_example_card.set_title(_('Example'))
+        self.quotation_example_card.setToolTip(_('Click example to switch option'))
         if self.quotation_simp_to_trad_button.isChecked():
-            self.quotation_example_card.set_plain_example(_('Quote example to trad'))
+            text = _('Quote example to trad')
         elif self.quotation_trad_to_simp_button.isChecked():
-            self.quotation_example_card.set_plain_example(_('Quote example to simp'))
+            text = _('Quote example to simp')
         else:
-            self.quotation_example_card.set_plain_example(_('Quote example no change'))
+            text = _('Quote example no change')
+        self.quotation_example_card.set_plain_example(text, flash=flash)
 
-    def _update_suffix_example(self):
+    def _update_suffix_example(self, flash=False):
         self.suffix_example_card.set_title(_('Example'))
-        self.suffix_example_card.set_code_example(_('Generated book suffix example'))
+        self.suffix_example_card.setToolTip(_('Click example to toggle option'))
+        self.suffix_example_card.set_code_example(
+            _('Generated book suffix example'), flash=flash)
+        self.suffix_example_card.setEnabled(
+            self.append_conversion_suffix.isChecked()
+            if self.append_conversion_suffix.isVisible() else True)
 
-    def _update_bilingual_example(self):
+    def _update_bilingual_example(self, flash=False):
         self.bilingual_example_card.set_title(_('Example'))
+        self.bilingual_example_card.setToolTip(_('Click example to switch option'))
         primary = _('Bilingual example primary')
         if self._bilingual_mode_value() == BILINGUAL_MODE_CHANGED:
             secondary = _('Bilingual example changed secondary')
         else:
             secondary = _('Bilingual example full secondary')
-        self.bilingual_example_card.set_bilingual_example(primary, secondary)
+        self.bilingual_example_card.set_bilingual_example(
+            primary, secondary, flash=flash)
 
     def _update_advanced_help_and_examples(self):
         self.quotation_marks_help.setText(_('Quotation marks help'))
@@ -1082,26 +1131,62 @@ class ConversionDialog(Dialog):
         self.bilingual_mode_label.setText(_('Bilingual original mode'))
         self.force_pivot_conversion_help.setText(_('Forced conversion coverage help'))
         self.force_pivot_conversion.setToolTip('')
-        self.vision_ocr_help.setText(_('Vision OCR help'))
-        self.enable_vision_ocr_enhancement.setToolTip('')
+        self._update_vision_ocr_help_text()
+        self.remove_embedded_fonts_help.setText(_('Remove embedded font files help'))
+        self.remove_embedded_fonts.setToolTip('')
+        self.remove_image_files_help.setText(_('Remove image files from book help'))
+        self.remove_image_files.setToolTip('')
         self._update_quotation_example()
         self._update_suffix_example()
         self._update_bilingual_example()
 
     def _on_quotation_option_changed(self, _checked=False):
-        self._update_quotation_example()
+        if not _checked:
+            return
+        self._update_quotation_example(flash=True)
         self.update_gui()
+
+    def _on_quotation_example_clicked(self):
+        if self.quotation_no_change_button.isChecked():
+            next_button = self.quotation_simp_to_trad_button
+        elif self.quotation_simp_to_trad_button.isChecked():
+            next_button = self.quotation_trad_to_simp_button
+        else:
+            next_button = self.quotation_no_change_button
+        next_button.setChecked(True)
+        self._mark_symbol_profile_user_set()
+
+    def _on_suffix_example_clicked(self):
+        if not self.suffix_example_row.isVisible():
+            return
+        self.append_conversion_suffix.setChecked(
+            not self.append_conversion_suffix.isChecked())
+
+    def _on_append_conversion_suffix_changed(self, _checked=False):
+        self._update_suffix_example(flash=True)
 
     def _on_bilingual_mode_changed(self, _checked=False):
         if not _checked:
             return
-        self._update_bilingual_example()
+        self._update_bilingual_example(flash=True)
+
+    def _on_bilingual_example_clicked(self):
+        if self.no_conversion_button.isChecked():
+            return
+        if not self.bilingual_annotation.isChecked():
+            self.bilingual_annotation.setChecked(True)
+            return
+        if self.bilingual_mode_full_button.isChecked():
+            self.bilingual_mode_changed_button.setChecked(True)
+        else:
+            self.bilingual_mode_full_button.setChecked(True)
 
     def _on_bilingual_annotation_toggled(self, checked):
         if not checked:
             self.force_pivot_conversion.blockSignals(True)
             self.force_pivot_conversion.setChecked(False)
             self.force_pivot_conversion.blockSignals(False)
+        self._update_bilingual_example(flash=True)
         self.update_gui()
 
     def _update_trad_to_trad_help_text(self):
@@ -1419,6 +1504,9 @@ class ConversionDialog(Dialog):
             'Forced conversion (coverage first)'))
         self.image_text_heading.setText(_('Image text'))
         self.enable_vision_ocr_enhancement.setText(_('Enable Vision OCR image enhancement'))
+        self.lighter_output_heading.setText(_('Lighter output'))
+        self.remove_embedded_fonts.setText(_('Remove embedded font files'))
+        self.remove_image_files.setText(_('Remove image files from book'))
         self._update_advanced_help_and_examples()
 
         self.book_source_button.setText(_('Entire eBook'))
@@ -1484,6 +1572,8 @@ class ConversionDialog(Dialog):
         self.bilingual_mode_changed_button.blockSignals(state)
         self.force_pivot_conversion.blockSignals(state)
         self.enable_vision_ocr_enhancement.blockSignals(state)
+        self.remove_embedded_fonts.blockSignals(state)
+        self.remove_image_files.blockSignals(state)
 
 
     def set_to_preferences(self):
@@ -1539,10 +1629,16 @@ class ConversionDialog(Dialog):
             self.prefs.get('bilingual_annotation_mode', 'full'))
         self.force_pivot_conversion.setChecked(bool(
             self.prefs.get('force_pivot_conversion', True)))
+        self.remove_embedded_fonts.setChecked(bool(
+            self.prefs.get('remove_embedded_fonts', False)))
+        self.remove_image_files.setChecked(bool(
+            self.prefs.get('remove_image_files', False)))
         ocr_requested = bool(self.prefs.get('enable_vision_ocr_enhancement', False))
         ocr_supported = is_vision_ocr_supported()
         self._vision_ocr_unsupported_notice_pending = bool(ocr_requested and not ocr_supported)
-        self.enable_vision_ocr_enhancement.setChecked(bool(ocr_requested and ocr_supported))
+        self.enable_vision_ocr_enhancement.setChecked(bool(
+            ocr_requested and ocr_supported
+            and not self.remove_image_files.isChecked()))
 
         self.block_signals(False)
         self._update_advanced_help_and_examples()
@@ -1643,6 +1739,7 @@ class ConversionDialog(Dialog):
         self._update_quotation_example()
         if bilingual_enabled:
             self._update_bilingual_example()
+        self._sync_ocr_with_remove_images()
 
 
     def _ok_clicked(self):
@@ -1679,6 +1776,27 @@ class ConversionDialog(Dialog):
         self._set_vision_ocr_checked(False)
         self._vision_ocr_unsupported_notice_pending = False
         self._show_vision_ocr_unsupported_notice()
+
+
+    def _update_vision_ocr_help_text(self):
+        if self.remove_image_files.isChecked():
+            self.vision_ocr_help.setText(_(
+                'Vision OCR disabled because images removed'))
+        else:
+            self.vision_ocr_help.setText(_('Vision OCR help'))
+        self.enable_vision_ocr_enhancement.setToolTip('')
+
+
+    def _on_remove_image_files_toggled(self, _checked=False):
+        self._sync_ocr_with_remove_images()
+
+
+    def _sync_ocr_with_remove_images(self):
+        remove_images = self.remove_image_files.isChecked()
+        self.enable_vision_ocr_enhancement.setEnabled(not remove_images)
+        if remove_images and self.enable_vision_ocr_enhancement.isChecked():
+            self._set_vision_ocr_checked(False)
+        self._update_vision_ocr_help_text()
 
 
     def _ensure_vision_ocr_supported_before_accept(self):
@@ -1770,9 +1888,13 @@ class ConversionDialog(Dialog):
             self.force_pivot_conversion.isChecked()
             and self.bilingual_annotation.isChecked()
             and self.simp_to_trad_button.isChecked())
+        self.prefs['remove_embedded_fonts'] = (
+            self.remove_embedded_fonts.isChecked())
+        self.prefs['remove_image_files'] = self.remove_image_files.isChecked()
         self.prefs['enable_vision_ocr_enhancement'] = (
             self.enable_vision_ocr_enhancement.isChecked()
-            and is_vision_ocr_supported())
+            and is_vision_ocr_supported()
+            and not self.remove_image_files.isChecked())
 
 
     def getRegex(self):
