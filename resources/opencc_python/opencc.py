@@ -85,6 +85,8 @@ class OpenCC:
         self._has_segmentation = False
         self._segmentation_mode = SEGMENTATION_MMSEG
         self._force_pivot_conversion = False
+        self._post_convert = None  # optional callable(str) -> str (e.g. MediaWiki zhconv)
+        self._post_convert_label = None
         self._jieba_samples = []
         self._jieba_sample_keys = set()
         self._jieba_sample_limit = 8
@@ -106,6 +108,31 @@ class OpenCC:
         converted, _spans = self.convert_with_details(string)
         return converted
 
+    def set_post_convert(self, callback, label=None):
+        """
+        Optional post-pass after OpenCC (e.g. MediaWiki zhconv).
+        callback: callable(str) -> str, or None to clear.
+        When the post-pass changes text, bilingual spans collapse to one safe span.
+        """
+        self._post_convert = callback
+        self._post_convert_label = label
+
+    def get_post_convert_label(self):
+        return self._post_convert_label
+
+    def _apply_post_convert(self, original, converted, spans):
+        callback = self._post_convert
+        if callback is None or converted is None:
+            return converted, spans
+        try:
+            post = callback(converted)
+        except Exception:
+            return converted, spans
+        if post is None or post == converted:
+            return converted, spans
+        # Post-pass may reshuffle phrase boundaries; keep one aligned span.
+        return post, [self._make_span(0, len(original), original, post)]
+
     def convert_with_details(self, string):
         """
         Convert text and return source-aligned spans for bilingual rendering.
@@ -122,9 +149,11 @@ class OpenCC:
         if pivot_mode is not None:
             pivot = self._get_chain_converter(pivot_mode).convert(string)
             converted, _target_spans = self._convert_with_details_direct(pivot)
-            return converted, self._forced_pivot_spans(
+            spans = self._forced_pivot_spans(
                 string, pivot, converted, pivot_mode)
-        return self._convert_with_details_direct(string)
+            return self._apply_post_convert(string, converted, spans)
+        converted, spans = self._convert_with_details_direct(string)
+        return self._apply_post_convert(string, converted, spans)
 
     def _convert_with_details_direct(self, string):
         """Run the selected config once, without the optional pivot pre-pass."""

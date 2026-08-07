@@ -25,7 +25,7 @@ from calibre_plugins.chinese_text_conversion import (
     PLUGIN_VERSION, PLUGIN_RELEASE_THREAD_URL)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, apply_ui_language_from_prefs, detect_calibre_ui_language,
-    get_ui_language, normalize_ui_language, ui_language_combo_items,
+    get_ui_language, normalize_ui_language, set_ui_language, ui_language_combo_items,
     UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK, TRADITIONAL_UI_LANGS,
 )
 from calibre_plugins.chinese_text_conversion.ui_style import (
@@ -43,6 +43,12 @@ from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
 )
 from calibre_plugins.chinese_text_conversion.resources.bilingual import (
     BILINGUAL_MODE_CHANGED, BILINGUAL_MODE_FULL, normalize_bilingual_mode,
+)
+from calibre_plugins.chinese_text_conversion.library_flow import (
+    SUFFIX_TIMESTAMP_COMPACT, SUFFIX_TIMESTAMP_DEFAULT, SUFFIX_TIMESTAMP_ISO,
+    SUFFIX_TIMESTAMP_NO_SECONDS, SUFFIX_TIMESTAMP_OFF,
+    normalize_suffix_timestamp_format, preview_conversion_info_comment_text,
+    suffix_timestamp_enabled,
 )
 from calibre_plugins.chinese_text_conversion.zhconvert_api import (
     ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_SITE_URL,
@@ -65,7 +71,7 @@ Note: This code is based on the Calibre plugin Diap's Editing Toolbag
 
 # Default size when no saved geometry (library conversion wizard)
 LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 760)
-LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 560)
+LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 680)
 ABOUT_DIALOG_SIZE = QSize(560, 480)
 ZHCONVERT_DIALOG_SIZE = QSize(780, 640)
 
@@ -73,6 +79,63 @@ NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
 XIAOHONGSHU_FEEDBACK_URL = 'http://xhslink.com/o/hdgQctdOte'
+
+# Cached OpenCC character markers for 简/繁 detection in symbol examples.
+_SCRIPT_MARKER_SETS = None
+
+
+def _load_opencc_char_map(dict_name):
+    '''Load an OpenCC character dictionary as {source: target_string}.'''
+    raw = None
+    try:
+        raw = get_resources(  # noqa: F821 — injected by Calibre
+            'resources/opencc_python/dictionary/' + dict_name)
+    except Exception:
+        raw = None
+    if not raw:
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'resources', 'opencc_python', 'dictionary', dict_name)
+        try:
+            with open(path, 'rb') as fh:
+                raw = fh.read()
+        except Exception:
+            return {}
+    if isinstance(raw, bytes):
+        raw = raw.decode('utf-8', 'replace')
+    mapping = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = line.split('\t')
+        if len(parts) < 2 or not parts[0]:
+            continue
+        mapping[parts[0]] = parts[1]
+    return mapping
+
+
+def _script_marker_char_sets():
+    '''Traditional-only / simplified-only chars from OpenCC STCharacters.
+
+    Mirrors OpenCC._record_mixed_input_diagnostics: values of STCharacters
+    that are not also keys are treated as traditional-only markers; keys are
+    simplified markers.
+    '''
+    global _SCRIPT_MARKER_SETS
+    if _SCRIPT_MARKER_SETS is not None:
+        return _SCRIPT_MARKER_SETS
+    st_map = _load_opencc_char_map('STCharacters.txt')
+    if not st_map:
+        _SCRIPT_MARKER_SETS = (frozenset(), frozenset())
+        return _SCRIPT_MARKER_SETS
+    simp_only = frozenset(st_map)
+    trad_only = set()
+    for value in st_map.values():
+        trad_only.update(value.split(' '))
+    trad_only.difference_update(simp_only)
+    _SCRIPT_MARKER_SETS = (frozenset(trad_only), simp_only)
+    return _SCRIPT_MARKER_SETS
 
 
 class NoWheelComboBox(QComboBox):
@@ -355,6 +418,25 @@ class PluginAboutDialog(QDialog):
         self.version_label = QLabel()
         content_layout.addWidget(self.version_label)
 
+        self.first_run_lang_row = QWidget()
+        first_run_lang_layout = QHBoxLayout(self.first_run_lang_row)
+        first_run_lang_layout.setContentsMargins(0, 0, 0, 0)
+        configure_layout(first_run_lang_layout, 'form')
+        self.first_run_ui_lang_label = QLabel()
+        configure_form_label(self.first_run_ui_lang_label)
+        first_run_lang_layout.addWidget(self.first_run_ui_lang_label)
+        self.first_run_ui_lang_combo = NoWheelComboBox()
+        self.first_run_ui_lang_combo.addItems(ui_language_combo_items())
+        self.first_run_ui_lang_combo.blockSignals(True)
+        self.first_run_ui_lang_combo.setCurrentIndex(
+            normalize_ui_language(self.prefs.get(
+                'ui_language', detect_calibre_ui_language())))
+        self.first_run_ui_lang_combo.blockSignals(False)
+        self.first_run_ui_lang_combo.currentIndexChanged.connect(
+            self._on_first_run_ui_language_changed)
+        first_run_lang_layout.addWidget(self.first_run_ui_lang_combo, 1)
+        content_layout.addWidget(self.first_run_lang_row)
+
         self.first_run_intro_label = QLabel()
         self.first_run_intro_label.setWordWrap(True)
         content_layout.addWidget(self.first_run_intro_label)
@@ -456,6 +538,14 @@ class PluginAboutDialog(QDialog):
         self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
         self.title_label.setText(_('About Chinese Conversion · 简繁转换'))
         self.version_label.setText(_('Version: {}').format(PLUGIN_VERSION))
+        self.first_run_ui_lang_label.setText(_('Interface Language:'))
+        ui_lang_idx = self.first_run_ui_lang_combo.currentIndex()
+        self.first_run_ui_lang_combo.blockSignals(True)
+        self.first_run_ui_lang_combo.clear()
+        self.first_run_ui_lang_combo.addItems(ui_language_combo_items())
+        self.first_run_ui_lang_combo.setCurrentIndex(
+            normalize_ui_language(ui_lang_idx))
+        self.first_run_ui_lang_combo.blockSignals(False)
         self.first_run_intro_label.setText(_('About welcome first run'))
         self.description_label.setText(_('Plugin description'))
         self.mobile_read_link_label.setText(
@@ -477,6 +567,7 @@ class PluginAboutDialog(QDialog):
         style_recommend_card(self.recommend_askai_card)
         show_full_about = not self.first_run
         show_feedback_link = show_full_about and get_ui_language() == UI_LANG_ZH_CN
+        self.first_run_lang_row.setVisible(self.first_run)
         self.first_run_intro_label.setVisible(self.first_run)
         self.description_label.setVisible(show_full_about)
         self.mobile_read_link_label.setVisible(show_full_about)
@@ -491,6 +582,13 @@ class PluginAboutDialog(QDialog):
         if ok_btn is not None:
             ok_btn.setText(_('Got it'))
 
+    def _on_first_run_ui_language_changed(self, index):
+        lang_index = normalize_ui_language(index)
+        self.prefs['ui_language'] = lang_index
+        self.prefs.commit()
+        set_ui_language(lang_index)
+        self.apply_translations()
+
     def _open_plugin_release(self):
         open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
 
@@ -502,8 +600,13 @@ class PluginAboutDialog(QDialog):
 
     def mark_first_run_complete(self):
         if self.first_run:
+            # Ensure the last selected UI language is persisted on close.
+            lang_index = normalize_ui_language(
+                self.first_run_ui_lang_combo.currentIndex())
+            self.prefs['ui_language'] = lang_index
             self.prefs['about_shown'] = True
             self.prefs.commit()
+            set_ui_language(lang_index)
 
 
 class ConversionDialog(Dialog):
@@ -707,6 +810,18 @@ class ConversionDialog(Dialog):
         self._update_jieba_segmentation_help_text()
         self.use_jieba_segmentation.stateChanged.connect(self._on_use_jieba_segmentation_changed)
 
+        self.use_mediawiki_zhconv = QCheckBox(_('MediaWiki post-processing'))
+        style_group_box_layout.addWidget(self.use_mediawiki_zhconv)
+        self.use_mediawiki_zhconv_help = QLabel()
+        self.use_mediawiki_zhconv_help.setWordWrap(True)
+        self.use_mediawiki_zhconv_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.use_mediawiki_zhconv_help)
+        self.use_mediawiki_zhconv_help_row = help_text_row(self, self.use_mediawiki_zhconv_help)
+        self.use_mediawiki_zhconv_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        style_group_box_layout.addWidget(self.use_mediawiki_zhconv_help_row)
+        self._update_mediawiki_zhconv_help_text()
+        self.use_mediawiki_zhconv.stateChanged.connect(self._on_use_mediawiki_zhconv_changed)
+
         source_group=QButtonGroup(self)
         self.book_source_button = QRadioButton(_('Entire eBook'))
         self.file_source_button = QRadioButton(_('Current File'))
@@ -832,11 +947,18 @@ class ConversionDialog(Dialog):
         self.suffix_example_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(self.suffix_example_row)
         self.suffix_example_card.clicked.connect(self._on_suffix_example_clicked)
-        self.append_conversion_suffix = QCheckBox(_(
-            'Add identifying suffix to generated book title'))
-        advanced_group_box_layout.addWidget(self.append_conversion_suffix)
-        self.append_conversion_suffix.stateChanged.connect(
-            self._on_append_conversion_suffix_changed)
+        suffix_timestamp_layout = QHBoxLayout()
+        configure_layout(suffix_timestamp_layout, 'form')
+        advanced_group_box_layout.addLayout(suffix_timestamp_layout)
+        self.suffix_timestamp_format_label = QLabel(_('Suffix timestamp format'))
+        configure_form_label(self.suffix_timestamp_format_label)
+        suffix_timestamp_layout.addWidget(self.suffix_timestamp_format_label)
+        self.suffix_timestamp_format_combo = NoWheelComboBox()
+        self._populate_suffix_timestamp_format_combo()
+        self.suffix_timestamp_format_combo.currentIndexChanged.connect(
+            self._on_suffix_timestamp_format_changed)
+        suffix_timestamp_layout.addWidget(self.suffix_timestamp_format_combo, 1)
+        self.suffix_timestamp_format_row = suffix_timestamp_layout
         self.append_conversion_suffix_help = QLabel()
         self.append_conversion_suffix_help.setWordWrap(True)
         self.append_conversion_suffix_help.setSizePolicy(
@@ -848,7 +970,8 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.append_conversion_suffix_help_row)
-        self.append_conversion_suffix.setVisible(self.force_entire_book)
+        self.suffix_timestamp_format_label.setVisible(self.force_entire_book)
+        self.suffix_timestamp_format_combo.setVisible(self.force_entire_book)
         self.append_conversion_suffix_help_row.setVisible(self.force_entire_book)
         self.suffix_example_row.setVisible(self.force_entire_book)
 
@@ -857,8 +980,15 @@ class ConversionDialog(Dialog):
         advanced_group_box_layout.addWidget(self.store_conversion_info_in_comments)
         self.store_conversion_info_in_comments_help = QLabel()
         self.store_conversion_info_in_comments_help.setWordWrap(True)
+        self.store_conversion_info_in_comments_help.setTextFormat(Qt.PlainText)
+        self.store_conversion_info_in_comments_help.setAlignment(
+            Qt.AlignLeft | Qt.AlignTop)
         self.store_conversion_info_in_comments_help.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Maximum)
+        preview_font = self.store_conversion_info_in_comments_help.font()
+        if preview_font.pointSize() > 0:
+            preview_font.setPointSize(max(9, preview_font.pointSize() - 1))
+            self.store_conversion_info_in_comments_help.setFont(preview_font)
         style_help_label(self.store_conversion_info_in_comments_help)
         self.store_conversion_info_in_comments_help_row = help_text_row(
             self, self.store_conversion_info_in_comments_help)
@@ -866,6 +996,8 @@ class ConversionDialog(Dialog):
             QSizePolicy.Preferred, QSizePolicy.Maximum)
         advanced_group_box_layout.addWidget(
             self.store_conversion_info_in_comments_help_row)
+        self.store_conversion_info_in_comments.toggled.connect(
+            self._update_conversion_info_comments_preview)
         self.store_conversion_info_in_comments.setVisible(self.force_entire_book)
         self.store_conversion_info_in_comments_help_row.setVisible(
             self.force_entire_book)
@@ -1025,6 +1157,15 @@ class ConversionDialog(Dialog):
         dlg = PluginAboutDialog(self, self.prefs, first_run=first_run)
         dlg.exec_()
         dlg.mark_first_run_complete()
+        if first_run:
+            # Sync main dialog after first-run UI language selection.
+            lang = normalize_ui_language(
+                self.prefs.get('ui_language', detect_calibre_ui_language()))
+            apply_ui_language_from_prefs(self.prefs)
+            self.ui_lang_combo.blockSignals(True)
+            self.ui_lang_combo.setCurrentIndex(lang)
+            self.ui_lang_combo.blockSignals(False)
+            self.on_ui_language_changed(lang)
 
     def _open_release_thread(self):
         open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
@@ -1038,6 +1179,11 @@ class ConversionDialog(Dialog):
         help_text = _('Use Jieba segmentation help')
         self.use_jieba_segmentation_help.setText(help_text)
         self.use_jieba_segmentation.setToolTip('')
+
+    def _update_mediawiki_zhconv_help_text(self):
+        help_text = _('MediaWiki post-processing help')
+        self.use_mediawiki_zhconv_help.setText(help_text)
+        self.use_mediawiki_zhconv.setToolTip('')
 
     def _populate_cjk_font_policy_combo(self):
         combo = self.cjk_font_policy_combo
@@ -1069,6 +1215,25 @@ class ConversionDialog(Dialog):
         self.cjk_font_policy_help.setText(help_text)
         self.cjk_font_policy_combo.setToolTip('')
 
+    def _populate_suffix_timestamp_format_combo(self):
+        combo = self.suffix_timestamp_format_combo
+        current = normalize_suffix_timestamp_format(
+            combo.currentData() if combo.count() else SUFFIX_TIMESTAMP_DEFAULT)
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(_('Suffix timestamp off'), SUFFIX_TIMESTAMP_OFF)
+        combo.addItem(_('Suffix timestamp iso'), SUFFIX_TIMESTAMP_ISO)
+        combo.addItem(_('Suffix timestamp compact'), SUFFIX_TIMESTAMP_COMPACT)
+        combo.addItem(
+            _('Suffix timestamp no seconds'), SUFFIX_TIMESTAMP_NO_SECONDS)
+        idx = combo.findData(current)
+        combo.setCurrentIndex(max(0, idx))
+        combo.blockSignals(False)
+
+    def _suffix_timestamp_format_value(self):
+        return normalize_suffix_timestamp_format(
+            self.suffix_timestamp_format_combo.currentData())
+
     def _bilingual_mode_value(self):
         if self.bilingual_mode_changed_button.isChecked():
             return BILINGUAL_MODE_CHANGED
@@ -1085,6 +1250,93 @@ class ConversionDialog(Dialog):
         self.bilingual_mode_full_button.blockSignals(False)
         self.bilingual_mode_changed_button.blockSignals(False)
 
+    def _sample_current_text_for_symbol_example(self, limit=8000):
+        '''Best-effort sample of the current editor file / selection text.'''
+        if self.force_entire_book:
+            return None
+        try:
+            from calibre.gui2.tweak_book import current_container, editor_name
+            from calibre.ebooks.oeb.polish.container import OEB_DOCS
+        except Exception:
+            return None
+        try:
+            container = current_container()
+            if container is None:
+                return None
+            current_editor = getattr(
+                getattr(self.parent, 'central', None), 'current_editor', None)
+            name = editor_name(current_editor) if current_editor is not None else None
+            if not name or container.mime_map.get(name) not in OEB_DOCS:
+                return None
+            data = container.raw_data(name)
+            if isinstance(data, bytes):
+                data = data.decode('utf-8', 'replace')
+            elif not isinstance(data, str):
+                data = str(data or '')
+            # Prefix only — enough to judge quote style / 简繁 without
+            # rescanning huge chapters on every UI refresh.
+            if len(data) > limit * 6:
+                data = data[:limit * 6]
+            text = re.sub(r'(?is)<(script|style)\b[^>]*>.*?</\1>', '', data)
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', '', text)
+            if not text:
+                return None
+            return text[:limit]
+        except Exception:
+            return None
+
+    def _detect_traditional_from_text(self, text):
+        '''Return True/False/None from quote usage, then 简繁 distinctive chars.'''
+        if not text:
+            return None
+        trad_quotes = (
+            text.count('「') + text.count('」')
+            + text.count('『') + text.count('』'))
+        simp_quotes = (
+            text.count('\u201c') + text.count('\u201d')
+            + text.count('\u2018') + text.count('\u2019'))
+        if trad_quotes != simp_quotes:
+            return trad_quotes > simp_quotes
+
+        # Reuse OpenCC STCharacters logic (same idea as mixed-input diagnostics):
+        # traditional-only forms that are not simplified keys.
+        trad_only, simp_only = _script_marker_char_sets()
+        if not trad_only and not simp_only:
+            return None
+        trad_hits = sum(1 for ch in text if ch in trad_only)
+        simp_hits = sum(1 for ch in text if ch in simp_only)
+        if trad_hits == simp_hits:
+            return None
+        return trad_hits > simp_hits
+
+    def _current_source_is_traditional(self):
+        '''Whether the current/source text is Traditional Chinese.
+
+        Prefer sampling the open file; otherwise use conversion direction /
+        input locale (the dialog's existing model of source script).
+        '''
+        sample = self._sample_current_text_for_symbol_example()
+        detected = self._detect_traditional_from_text(sample)
+        if detected is not None:
+            return detected
+
+        conversion_type = self._selected_conversion_type()
+        # 1=trad→simp, 3=trad→trad → source is traditional
+        if conversion_type in (1, 3):
+            return True
+        # 2=simp→trad → source is simplified
+        if conversion_type == 2:
+            return False
+        # No character conversion: input locale 1/2 = HK/TW traditional.
+        return self.input_combo.currentIndex() in (1, 2)
+
+    def _quotation_no_change_example(self):
+        '''No-change preview: 「萬里長城」 or “万里长城” for current source script.'''
+        if self._current_source_is_traditional():
+            return '「{}」'.format(_('Quote example text trad'))
+        return '\u201c{}\u201d'.format(_('Quote example text simp'))
+
     def _update_quotation_example(self, flash=False):
         self.quotation_example_card.set_title(_('Example'))
         self.quotation_example_card.setToolTip(_('Click example to switch option'))
@@ -1093,17 +1345,24 @@ class ConversionDialog(Dialog):
         elif self.quotation_trad_to_simp_button.isChecked():
             text = _('Quote example to simp')
         else:
-            text = _('Quote example no change')
+            text = self._quotation_no_change_example()
         self.quotation_example_card.set_plain_example(text, flash=flash)
 
     def _update_suffix_example(self, flash=False):
         self.suffix_example_card.set_title(_('Example'))
-        self.suffix_example_card.setToolTip(_('Click example to toggle option'))
-        self.suffix_example_card.set_code_example(
-            _('Generated book suffix example'), flash=flash)
-        self.suffix_example_card.setEnabled(
-            self.append_conversion_suffix.isChecked()
-            if self.append_conversion_suffix.isVisible() else True)
+        self.suffix_example_card.setToolTip(_('Click example to switch option'))
+        fmt = self._suffix_timestamp_format_value()
+        if fmt == SUFFIX_TIMESTAMP_ISO:
+            example = _('Generated book suffix example iso')
+        elif fmt == SUFFIX_TIMESTAMP_COMPACT:
+            example = _('Generated book suffix example compact')
+        elif fmt == SUFFIX_TIMESTAMP_NO_SECONDS:
+            example = _('Generated book suffix example no seconds')
+        else:
+            example = _('Generated book suffix example off')
+        self.suffix_example_card.set_code_example(example, flash=flash)
+        # Keep clickable so users can cycle formats even when Off is selected.
+        self.suffix_example_card.setEnabled(True)
 
     def _update_bilingual_example(self, flash=False):
         self.bilingual_example_card.set_title(_('Example'))
@@ -1116,16 +1375,28 @@ class ConversionDialog(Dialog):
         self.bilingual_example_card.set_bilingual_example(
             primary, secondary, flash=flash)
 
+    def _update_conversion_info_comments_preview(self, _checked=False):
+        '''Show the Comments conversion-info template under the checkbox.'''
+        text = preview_conversion_info_comment_text(
+            self._selected_conversion_type(),
+            max(0, self.input_combo.currentIndex()),
+            max(0, self.output_combo.currentIndex()),
+        )
+        self.store_conversion_info_in_comments_help.setText(text)
+        self.store_conversion_info_in_comments.setToolTip('')
+        # Keep preview visible when unchecked; dim muted style when off.
+        style_help_label(
+            self.store_conversion_info_in_comments_help,
+            enabled=self.store_conversion_info_in_comments.isChecked())
+
     def _update_advanced_help_and_examples(self):
         self.quotation_marks_help.setText(_('Quotation marks help'))
         self.include_metadata_help.setText(_('Include metadata help'))
         self.include_metadata.setToolTip('')
         self._update_cjk_font_policy_help_text()
         self.append_conversion_suffix_help.setText(_('Generated book suffix help'))
-        self.append_conversion_suffix.setToolTip('')
-        self.store_conversion_info_in_comments_help.setText(_(
-            'Store conversion info in Comments help'))
-        self.store_conversion_info_in_comments.setToolTip('')
+        self.suffix_timestamp_format_combo.setToolTip('')
+        self._update_conversion_info_comments_preview()
         self.bilingual_annotation_help.setText(_('Bilingual annotation help'))
         self.bilingual_annotation.setToolTip('')
         self.bilingual_mode_label.setText(_('Bilingual original mode'))
@@ -1159,10 +1430,12 @@ class ConversionDialog(Dialog):
     def _on_suffix_example_clicked(self):
         if not self.suffix_example_row.isVisible():
             return
-        self.append_conversion_suffix.setChecked(
-            not self.append_conversion_suffix.isChecked())
+        combo = self.suffix_timestamp_format_combo
+        if combo.count() <= 0:
+            return
+        combo.setCurrentIndex((combo.currentIndex() + 1) % combo.count())
 
-    def _on_append_conversion_suffix_changed(self, _checked=False):
+    def _on_suffix_timestamp_format_changed(self, _index=0):
         self._update_suffix_example(flash=True)
 
     def _on_bilingual_mode_changed(self, _checked=False):
@@ -1337,14 +1610,29 @@ class ConversionDialog(Dialog):
         output_locale = self.output_combo.currentIndex()
         conversion_type = self._selected_conversion_type()
 
-        # 繁体来源 + 横排简体目标：默认采用简体横排符号体系。
-        if orientation == 1 and output_locale == 0 and (conversion_type == 1 or input_locale in (1, 2)):
-            return 1, True
-        # 简体来源 + 竖排繁体目标：默认采用繁体竖排符号体系。
-        if orientation == 2 and output_locale in (1, 2) and (conversion_type == 2 or input_locale == 0):
-            return 2, True
-        # 其余场景保持保守默认。
-        return 0, False
+        # 引号随简繁转换方向关联（按目标文种），不依赖文字方向。
+        # 繁→简 → 「」『』改为 “”‘’；简→繁 → “”‘’改为 「」『』。
+        if conversion_type == 1:
+            quotation_type = 1
+        elif conversion_type == 2:
+            quotation_type = 2
+        else:
+            quotation_type = 0
+
+        # 横竖标点仍依赖文字方向；仅在方向明确时建议开启。
+        update_punctuation = False
+        if orientation == 1 and output_locale == 0 and (
+                conversion_type == 1 or input_locale in (1, 2)):
+            update_punctuation = True
+            if quotation_type == 0:
+                quotation_type = 1
+        elif orientation == 2 and output_locale in (1, 2) and (
+                conversion_type == 2 or input_locale == 0):
+            update_punctuation = True
+            if quotation_type == 0:
+                quotation_type = 2
+
+        return quotation_type, update_punctuation
 
     def _apply_symbol_profile_default(self, force=False):
         if self.symbol_profile_user_set and not force:
@@ -1430,6 +1718,10 @@ class ConversionDialog(Dialog):
         self.prefs['use_jieba_segmentation'] = self.use_jieba_segmentation.isChecked()
         self.prefs.commit()
 
+    def _on_use_mediawiki_zhconv_changed(self, _state):
+        self.prefs['use_mediawiki_zhconv'] = self.use_mediawiki_zhconv.isChecked()
+        self.prefs.commit()
+
     def apply_translations(self):
         self.setWindowTitle(_('Chinese Conversion'))
         self.ui_lang_label.setText(_('Interface Language:'))
@@ -1469,6 +1761,8 @@ class ConversionDialog(Dialog):
         self._update_target_phrases_help_text()
         self.use_jieba_segmentation.setText(_('Use Jieba segmentation (experimental)'))
         self._update_jieba_segmentation_help_text()
+        self.use_mediawiki_zhconv.setText(_('MediaWiki post-processing'))
+        self._update_mediawiki_zhconv_help_text()
 
         self.text_direction_group_box.setTitle(_('Text Direction:'))
         self.text_direction_group_box.setToolTip('')
@@ -1490,8 +1784,8 @@ class ConversionDialog(Dialog):
         self.include_metadata.setText(_('Include metadata'))
         self.cjk_font_policy_label.setText(_('CJK font policy'))
         self._populate_cjk_font_policy_combo()
-        self.append_conversion_suffix.setText(_(
-            'Add identifying suffix to generated book title'))
+        self.suffix_timestamp_format_label.setText(_('Suffix timestamp format'))
+        self._populate_suffix_timestamp_format_combo()
         self.store_conversion_info_in_comments.setText(_(
             'Store conversion info in Comments'))
         self.bilingual_heading.setText(_('Bilingual annotation section'))
@@ -1541,6 +1835,8 @@ class ConversionDialog(Dialog):
                 normalize_ui_language(self.prefs.get('ui_language', detect_calibre_ui_language())))
         self.block_signals(False)
         self.update_gui()
+        # 勾选转换方向时重新关联符号（与地区默认联动一致）。
+        self.symbol_profile_user_set = False
         self._apply_symbol_profile_default()
 
     def block_signals(self, state):
@@ -1549,6 +1845,7 @@ class ConversionDialog(Dialog):
         self.output_combo.blockSignals(state)
         self.use_target_phrases.blockSignals(state)
         self.use_jieba_segmentation.blockSignals(state)
+        self.use_mediawiki_zhconv.blockSignals(state)
         self.no_conversion_button.blockSignals(state)
         self.trad_to_simp_button.blockSignals(state)
         self.simp_to_trad_button.blockSignals(state)
@@ -1565,7 +1862,7 @@ class ConversionDialog(Dialog):
         self.update_punctuation.blockSignals(state)
         self.include_metadata.blockSignals(state)
         self.cjk_font_policy_combo.blockSignals(state)
-        self.append_conversion_suffix.blockSignals(state)
+        self.suffix_timestamp_format_combo.blockSignals(state)
         self.store_conversion_info_in_comments.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
         self.bilingual_mode_full_button.blockSignals(state)
@@ -1584,6 +1881,7 @@ class ConversionDialog(Dialog):
         self.output_combo.setCurrentIndex(self.prefs['output_locale'])
         self.use_target_phrases.setChecked(bool(self.prefs.get('use_target_phrases', True)))
         self.use_jieba_segmentation.setChecked(bool(self.prefs.get('use_jieba_segmentation', False)))
+        self.use_mediawiki_zhconv.setChecked(bool(self.prefs.get('use_mediawiki_zhconv', True)))
 
         if self.prefs['conversion_type'] == 0:
             self.no_conversion_button.setChecked(True)
@@ -1619,8 +1917,12 @@ class ConversionDialog(Dialog):
         policy = normalize_cjk_font_policy(self.prefs.get('cjk_font_policy', 'keep'))
         policy_idx = self.cjk_font_policy_combo.findData(policy)
         self.cjk_font_policy_combo.setCurrentIndex(max(0, policy_idx))
-        self.append_conversion_suffix.setChecked(bool(
-            self.prefs.get('append_conversion_suffix', True)))
+        suffix_fmt = normalize_suffix_timestamp_format(
+            self.prefs.get('suffix_timestamp_format'),
+            append_conversion_suffix=self.prefs.get(
+                'append_conversion_suffix', True))
+        suffix_idx = self.suffix_timestamp_format_combo.findData(suffix_fmt)
+        self.suffix_timestamp_format_combo.setCurrentIndex(max(0, suffix_idx))
         self.store_conversion_info_in_comments.setChecked(bool(
             self.prefs.get('store_conversion_info_in_comments', True)))
         self.bilingual_annotation.setChecked(bool(
@@ -1739,6 +2041,7 @@ class ConversionDialog(Dialog):
         self._update_quotation_example()
         if bilingual_enabled:
             self._update_bilingual_example()
+        self._update_conversion_info_comments_preview()
         self._sync_ocr_with_remove_images()
 
 
@@ -1824,6 +2127,9 @@ class ConversionDialog(Dialog):
             self._set_text_direction_enabled(False)
         else:
             self._set_text_direction_enabled(True)
+        # 转换范围变化会重置文字方向；同步刷新符号建议，
+        # 使引号仍随当前简繁方向保持关联（标点在方向=不更改时关闭）。
+        self._apply_symbol_profile_default()
 
     def savePrefs(self):
         # save the current settings into the preferences
@@ -1859,6 +2165,7 @@ class ConversionDialog(Dialog):
 
         self.prefs['use_target_phrases'] = self.use_target_phrases.isChecked()
         self.prefs['use_jieba_segmentation'] = self.use_jieba_segmentation.isChecked()
+        self.prefs['use_mediawiki_zhconv'] = self.use_mediawiki_zhconv.isChecked()
 
         if self.quotation_trad_to_simp_button.isChecked():
             self.prefs['quotation_type'] = 1
@@ -1876,8 +2183,10 @@ class ConversionDialog(Dialog):
         self.prefs['update_punctuation'] = self.update_punctuation.isChecked()
         self.prefs['include_metadata'] = self.include_metadata.isChecked()
         self.prefs['cjk_font_policy'] = self._cjk_font_policy_value()
-        self.prefs['append_conversion_suffix'] = (
-            self.append_conversion_suffix.isChecked())
+        suffix_fmt = self._suffix_timestamp_format_value()
+        self.prefs['suffix_timestamp_format'] = suffix_fmt
+        self.prefs['append_conversion_suffix'] = suffix_timestamp_enabled(
+            suffix_fmt)
         self.prefs['store_conversion_info_in_comments'] = (
             self.store_conversion_info_in_comments.isChecked())
         self.prefs['bilingual_annotation'] = (
@@ -1905,6 +2214,9 @@ class ConversionDialog(Dialog):
 class LibraryConversionStatusDialog(QDialog):
     '''Processing / complete status and text preview when converting library books.'''
 
+    # Fixed one-line status rows under the progress bar (stable layout).
+    _STATUS_FIELD_KEYS = ('book', 'stage', 'percent', 'elapsed', 'eta', 'chars')
+
     def __init__(self, parent, ocr_enabled=True):
         QDialog.__init__(self, parent)
         self.setWindowTitle(_('Chinese Conversion'))
@@ -1922,19 +2234,41 @@ class LibraryConversionStatusDialog(QDialog):
         self.headline.setFont(font)
         layout.addWidget(self.headline)
 
-        self.status_label = QLabel()
-        self.status_label.setWordWrap(True)
-        layout.addWidget(self.status_label)
-
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setRange(0, 1)
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
 
+        # Dedicated one-line regions so length changes do not reflow/wrap.
+        # Keep rows compact so the log preview gets more vertical space.
+        self.status_labels = {}
+        status_panel = QWidget(self)
+        status_layout = QVBoxLayout(status_panel)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(0)
+        line_height = max(self.fontMetrics().height(), 1)
+        for key in self._STATUS_FIELD_KEYS:
+            label = QLabel(status_panel)
+            label.setWordWrap(False)
+            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            label.setMinimumHeight(line_height)
+            label.setMaximumHeight(line_height)
+            status_layout.addWidget(label)
+            self.status_labels[key] = label
+        status_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        status_panel.setMaximumHeight(line_height * len(self._STATUS_FIELD_KEYS))
+        # Compatibility alias used by older call sites / mental model.
+        self.status_label = self.status_labels['book']
+        layout.addWidget(status_panel)
+
         self.preview = QPlainTextEdit(self)
         self.preview.setReadOnly(True)
-        self.preview.setMinimumHeight(320)
+        self.preview.setMinimumHeight(400)
         layout.addWidget(self.preview, stretch=1)
+        self._last_progress_log = None
+        self._last_progress_log_key = None
+        self._last_progress_book = None
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Close)
         self.hide_btn = self.button_box.addButton(
@@ -1944,16 +2278,28 @@ class LibraryConversionStatusDialog(QDialog):
         self.close_btn.setEnabled(False)
         self.close_btn.setText(_('Close'))
         self.button_box.rejected.connect(self.reject)
-        layout.addWidget(make_section_divider(self))
         layout.addWidget(self.button_box)
         apply_dialog_stylesheet(self)
 
         self.set_processing()
 
+    def _set_status_fields(self, fields):
+        '''Update fixed status rows; missing keys become blank (row kept).'''
+        fields = fields or {}
+        for key in self._STATUS_FIELD_KEYS:
+            label = self.status_labels[key]
+            text = fields.get(key) or ''
+            label.setText(text)
+            label.setToolTip(text)
+
+    def _set_status_message(self, message):
+        '''Single summary message on the first row; clear the rest.'''
+        self._set_status_fields({'book': message or ''})
+
     def set_processing(self):
         self._processing = True
         self.headline.setText(_('Processing progress'))
-        self.status_label.setText(_('Preparing background conversion…'))
+        self._set_status_message(_('Preparing background conversion…'))
         self.hide_btn.setEnabled(True)
         self.hide_btn.setVisible(True)
         self.close_btn.setEnabled(False)
@@ -1962,9 +2308,10 @@ class LibraryConversionStatusDialog(QDialog):
         self._processing = False
         self.headline.setText(_('Processing progress'))
         if completed_images is None or not self._ocr_enabled:
-            self.status_label.setText(_('Processing complete'))
+            self._set_status_message(_('Processing complete'))
         else:
-            self.status_label.setText(_('OCR completed status').format(completed_images))
+            self._set_status_message(
+                _('OCR completed status').format(completed_images))
         self.progress_bar.setValue(self.progress_bar.maximum())
         self.hide_btn.setEnabled(False)
         self.hide_btn.setVisible(False)
@@ -1977,17 +2324,47 @@ class LibraryConversionStatusDialog(QDialog):
         self.headline.setText(_('Processing progress'))
         if self.close_btn.isEnabled():
             if not self.status_label.text():
-                self.status_label.setText(_('Processing complete'))
+                self._set_status_message(_('Processing complete'))
         else:
             if not self.status_label.text():
-                self.status_label.setText(_('Preparing background conversion…'))
+                self._set_status_message(_('Preparing background conversion…'))
 
     def set_progress(self, current, total, message):
         total = max(int(total or 0), 1)
         current = max(0, min(int(current or 0), total))
         self.progress_bar.setRange(0, total)
         self.progress_bar.setValue(current)
-        self.status_label.setText(message or _('Processing…'))
+        book_key = None
+        log_key = None
+        text = ''
+        if isinstance(message, dict):
+            self._set_status_fields(message)
+            text = message.get('log') or ''
+            book_key = message.get('book') or ''
+            log_key = message.get('log_key')
+            if log_key is None:
+                log_key = text
+        else:
+            text = message or _('Processing…')
+            self._set_status_message(text)
+            log_key = text
+        # Status rows track every tick; the log only records meaningful stage
+        # changes (html 1/25…25/25 collapse to one line; bare 0%/100% skipped).
+        if text and log_key != self._last_progress_log_key:
+            if (
+                book_key
+                and self._last_progress_book
+                and book_key != self._last_progress_book
+            ):
+                self.preview.appendPlainText('')
+            if book_key:
+                self._last_progress_book = book_key
+            self._last_progress_log = text
+            self._last_progress_log_key = log_key
+            self.preview.appendPlainText(text)
+            self.preview.verticalScrollBar().setValue(
+                self.preview.verticalScrollBar().maximum())
+        QApplication.processEvents()
 
     def _hide_while_processing(self):
         self.log_processing(

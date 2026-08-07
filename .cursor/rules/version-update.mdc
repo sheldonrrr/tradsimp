@@ -15,10 +15,21 @@ alwaysApply: true
 
 `setup.py` reads the version from `__init__.py` — do not hardcode a second version there.
 
-Verify:
+## MobileRead release post (required each bump)
+
+Create/update `release/mobileread-post-X.Y.Z.md` (BBCode for the forum thread).
+
+- Remove or replace the previous `release/mobileread-post-*.md` so only the **current** version post remains.
+- Keep the same overall skeleton as the prior post (title, links, install steps, zip name).
+- Write **simple, brief, user-facing** highlights — not developer/implementation detail.
+- Prefer a short bullet list of what users will notice; avoid jargon (API names, file paths, internal option keys).
+- If the user states the release focus, lead with that; otherwise infer from recent user-visible changes.
+
+Verify with:
 
 ```bash
 grep -n "PLUGIN_VERSION\|PLUGIN_VERSION_TUPLE\|Current version\|当前版本\|目前版本" __init__.py README.md README.zh-CN.md README.zh-TW.md
+ls release/mobileread-post-*.md
 ```
 
 ## Build / ship
@@ -43,3 +54,4 @@ Related: `/pack` packages; `/push` commits and pushes.
 
 - Ship a zip whose embedded `package-version.txt` disagrees with `__init__.py`
 - Leave README version banners stale
+- Skip the MobileRead post, or write a long technical changelog there

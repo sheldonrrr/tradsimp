@@ -43,6 +43,10 @@ from calibre_plugins.chinese_text_conversion.ocr_compat import (
     get_preferred_ocr_languages, get_missing_ocr_language_notice,
     format_ocr_language_notice_message,
 )
+from calibre_plugins.chinese_text_conversion.library_flow import (
+    SUFFIX_TIMESTAMP_DEFAULT, SUFFIX_TIMESTAMP_OFF,
+    normalize_suffix_timestamp_format, suffix_timestamp_enabled,
+)
 
 '''
 TradSimpChinese
@@ -95,6 +99,8 @@ BILINGUAL_ANNOTATION_MODE = 17  # 'full' | 'changed' — bilingual original line
 STORE_CONVERSION_INFO_IN_COMMENTS = 18  # True/False — write conversion stats into Comments
 REMOVE_EMBEDDED_FONTS = 19  # True/False — drop embedded font files for lighter books
 REMOVE_IMAGE_FILES = 20  # True/False — drop image files for pure-text / faster processing
+SUFFIX_TIMESTAMP_FORMAT = 21  # 'off' | 'iso' | 'compact' | 'no_seconds'
+USE_MEDIAWIKI_ZHCONV = 22  # True/False — optional MediaWiki zhconv after OpenCC
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -539,6 +545,8 @@ class TradSimpChinese(Tool):
                     apply_converter_segmentation(self.converter, criteria, verbose=True)
                     apply_converter_force_pivot(
                         self.converter, criteria, verbose=True)
+                    apply_converter_mediawiki_zhconv(
+                        self.converter, criteria, verbose=True)
                     self.process_files(criteria)
                     QApplication.restoreOverrideCursor()
             except Exception:
@@ -666,6 +674,7 @@ def prepare_prefs(prefs):
         prefs['bilingual_annotation_mode'] = 'full'
         prefs['force_pivot_conversion'] = True
         prefs['append_conversion_suffix'] = True
+        prefs['suffix_timestamp_format'] = SUFFIX_TIMESTAMP_DEFAULT
         prefs['store_conversion_info_in_comments'] = True
         prefs['cjk_font_policy'] = 'keep'
         prefs['remove_embedded_fonts'] = False
@@ -685,6 +694,7 @@ def prepare_prefs(prefs):
     prefs.defaults['output_locale_user_set'] = False
     prefs.defaults['use_target_phrases'] = True
     prefs.defaults['use_jieba_segmentation'] = False
+    prefs.defaults['use_mediawiki_zhconv'] = True
     prefs.defaults['quotation_type'] = 0
     prefs.defaults['output_orientation'] = 0
     prefs.defaults['output_orientation_user_set'] = False
@@ -697,6 +707,7 @@ def prepare_prefs(prefs):
     prefs.defaults['bilingual_annotation_mode'] = 'full'
     prefs.defaults['force_pivot_conversion'] = True
     prefs.defaults['append_conversion_suffix'] = True
+    prefs.defaults['suffix_timestamp_format'] = SUFFIX_TIMESTAMP_DEFAULT
     prefs.defaults['store_conversion_info_in_comments'] = True
     prefs.defaults['cjk_font_policy'] = 'keep'
     prefs.defaults['remove_embedded_fonts'] = False
@@ -714,6 +725,21 @@ def prepare_prefs(prefs):
             prefs['use_target_phrases'] = True
             changed = True
         prefs['use_target_phrases_migrated_default_true'] = True
+        changed = True
+
+    # Migrate boolean append_conversion_suffix → suffix_timestamp_format.
+    if 'suffix_timestamp_format' not in prefs:
+        prefs['suffix_timestamp_format'] = normalize_suffix_timestamp_format(
+            None, append_conversion_suffix=prefs.get(
+                'append_conversion_suffix', True))
+        changed = True
+    else:
+        prefs['suffix_timestamp_format'] = normalize_suffix_timestamp_format(
+            prefs.get('suffix_timestamp_format'))
+    # Keep the legacy boolean in sync for older code paths / tooling.
+    enabled = suffix_timestamp_enabled(prefs['suffix_timestamp_format'])
+    if bool(prefs.get('append_conversion_suffix', True)) != enabled:
+        prefs['append_conversion_suffix'] = enabled
         changed = True
 
     if changed:
@@ -751,12 +777,21 @@ def build_criteria(prefs):
         prefs.get('bilingual_annotation', False),
         prefs.get('use_jieba_segmentation', False),
         prefs.get('force_pivot_conversion', True),
-        prefs.get('append_conversion_suffix', True),
+        suffix_timestamp_enabled(prefs.get(
+            'suffix_timestamp_format',
+            normalize_suffix_timestamp_format(
+                None, append_conversion_suffix=prefs.get(
+                    'append_conversion_suffix', True)))),
         normalize_cjk_font_policy(prefs.get('cjk_font_policy', 'keep')),
         normalize_bilingual_mode(prefs.get('bilingual_annotation_mode', 'full')),
         prefs.get('store_conversion_info_in_comments', True),
         prefs.get('remove_embedded_fonts', False),
-        prefs.get('remove_image_files', False))
+        prefs.get('remove_image_files', False),
+        normalize_suffix_timestamp_format(
+            prefs.get('suffix_timestamp_format'),
+            append_conversion_suffix=prefs.get(
+                'append_conversion_suffix', True)),
+        prefs.get('use_mediawiki_zhconv', True))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):
@@ -793,6 +828,81 @@ def apply_converter_force_pivot(converter, criteria, verbose=False):
         print(_('Forced pivot conversion: {0}').format(
             _('enabled') if enabled else _('disabled')))
     return enabled
+
+
+def mediawiki_target_locale(criteria):
+    """
+    Map plugin criteria to a MediaWiki / zhconv locale tag, or None to skip.
+    Uses regional tags (zh-cn/zh-tw/zh-hk) when target phrases are on; otherwise
+    script-only zh-hans / zh-hant. Japan kanji paths are not supported.
+    """
+    if criteria is None or len(criteria) <= USE_MEDIAWIKI_ZHCONV:
+        return None
+    if not criteria[USE_MEDIAWIKI_ZHCONV]:
+        return None
+    conversion_type = criteria[CONVERSION_TYPE]
+    if conversion_type == 0:
+        return None
+    output_locale = criteria[OUTPUT_LOCALE]
+    if output_locale == 3:
+        return None
+    use_phrases = bool(criteria[USE_TARGET_PHRASES])
+    if conversion_type == 1:
+        # Traditional -> Simplified (mainland only in supported configs)
+        return 'zh-cn' if use_phrases else 'zh-hans'
+    if conversion_type == 2:
+        # Simplified -> Traditional
+        if output_locale == 1:
+            return 'zh-hk' if use_phrases else 'zh-hant'
+        if output_locale == 2:
+            return 'zh-tw' if use_phrases else 'zh-hant'
+        return 'zh-hant'
+    if conversion_type == 3:
+        # Traditional -> Traditional (regional)
+        if output_locale == 1:
+            return 'zh-hk' if use_phrases else 'zh-hant'
+        if output_locale == 2:
+            return 'zh-tw' if use_phrases else 'zh-hant'
+        return 'zh-hant'
+    return None
+
+
+def apply_converter_mediawiki_zhconv(converter, criteria, verbose=False):
+    """
+    Optional MediaWiki zhconv post-pass after OpenCC.
+    Uses vendored pure-Python gumblex/zhconv (same MediaWiki tables family as
+    zhconv-rs). Gracefully no-ops if tables fail to load.
+    """
+    locale = mediawiki_target_locale(criteria)
+    conversion = getattr(converter, 'conversion', None)
+    if (
+            locale is None
+            or conversion in (None, 'no_conversion', 'unsupported_conversion')):
+        if hasattr(converter, 'set_post_convert'):
+            converter.set_post_convert(None)
+        if verbose:
+            print(_('MediaWiki zhconv layer: {0}').format(_('disabled')))
+        return None
+
+    from calibre_plugins.chinese_text_conversion.resources.zhconv_loader import (
+        convert_text, is_available)
+
+    if not is_available():
+        if hasattr(converter, 'set_post_convert'):
+            converter.set_post_convert(None)
+        if verbose:
+            print(_('MediaWiki zhconv layer unavailable; skipping'))
+        return None
+
+    label = 'zhconv:{0}'.format(locale)
+
+    def _post(text, _locale=locale):
+        return convert_text(text, _locale)
+
+    converter.set_post_convert(_post, label=label)
+    if verbose:
+        print(_('MediaWiki zhconv layer: {0}').format(label))
+    return locale
 
 
 def getPrefs():
@@ -1454,7 +1564,9 @@ def cli_get_criteria(args):
         normalize_bilingual_mode(getattr(args, 'bilingual_mode_opt', 'full')),
         bool(prefs.get('store_conversion_info_in_comments', True)),
         bool(prefs.get('remove_embedded_fonts', False)),
-        bool(prefs.get('remove_image_files', False)))
+        bool(prefs.get('remove_image_files', False)),
+        SUFFIX_TIMESTAMP_OFF,
+        bool(getattr(args, 'mediawiki_opt', False)))
 
     return criteria
 
@@ -1683,6 +1795,9 @@ def main(argv, plugin_version, usage=None):
     parser.add_argument('-j', '--jieba', dest='jieba_opt',
                         help=_('Use Jieba segmentation before OpenCC conversion (Default: False)'),
                         action='store_true')
+    parser.add_argument('-mw', '--mediawiki', dest='mediawiki_opt',
+                        help=_('Apply MediaWiki post-processing after OpenCC (Default: False)'),
+                        action='store_true')
     parser.add_argument('-ba', '--bilingual-annotation', dest='bilingual_opt',
                         help=_('Keep original text with converted forms as bilingual annotations (Default: False)'),
                         action='store_true')
@@ -1787,6 +1902,8 @@ def main(argv, plugin_version, usage=None):
         apply_converter_segmentation(
             converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
         apply_converter_force_pivot(
+            converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
+        apply_converter_mediawiki_zhconv(
             converter, criteria, verbose=bool(args.verbose_opt and not args.quiet_opt))
 ##        converter.clear_counts()
 

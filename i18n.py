@@ -224,64 +224,105 @@ _MESSAGES = {
     'Select the desired region of the output': _T(
         'Select the desired region of the output', '选择输出文本的目标地区', '選擇輸出文字的目標地區'),
     'Use output target phrases if possible': _T(
-        'Use output target phrases if possible', '尽可能使用目标地区的惯用词语', '盡可能使用目標地區的慣用詞語'),
+        'Replace with target-region wording',
+        '替换为目标地区用词',
+        '替換為目標地區用詞'),
     'Use target region phrases help': _T(
-        'Besides character conversion, replace whole phrases with the target region’s usual wording '
-        '(e.g. 软件 → 軟體, 程序 → 程式); unchecked means mostly single-character changes only. '
-        'Only some input/output combinations support this.',
-        '除简繁字形外，还会把整词改成输出地区常用说法（例如「软件」→「軟體」、「程序」→「程式」）；'
-        '不勾选则主要只改单字，不改这类词语；且仅部分「输入/输出」组合支持。',
-        '除簡繁字形外，還會把整詞改成輸出地區常用說法（例如「软件」→「軟體」、「程序」→「程式」）；'
-        '不勾選則主要只改單字，不改這類詞語；且僅部分「輸入/輸出」組合支援。'),
+        'Chooses which OpenCC phrase dictionary to use: swap regional vocabulary '
+        '(e.g. 软件 → 軟體, 程序 → 程式), not how words are segmented. '
+        'Off ≈ character forms only. Only some input/output pairs support this. '
+        'Different from “smarter word segmentation” below.',
+        '决定用哪套地区词语词典：把说法换成目标地区常用词（如「软件」→「軟體」、「程序」→「程式」），'
+        '不负责怎么分词。不勾选则主要只改字形。仅部分输入/输出组合支持。'
+        '与下方「智能分词后再转换」不是同一回事。',
+        '決定用哪套地區詞語詞典：把說法換成目標地區常用詞（如「软件」→「軟體」、「程序」→「程式」），'
+        '不負責怎麼分詞。不勾選則主要只改字形。僅部分輸入/輸出組合支援。'
+        '與下方「智慧分詞後再轉換」不是同一回事。'),
     'Check to allow region specific word replacements if available': _T(
         'Check to allow region specific word replacements if available',
         '勾选以在可用时进行地区惯用词语替换', '勾選以在可用時進行地區慣用詞語替換'),
     'Use Jieba segmentation (experimental)': _T(
-        'Convert by whole words (more accurate)',
-        '按词语转换（更准确）',
-        '按詞語轉換（更準確）'),
+        'Smarter word segmentation before convert',
+        '智能分词后再转换',
+        '智慧分詞後再轉換'),
     'Use Jieba segmentation help': _T(
-        'Prefer converting full words/phrases instead of character by character. '
-        'Turn on if phrases look wrong after conversion '
-        '(e.g. “王后” becoming the wrong form). First use may be a bit slower.',
-        '优先按完整词语转换，而不是逐字硬转。'
-        '若转换后词组不对（例如「王后」变成错误字形），可勾选。'
+        'Changes how text is cut into words before OpenCC runs (Jieba instead of default mmseg), '
+        'so compounds are less often mis-split (e.g. 王后). '
+        'Does not choose Taiwan/Hong Kong/Mainland wording—that is the option above. '
+        'First use may be a bit slower.',
+        '改变转换前如何切词（用 Jieba 替代默认 mmseg），减少词组被拆错（如「王后」）。'
+        '不负责两岸/港澳用词替换——那是上面的「替换为目标地区用词」。'
         '首次使用可能稍慢。',
-        '優先按完整詞語轉換，而不是逐字硬轉。'
-        '若轉換後詞組不對（例如「王后」變成錯誤字形），可勾選。'
+        '改變轉換前如何切詞（用 Jieba 替代預設 mmseg），減少詞組被拆錯（如「王后」）。'
+        '不負責兩岸/港澳用詞替換——那是上面的「替換為目標地區用詞」。'
         '首次使用可能稍慢。'),
     'OpenCC segmentation mode: {0}': _T(
         'OpenCC segmentation mode: {0}',
         'OpenCC 分词模式：{0}',
         'OpenCC 分詞模式：{0}'),
     'Segmentation: Jieba': _T(
-        'Convert by whole words: on',
-        '按词语转换：开',
-        '按詞語轉換：開'),
+        'Smarter word segmentation: on',
+        '智能分词后再转换：开',
+        '智慧分詞後再轉換：開'),
     'Segmentation: OpenCC mmseg': _T(
-        'Convert by whole words: off',
-        '按词语转换：关',
-        '按詞語轉換：關'),
+        'Smarter word segmentation: off',
+        '智能分词后再转换：关',
+        '智慧分詞後再轉換：關'),
     'Jieba segmentation samples:': _T(
-        'Whole-word conversion samples:',
-        '按词语转换样例：',
-        '按詞語轉換樣例：'),
+        'Word-segmentation samples:',
+        '智能分词样例：',
+        '智慧分詞樣例：'),
     'No Jieba segmentation samples recorded for this book.': _T(
-        'No whole-word conversion samples recorded for this book.',
-        '本书未记录到按词语转换的样例。',
-        '本書未記錄到按詞語轉換的樣例。'),
+        'No word-segmentation samples recorded for this book.',
+        '本书未记录到智能分词样例。',
+        '本書未記錄到智慧分詞樣例。'),
     '----Log Jieba samples begin----': _T(
-        '----Log whole-word samples begin----',
-        '----按词语转换样例开始----',
-        '----按詞語轉換樣例開始----'),
+        '----Log word-segmentation samples begin----',
+        '----智能分词样例开始----',
+        '----智慧分詞樣例開始----'),
     '----Log Jieba samples end----': _T(
-        '----Log whole-word samples end----',
-        '----按词语转换样例结束----',
-        '----按詞語轉換樣例結束----'),
+        '----Log word-segmentation samples end----',
+        '----智能分词样例结束----',
+        '----智慧分詞樣例結束----'),
     'Use Jieba segmentation before OpenCC conversion (Default: False)': _T(
-        'Convert by whole words for better phrase accuracy (Default: off)',
-        '按词语转换，提高词组准确度（默认：关）',
-        '按詞語轉換，提高詞組準確度（預設：關）'),
+        'Smarter word segmentation before OpenCC (Default: off)',
+        '智能分词后再转换（默认：关）',
+        '智慧分詞後再轉換（預設：關）'),
+    'MediaWiki post-processing': _T(
+        'MediaWiki post-processing',
+        'MediaWiki后处理',
+        'MediaWiki後處理'),
+    'MediaWiki post-processing help': _T(
+        'More friendly handling of some regional vocabulary. '
+        'After OpenCC, applies an extra MediaWiki conversion pass '
+        'for Wikipedia-style proper nouns and regional phrases; '
+        'may change some OpenCC choices.',
+        '对于一些本地词汇会更加友好。'
+        '在 OpenCC 之后再套一层 MediaWiki 转换，有助于维基风格专名与地区词更稳；'
+        '可能改写部分 OpenCC 结果。',
+        '對於一些本地詞彙會更加友好。'
+        '在 OpenCC 之後再套一層 MediaWiki 轉換，有助於維基風格專名與地區詞更穩；'
+        '可能改寫部分 OpenCC 結果。'),
+    'Apply MediaWiki post-processing after OpenCC (Default: False)': _T(
+        'Apply MediaWiki post-processing after OpenCC (Default: off)',
+        'OpenCC 后再做 MediaWiki 后处理（默认：关）',
+        'OpenCC 後再做 MediaWiki 後處理（預設：關）'),
+    'MediaWiki zhconv layer: {0}': _T(
+        'MediaWiki zhconv layer: {0}',
+        'MediaWiki zhconv 层：{0}',
+        'MediaWiki zhconv 層：{0}'),
+    'MediaWiki zhconv layer unavailable; skipping': _T(
+        'MediaWiki zhconv layer unavailable; skipping',
+        'MediaWiki zhconv 不可用，已跳过',
+        'MediaWiki zhconv 不可用，已跳過'),
+    'MediaWiki zhconv: on': _T(
+        'MediaWiki zhconv: on',
+        'MediaWiki zhconv：开',
+        'MediaWiki zhconv：開'),
+    'MediaWiki zhconv: off': _T(
+        'MediaWiki zhconv: off',
+        'MediaWiki zhconv：关',
+        'MediaWiki zhconv：關'),
     'Quotation Marks': _T('Set language symbols', '设置语言符号', '設定語言符號'),
     'Advanced options': _T('Advanced options', '高级选项', '進階選項'),
     'Output and fonts': _T('Output and fonts', '输出与字体', '輸出與字體'),
@@ -311,26 +352,35 @@ _MESSAGES = {
         'Switch quotation marks to match the target Chinese form.',
         '按目标文种切换引号样式。',
         '依目標文種切換引號樣式。'),
+    # Script-demo phrases (glyphs differ); pick by source script, not UI language.
+    'Quote example text simp': _T(
+        '万里长城',
+        '万里长城',
+        '万里长城'),
+    'Quote example text trad': _T(
+        '萬里長城',
+        '萬里長城',
+        '萬里長城'),
     'Quote example no change': _T(
-        '“你好” (unchanged)',
-        '“你好”（不更改）',
-        '“你好”（不變更）'),
+        '“万里长城”',
+        '“万里长城”',
+        '「萬里長城」'),
     'Quote example to trad': _T(
-        '“你好” → 「你好」',
-        '“你好” → 「你好」',
-        '“你好” → 「你好」'),
+        '“万里长城” → 「萬里長城」',
+        '“万里长城” → 「萬里長城」',
+        '“万里长城” → 「萬里長城」'),
     'Quote example to simp': _T(
-        '「你好」 → “你好”',
-        '「你好」 → “你好”',
-        '「你好」 → “你好”'),
+        '「萬里長城」 → “万里长城”',
+        '「萬里長城」 → “万里长城”',
+        '「萬里長城」 → “万里长城”'),
     'Include metadata': _T(
         'Include metadata',
         '包含 Metadata 信息',
         '包含 Metadata 資訊'),
     'Include metadata help': _T(
         'Also convert title, authors, tags, publisher, and Comments.',
-        '同时转换书名、作者、标签、出版商和简介（Comments）。',
-        '同時轉換書名、作者、標籤、出版商和簡介（Comments）。'),
+        '同时转换书名、作者、标签、出版商和简介。',
+        '同時轉換書名、作者、標籤、出版商和簡介。'),
     'CJK font policy': _T(
         'Chinese font strategy',
         '中文字体策略',
@@ -375,18 +425,55 @@ _MESSAGES = {
         'Add identifying suffix to generated book title',
         '为新书标题增加识别后缀',
         '為新書標題增加識別後綴'),
+    'Suffix timestamp format': _T(
+        'Suffix timestamp format',
+        '后缀时间戳格式',
+        '後綴時間戳格式'),
+    'Suffix timestamp off': _T(
+        'Off',
+        '不开启',
+        '不開啟'),
+    'Suffix timestamp iso': _T(
+        'ISO-like (sortable)',
+        'ISO 风格（便于排序）',
+        'ISO 風格（便於排序）'),
+    'Suffix timestamp compact': _T(
+        'Compact',
+        '紧凑式',
+        '緊湊式'),
+    'Suffix timestamp no seconds': _T(
+        'No seconds',
+        '不含秒',
+        '不含秒'),
     'Generated book suffix help': _T(
-        'Append a short marker (form, region, time) to the new book title.',
-        '在新书标题末尾加上识别标记（文种、地区、时间）。',
-        '在新書標題末尾加上識別標記（文種、地區、時間）。'),
+        'Append a short marker (form, region, optional timestamp) to the new book title. '
+        'Choose Off to skip the identifying suffix.',
+        '在新书标题末尾加上识别标记（文种、地区、可选时间戳）。选「不开启」则不加识别后缀。',
+        '在新書標題末尾加上識別標記（文種、地區、可選時間戳）。選「不開啟」則不加識別後綴。'),
     'Generated book suffix example': _T(
         'BookTitle_繁体中文_香港_07-29_21-34',
         '书名_繁体中文_香港_07-29_21-34',
         '書名_繁體中文_香港_07-29_21-34'),
+    'Generated book suffix example off': _T(
+        'BookTitle',
+        '书名',
+        '書名'),
+    'Generated book suffix example iso': _T(
+        'BookTitle_繁体中文_香港_2026-08-06_14-23-09',
+        '书名_繁体中文_香港_2026-08-06_14-23-09',
+        '書名_繁體中文_香港_2026-08-06_14-23-09'),
+    'Generated book suffix example compact': _T(
+        'BookTitle_繁体中文_香港_20260806_142309',
+        '书名_繁体中文_香港_20260806_142309',
+        '書名_繁體中文_香港_20260806_142309'),
+    'Generated book suffix example no seconds': _T(
+        'BookTitle_繁体中文_香港_2026-08-06_14-23',
+        '书名_繁体中文_香港_2026-08-06_14-23',
+        '書名_繁體中文_香港_2026-08-06_14-23'),
     'Store conversion info in Comments': _T(
         'Store conversion info in Comments',
-        '将转换信息写入简介（Comments）',
-        '將轉換資訊寫入簡介（Comments）'),
+        '将转换信息写入简介',
+        '將轉換資訊寫入簡介'),
     'Store conversion info in Comments help': _T(
         'Append a short conversion summary to Comments for the new book.',
         '在简介里追加本次转换摘要。',
@@ -424,13 +511,13 @@ _MESSAGES = {
         '軟件公司發佈了新程式',
         '軟件公司發佈了新程式'),
     'Bilingual example full secondary': _T(
-        '原文：软件公司发布了新程序',
-        '原文：软件公司发布了新程序',
-        '原文：软件公司发布了新程序'),
+        '软件公司发布了新程序',
+        '软件公司发布了新程序',
+        '软件公司发布了新程序'),
     'Bilingual example changed secondary': _T(
-        '原文：軟　　發佈　　程式',
-        '原文：軟　　發佈　　程式',
-        '原文：軟　　發佈　　程式'),
+        '軟　　發佈　　程式',
+        '軟　　發佈　　程式',
+        '軟　　發佈　　程式'),
     'Bilingual original mode: {0}': _T(
         'Bilingual original mode: {0}',
         '双语原文模式：{0}',
@@ -763,6 +850,30 @@ _MESSAGES = {
         'Fully offline — no large language models.',
         '插件支持横竖排转换、支持繁体中文和简体中文互转，完全离线，不调用大语言模型。',
         '外掛支援橫豎排轉換、支援繁體中文和簡體中文互轉，完全離線，不呼叫大型語言模型。'),
+    '----Log numbered marker----': _T(
+        '---- ({}/{}) {} ----',
+        '----（{}/{}）{}----',
+        '----（{}/{}）{}----'),
+    'Log phase header': _T(
+        '—— ({}/{}) {} ——',
+        '——（{}/{}）{}——',
+        '——（{}/{}）{}——'),
+    'Log phase prepare': _T(
+        'Preparation',
+        '准备',
+        '準備'),
+    'Log phase processing': _T(
+        'Processing',
+        '转换处理',
+        '轉換處理'),
+    'Log phase summary': _T(
+        'Summary',
+        '处理汇总',
+        '處理彙總'),
+    'Log book result divider': _T(
+        'Results for “{}”',
+        '《{}》处理结果',
+        '《{}》處理結果'),
     '----Log book info begin----': _T(
         '----Book processing info begin----',
         '----本书处理信息开始----',
@@ -795,6 +906,14 @@ _MESSAGES = {
         '----Conversion stats end----',
         '----转换统计结束----',
         '----轉換統計結束----'),
+    '----Log conversion diagnostics begin----': _T(
+        '----Conversion diagnostics begin----',
+        '----转换诊断开始----',
+        '----轉換診斷開始----'),
+    '----Log conversion diagnostics end----': _T(
+        '----Conversion diagnostics end----',
+        '----转换诊断结束----',
+        '----轉換診斷結束----'),
     'Conversion stats total characters: {}': _T(
         'Total characters: {}',
         '总字符数：{}',

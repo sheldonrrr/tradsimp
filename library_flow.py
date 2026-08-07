@@ -330,10 +330,60 @@ def make_conversion_suffix():
     return suffix_tag, generated_at
 
 
+# Title-suffix timestamp formats (prefs / criteria).
+SUFFIX_TIMESTAMP_OFF = 'off'
+SUFFIX_TIMESTAMP_ISO = 'iso'              # YYYY-MM-DD_HH-MM-SS
+SUFFIX_TIMESTAMP_COMPACT = 'compact'      # YYYYMMDD_HHMMSS
+SUFFIX_TIMESTAMP_NO_SECONDS = 'no_seconds'  # YYYY-MM-DD_HH-MM
+SUFFIX_TIMESTAMP_DEFAULT = SUFFIX_TIMESTAMP_ISO
+SUFFIX_TIMESTAMP_FORMATS = (
+    SUFFIX_TIMESTAMP_OFF,
+    SUFFIX_TIMESTAMP_ISO,
+    SUFFIX_TIMESTAMP_COMPACT,
+    SUFFIX_TIMESTAMP_NO_SECONDS,
+)
+
+# Longer patterns first so ISO wins over No-seconds; include legacy MM-DD_HH-MM.
+_BOOK_TIME_CODE_BODY = (
+    r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}'
+    r'|\d{8}_\d{6}'
+    r'|\d{4}-\d{2}-\d{2}_\d{2}-\d{2}'
+    r'|\d{2}-\d{2}_\d{2}-\d{2}'
+)
 _BOOK_TIME_CODE_RE = re.compile(
-    r'\d{2}-\d{2}_\d{2}-\d{2}(?:_(?:[2-9]|\d{2,}))?')
+    r'(?:' + _BOOK_TIME_CODE_BODY + r')(?:_(?:[2-9]|\d{2,}))?')
 _BOOK_TIME_CODE_AT_TITLE_END_RE = re.compile(
     r'_(' + _BOOK_TIME_CODE_RE.pattern + r')(?=\s*$)')
+
+
+def normalize_suffix_timestamp_format(value, append_conversion_suffix=None):
+    '''Normalize prefs/criteria to one of SUFFIX_TIMESTAMP_FORMATS.'''
+    text = (value or '').strip().lower() if value is not None else ''
+    if text in SUFFIX_TIMESTAMP_FORMATS:
+        return text
+    # Legacy boolean preference: True → ISO (recommended), False → off.
+    if append_conversion_suffix is not None:
+        return (
+            SUFFIX_TIMESTAMP_ISO if append_conversion_suffix
+            else SUFFIX_TIMESTAMP_OFF)
+    return SUFFIX_TIMESTAMP_DEFAULT
+
+
+def suffix_timestamp_enabled(timestamp_format):
+    return normalize_suffix_timestamp_format(timestamp_format) != SUFFIX_TIMESTAMP_OFF
+
+
+def format_book_timestamp(generated_at, timestamp_format):
+    '''Return the bare timestamp string for the chosen format, or '' if off.'''
+    fmt = normalize_suffix_timestamp_format(timestamp_format)
+    generated_at = generated_at or datetime.now()
+    if fmt == SUFFIX_TIMESTAMP_ISO:
+        return generated_at.strftime('%Y-%m-%d_%H-%M-%S')
+    if fmt == SUFFIX_TIMESTAMP_COMPACT:
+        return generated_at.strftime('%Y%m%d_%H%M%S')
+    if fmt == SUFFIX_TIMESTAMP_NO_SECONDS:
+        return generated_at.strftime('%Y-%m-%d_%H-%M')
+    return ''
 
 
 def collect_generated_book_time_codes(db):
@@ -350,10 +400,17 @@ def collect_generated_book_time_codes(db):
     return codes
 
 
-def make_book_time_code(generated_at=None, used_codes=None):
-    """Return a readable local-time code, adding a sequence when already used."""
+def make_book_time_code(
+        generated_at=None, used_codes=None,
+        timestamp_format=SUFFIX_TIMESTAMP_DEFAULT):
+    """Return a local-time code in the chosen format; add a sequence if used."""
+    fmt = normalize_suffix_timestamp_format(timestamp_format)
+    if fmt == SUFFIX_TIMESTAMP_OFF:
+        return ''
     generated_at = generated_at or datetime.now()
-    base_code = generated_at.strftime('%m-%d_%H-%M')
+    base_code = format_book_timestamp(generated_at, fmt)
+    if not base_code:
+        return ''
     if used_codes is None:
         used_codes = set()
 
@@ -367,10 +424,14 @@ def make_book_time_code(generated_at=None, used_codes=None):
 
 
 def make_converted_title_suffix(
-        conversion_type, output_locale, bilingual=False, enabled=True,
-        time_code=None, generated_at=None, used_time_codes=None):
+        conversion_type, output_locale, bilingual=False, enabled=None,
+        time_code=None, generated_at=None, used_time_codes=None,
+        timestamp_format=SUFFIX_TIMESTAMP_DEFAULT):
     """Build the visible suffix appended to each generated library-book title."""
-    if not enabled:
+    fmt = normalize_suffix_timestamp_format(timestamp_format)
+    if enabled is None:
+        enabled = suffix_timestamp_enabled(fmt)
+    if not enabled or fmt == SUFFIX_TIMESTAMP_OFF:
         return ''
 
     if output_locale == 1:
@@ -386,9 +447,12 @@ def make_converted_title_suffix(
     else:
         target = '中文转换'
 
-    code = time_code or make_book_time_code(generated_at, used_time_codes)
-    if not _BOOK_TIME_CODE_RE.fullmatch(code):
-        raise ValueError('book time code must use MM-DD_HH-MM with an optional sequence')
+    code = time_code or make_book_time_code(
+        generated_at, used_time_codes, timestamp_format=fmt)
+    if not code or not _BOOK_TIME_CODE_RE.fullmatch(code):
+        raise ValueError(
+            'book time code must match a supported timestamp format '
+            'with an optional sequence')
     parts = [target]
     if bilingual and conversion_type != 0:
         parts.append('双语标注')
@@ -415,30 +479,50 @@ def format_elapsed_duration(seconds):
     return '{}:{:02d}'.format(minutes, secs)
 
 
-def format_progress_enrichment(local_done, local_total, book_started_at, converter):
+def format_progress_status_fields(local_done, local_total, book_started_at, converter):
     '''
-    Extra progress fragments: percent, elapsed, ETA, character counts.
-    Joined with " · " for the status label.
+    Structured progress lines for the status dialog (one field per row).
+    Empty strings keep the corresponding fixed row blank without removing it.
     '''
-    parts = []
     total = max(int(local_total or 0), 1)
     done = max(0, min(int(local_done or 0), total))
-    parts.append(_('Progress percent').format(int(round(100.0 * done / total))))
+    fields = {
+        'percent': _('Progress percent').format(int(round(100.0 * done / total))),
+        'elapsed': '',
+        'eta': '',
+        'chars': '',
+    }
 
     elapsed = 0.0
     if book_started_at is not None:
         elapsed = max(0.0, time.time() - float(book_started_at))
-    parts.append(_('Progress elapsed').format(format_elapsed_duration(elapsed)))
+    fields['elapsed'] = _('Progress elapsed').format(format_elapsed_duration(elapsed))
     if done > 0 and done < total and elapsed > 0:
         eta = elapsed * (total - done) / float(done)
-        parts.append(_('Progress eta').format(format_elapsed_duration(eta)))
+        fields['eta'] = _('Progress eta').format(format_elapsed_duration(eta))
 
     if converter is not None:
         processed = int(converter.get_chars_processed() or 0)
         converted = int(converter.get_chars_converted() or 0)
-        parts.append(_('Progress chars').format(
-            '{:,}'.format(processed), '{:,}'.format(converted)))
-    return ' · '.join(parts)
+        fields['chars'] = _('Progress chars').format(
+            '{:,}'.format(processed), '{:,}'.format(converted))
+    return fields
+
+
+def format_progress_enrichment(local_done, local_total, book_started_at, converter):
+    '''
+    Extra progress fragments: percent, elapsed, ETA, character counts.
+    Joined with " · " for log lines.
+    '''
+    fields = format_progress_status_fields(
+        local_done, local_total, book_started_at, converter)
+    parts = [
+        fields.get('percent') or '',
+        fields.get('elapsed') or '',
+        fields.get('eta') or '',
+        fields.get('chars') or '',
+    ]
+    return ' · '.join(part for part in parts if part)
 
 
 def format_conversion_stats_log(
@@ -455,6 +539,28 @@ def format_conversion_stats_log(
         _('Conversion stats process time: {}').format(
             format_elapsed_duration(elapsed_seconds)),
     ])
+
+
+def format_conversion_direction_label(
+        conversion_type, input_locale=0, output_locale=0):
+    '''Short human-readable conversion direction for Comments / logs.'''
+    if conversion_type == 0:
+        return _('No Change')
+    locale_names = {
+        0: _('Mainland'),
+        1: _('Hong Kong'),
+        2: _('Taiwan'),
+        3: _('Japanese Kanji'),
+    }
+    src = locale_names.get(input_locale, str(input_locale))
+    dst = locale_names.get(output_locale, str(output_locale))
+    if conversion_type == 1:
+        return _('Comments direction trad to simp: {} → {}').format(src, dst)
+    if conversion_type == 2:
+        return _('Comments direction simp to trad: {} → {}').format(src, dst)
+    if conversion_type == 3:
+        return _('Comments direction trad to trad: {} → {}').format(src, dst)
+    return '{} → {}'.format(src, dst)
 
 
 def format_conversion_info_comment_lines(stats):
@@ -485,6 +591,23 @@ def format_conversion_info_comment_lines(stats):
     if direction:
         lines.append(_('Comments conversion direction: {}').format(direction))
     return lines
+
+
+def preview_conversion_info_comment_text(
+        conversion_type=0, input_locale=0, output_locale=0):
+    '''Settings preview of the Comments conversion-info block about to be written.'''
+    # Sample runtime fields so the template matches a real write; direction follows UI.
+    stats = {
+        'chars_processed': 12345,
+        'chars_converted': 2345,
+        'replacement_hits': 3000,
+        'elapsed_seconds': 12,
+        'suffix_tag': '{}-14-23-00'.format(PLUGIN_SAFE_NAME),
+        'generated_at': datetime(2026, 8, 6, 14, 23, 0),
+        'direction_label': format_conversion_direction_label(
+            conversion_type, input_locale, output_locale),
+    }
+    return '\n'.join(format_conversion_info_comment_lines(stats))
 
 
 def build_library_conversion_comments_note(stats=None, store_info=False):
@@ -611,13 +734,49 @@ def append_library_conversion_comments(existing_comments, note):
     return note
 
 
-def log_section(status_dlg, begin_msg, end_msg, body_lines):
-    '''Write a bordered log block (begin line, body, end line).'''
+def format_numbered_log_marker(marker, step, total):
+    '''
+    Insert a (n/N) flow index into a ----section---- marker.
+    Example: ----Book info begin---- → ---- (1/5) Book info begin ----
+    '''
+    raw = (marker or '').strip()
+    if raw.startswith('----') and raw.endswith('----') and len(raw) > 8:
+        inner = raw[4:-4].strip()
+    else:
+        inner = raw
+    return _('----Log numbered marker----').format(
+        int(step), int(total), inner)
+
+
+def format_log_phase_header(step, total, title):
+    '''Top-level phase divider, e.g. —— (1/3) Preparation ——.'''
+    return _('Log phase header').format(int(step), int(total), title)
+
+
+def log_phase_header(status_dlg, step, total, title, blank_after=True):
+    '''Write a top-level phase header (and optional trailing blank line).'''
+    status_dlg.log_result(format_log_phase_header(step, total, title))
+    if blank_after:
+        status_dlg.log_result('')
+
+
+def log_section(status_dlg, begin_msg, end_msg, body_lines,
+                step=None, total=None, blank_after=False):
+    '''Write a bordered log block (begin line, body, end line).
+
+    When step/total are given, markers become ---- (n/N) … ---- so the
+    reader can follow prepare → per-book sections → summary order.
+    '''
+    if step is not None and total is not None:
+        begin_msg = format_numbered_log_marker(begin_msg, step, total)
+        end_msg = format_numbered_log_marker(end_msg, step, total)
     status_dlg.log_result(begin_msg)
     for line in body_lines:
         if line is not None and line != '':
             status_dlg.log_result(line)
     status_dlg.log_result(end_msg)
+    if blank_after:
+        status_dlg.log_result('')
 
 
 def _convert_text(converter, value):

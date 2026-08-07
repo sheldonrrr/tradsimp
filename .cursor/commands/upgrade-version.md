@@ -22,11 +22,17 @@ Follow the project rule in `.cursor/rules/version-update.mdc` end-to-end.
    - `README.zh-CN.md` → `当前版本：X.Y.Z`
    - `README.zh-TW.md` → `目前版本：X.Y.Z`
 3. `i18n.py` → `Plugin catalog released` date strings if the release date changed
+4. **MobileRead post** → `release/mobileread-post-X.Y.Z.md`
+   - Replace the previous `release/mobileread-post-*.md` (keep only the current version file)
+   - Same BBCode skeleton as before (title, thread links, install, zip name)
+   - Highlights: **short, plain language, user-facing** — not a technical changelog
+   - Lead with the user’s stated focus when given
 
 Verify with:
 
 ```bash
 grep -n "PLUGIN_VERSION\|PLUGIN_VERSION_TUPLE\|PLUGIN_RELEASED\|Current version\|当前版本\|目前版本" __init__.py README.md README.zh-CN.md README.zh-TW.md
+ls release/mobileread-post-*.md
 ```
 
 ## After version bump
@@ -39,3 +45,4 @@ grep -n "PLUGIN_VERSION\|PLUGIN_VERSION_TUPLE\|PLUGIN_RELEASED\|Current version\
 
 - Update only the string and forget `PLUGIN_VERSION_TUPLE` (Calibre reads the tuple)
 - Leave README “current version” lines on an old number
+- Skip or over-engineer the MobileRead post

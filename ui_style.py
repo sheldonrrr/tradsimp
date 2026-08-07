@@ -66,6 +66,51 @@ def _palette_color(palette, role_name, fallback_role, fallback_color):
     return QColor(*fallback_color)
 
 
+def _muted_text_color(palette):
+    '''Secondary copy color that stays readable in light and dark themes.
+
+    Prefer PlaceholderText (meant for muted UI text). Mid is a bevel/border
+    tone and often too dark against AlternateBase in dark themes.
+    '''
+    color = palette.color(_palette_role('PlaceholderText', 'PlaceholderText'))
+    if color.isValid():
+        return color
+    return palette.color(_palette_role('Mid', 'Mid'))
+
+
+def _is_dark_palette(palette):
+    window = palette.color(_palette_role('Window', 'Window'))
+    return window.isValid() and window.lightness() < 128
+
+
+def _separator_color(palette):
+    '''Border / divider color with enough contrast in dark themes.
+
+    QPalette.Mid is correct for light chrome but often near-black in Calibre
+    dark themes, so HLine and 1px borders vanish. Lift Mid toward WindowText
+    when the window is dark and Mid is too close to the panel.
+    '''
+    mid = palette.color(_palette_role('Mid', 'Mid'))
+    if not mid.isValid():
+        mid = QColor(120, 120, 120)
+    if not _is_dark_palette(palette):
+        return mid
+    window = palette.color(_palette_role('Window', 'Window'))
+    # Already a clear step above the panel — keep theme Mid.
+    if mid.lightness() >= window.lightness() + 45:
+        return mid
+    text = palette.color(_palette_role('WindowText', 'WindowText'))
+    if not text.isValid():
+        return QColor(150, 150, 150)
+    # Blend ~40% toward text so the line reads as a separator, not a shadow.
+    factor = 0.4
+    return QColor(
+        int(mid.red() + (text.red() - mid.red()) * factor),
+        int(mid.green() + (text.green() - mid.green()) * factor),
+        int(mid.blue() + (text.blue() - mid.blue()) * factor),
+    )
+
+
 def make_text_direction_icon(palette, vertical=False):
     '''Draw compact, theme-aware reading-direction icons for radio buttons.'''
     pixmap = QPixmap(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
@@ -163,13 +208,16 @@ def configure_form_label(label):
     label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
 
-def style_help_label(label):
-    mid = label.palette().color(QPalette.ColorRole.PlaceholderText)
-    if not mid.isValid():
-        mid = label.palette().color(QPalette.ColorRole.Mid)
+def style_help_label(label, enabled=True):
+    muted = _muted_text_color(label.palette())
+    alpha = 1.0 if enabled else 0.45
     label.setStyleSheet(
-        'color: {color}; padding-top: {pt}px; padding-bottom: {pb}px;'.format(
-            color=mid.name(),
+        'color: rgba({r}, {g}, {b}, {a});'
+        ' padding-top: {pt}px; padding-bottom: {pb}px;'.format(
+            r=muted.red(),
+            g=muted.green(),
+            b=muted.blue(),
+            a=alpha,
             pt=SPACE_XS,
             pb=SPACE_XS,
         ))
@@ -257,10 +305,14 @@ def make_section_divider(parent=None):
 
 def apply_dialog_stylesheet(widget):
     '''Theme-aware chrome: brand header, group titles, nested advanced section.'''
-    highlight = widget.palette().color(QPalette.ColorRole.Highlight).name()
-    alt_base = widget.palette().color(QPalette.ColorRole.AlternateBase).name()
-    base = widget.palette().color(QPalette.ColorRole.Base).name()
-    mid = widget.palette().color(QPalette.ColorRole.Mid).name()
+    palette = widget.palette()
+    highlight = palette.color(QPalette.ColorRole.Highlight).name()
+    alt_base = palette.color(QPalette.ColorRole.AlternateBase).name()
+    base = palette.color(QPalette.ColorRole.Base).name()
+    # Borders / dividers: Mid in light themes; lifted Mid in dark themes.
+    separator = _separator_color(palette).name()
+    # Muted labels (brand subtitle, example titles): PlaceholderText, not Mid.
+    muted_text = _muted_text_color(palette).name()
     widget.setStyleSheet(
         '''
         QWidget#{header_id} {{
@@ -272,12 +324,12 @@ def apply_dialog_stylesheet(widget):
             background: transparent;
         }}
         QLabel#{subtitle_id} {{
-            color: {mid};
+            color: {muted_text};
             background: transparent;
         }}
         QFrame#{divider_id} {{
-            color: {mid};
-            background: {mid};
+            color: {separator};
+            background: {separator};
             max-height: 1px;
             margin-top: {space_sm}px;
             margin-bottom: {space_xs}px;
@@ -305,7 +357,7 @@ def apply_dialog_stylesheet(widget):
             margin-top: {space_lg}px;
             margin-bottom: {space_xs}px;
             padding-top: {space_md}px;
-            border-top: 1px solid {mid};
+            border-top: 1px solid {separator};
         }}
         QWidget#{example_zone_id} {{
             background: transparent;
@@ -314,7 +366,7 @@ def apply_dialog_stylesheet(widget):
         }}
         QWidget#{example_card_id} {{
             background-color: {alt_base};
-            border: 1px solid {mid};
+            border: 1px solid {separator};
             border-radius: 8px;
         }}
         QWidget#{example_card_id}[interactive=\"true\"] {{
@@ -328,11 +380,11 @@ def apply_dialog_stylesheet(widget):
             background: transparent;
         }}
         QLabel#{example_title_id} {{
-            color: {mid};
+            color: {muted_text};
             font-size: 11px;
         }}
         QLabel#{example_secondary_id} {{
-            color: {mid};
+            color: {muted_text};
         }}
         '''.format(
             header_id=BRAND_HEADER_ID,
@@ -346,7 +398,8 @@ def apply_dialog_stylesheet(widget):
             accent=highlight,
             alt_base=alt_base,
             base=base,
-            mid=mid,
+            separator=separator,
+            muted_text=muted_text,
             space_sm=SPACE_SM,
             space_md=SPACE_MD,
             space_lg=SPACE_LG,
@@ -400,17 +453,17 @@ def style_recommend_card(card):
     card.setObjectName(RECOMMEND_CARD_ID)
     palette = card.palette()
     alt_base = palette.color(QPalette.ColorRole.AlternateBase).name()
-    mid = palette.color(QPalette.ColorRole.Mid).name()
+    separator = _separator_color(palette).name()
     card.setStyleSheet(
         'QWidget#{card_id} {{'
         ' background-color: {alt_base};'
-        ' border: 1px solid {mid};'
+        ' border: 1px solid {separator};'
         ' border-radius: 8px;'
         '}}'
         'QWidget#{card_id} QLabel {{ background: transparent; }}'.format(
             card_id=RECOMMEND_CARD_ID,
             alt_base=alt_base,
-            mid=mid,
+            separator=separator,
         ))
 
 
