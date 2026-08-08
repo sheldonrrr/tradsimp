@@ -423,6 +423,52 @@ def make_book_time_code(
     return code
 
 
+# Kind → fixed token written into library titles (stable for strip/regex).
+_SUFFIX_TARGET_TOKENS = {
+    'traditional_hong_kong': '繁体中文_香港',
+    'traditional_taiwan': '繁体中文_台湾',
+    'japanese_kanji': '日文汉字',
+    'simplified': '简体中文',
+    'traditional': '繁体中文',
+    'chinese_conversion': '中文转换',
+}
+_SUFFIX_TARGET_MSGIDS = {
+    'traditional_hong_kong': 'Suffix target traditional hong kong',
+    'traditional_taiwan': 'Suffix target traditional taiwan',
+    'japanese_kanji': 'Suffix target japanese kanji',
+    'simplified': 'Suffix target simplified',
+    'traditional': 'Suffix target traditional',
+    'chinese_conversion': 'Suffix target chinese conversion',
+}
+
+
+def title_suffix_target_kind(conversion_type, output_locale):
+    """Classify the target-language marker for generated book title suffixes."""
+    if output_locale == 1:
+        return 'traditional_hong_kong'
+    if output_locale == 2:
+        return 'traditional_taiwan'
+    if output_locale == 3:
+        return 'japanese_kanji'
+    if conversion_type == 1:
+        return 'simplified'
+    if conversion_type in (2, 3):
+        return 'traditional'
+    return 'chinese_conversion'
+
+
+def title_suffix_target_token(conversion_type, output_locale):
+    """Stable (non-localized) target token embedded in generated titles."""
+    return _SUFFIX_TARGET_TOKENS[title_suffix_target_kind(
+        conversion_type, output_locale)]
+
+
+def title_suffix_target_label(conversion_type, output_locale):
+    """Localized target marker for UI suffix examples."""
+    return _(_SUFFIX_TARGET_MSGIDS[title_suffix_target_kind(
+        conversion_type, output_locale)])
+
+
 def make_converted_title_suffix(
         conversion_type, output_locale, bilingual=False, enabled=None,
         time_code=None, generated_at=None, used_time_codes=None,
@@ -434,18 +480,7 @@ def make_converted_title_suffix(
     if not enabled or fmt == SUFFIX_TIMESTAMP_OFF:
         return ''
 
-    if output_locale == 1:
-        target = '繁体中文_香港'
-    elif output_locale == 2:
-        target = '繁体中文_台湾'
-    elif output_locale == 3:
-        target = '日文汉字'
-    elif conversion_type == 1:
-        target = '简体中文'
-    elif conversion_type in (2, 3):
-        target = '繁体中文'
-    else:
-        target = '中文转换'
+    target = title_suffix_target_token(conversion_type, output_locale)
 
     code = time_code or make_book_time_code(
         generated_at, used_time_codes, timestamp_format=fmt)

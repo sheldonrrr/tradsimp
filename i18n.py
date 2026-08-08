@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 6 Aug, 2026',
-        '发布：2026年8月6日',
-        '發佈：2026年8月6日'),
+        'Released: 8 Aug, 2026',
+        '发布：2026年8月8日',
+        '發佈：2026年8月8日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -450,26 +450,36 @@ _MESSAGES = {
         'Choose Off to skip the identifying suffix.',
         '在新书标题末尾加上识别标记（文种、地区、可选时间戳）。选「不开启」则不加识别后缀。',
         '在新書標題末尾加上識別標記（文種、地區、可選時間戳）。選「不開啟」則不加識別後綴。'),
+    # Target markers in title-suffix examples (mirror library_flow kinds).
+    'Suffix target simplified': _T('简体中文', '简体中文', '簡體中文'),
+    'Suffix target traditional': _T('繁体中文', '繁体中文', '繁體中文'),
+    'Suffix target traditional hong kong': _T(
+        '繁体中文_香港', '繁体中文_香港', '繁體中文_香港'),
+    'Suffix target traditional taiwan': _T(
+        '繁体中文_台湾', '繁体中文_台湾', '繁體中文_臺灣'),
+    'Suffix target japanese kanji': _T('日文汉字', '日文汉字', '日文漢字'),
+    'Suffix target chinese conversion': _T('中文转换', '中文转换', '中文轉換'),
+    # {} = localized Suffix target… (current output language).
     'Generated book suffix example': _T(
-        'BookTitle_繁体中文_香港_07-29_21-34',
-        '书名_繁体中文_香港_07-29_21-34',
-        '書名_繁體中文_香港_07-29_21-34'),
+        'BookTitle_{}_07-29_21-34',
+        '书名_{}_07-29_21-34',
+        '書名_{}_07-29_21-34'),
     'Generated book suffix example off': _T(
         'BookTitle',
         '书名',
         '書名'),
     'Generated book suffix example iso': _T(
-        'BookTitle_繁体中文_香港_2026-08-06_14-23-09',
-        '书名_繁体中文_香港_2026-08-06_14-23-09',
-        '書名_繁體中文_香港_2026-08-06_14-23-09'),
+        'BookTitle_{}_2026-08-06_14-23-09',
+        '书名_{}_2026-08-06_14-23-09',
+        '書名_{}_2026-08-06_14-23-09'),
     'Generated book suffix example compact': _T(
-        'BookTitle_繁体中文_香港_20260806_142309',
-        '书名_繁体中文_香港_20260806_142309',
-        '書名_繁體中文_香港_20260806_142309'),
+        'BookTitle_{}_20260806_142309',
+        '书名_{}_20260806_142309',
+        '書名_{}_20260806_142309'),
     'Generated book suffix example no seconds': _T(
-        'BookTitle_繁体中文_香港_2026-08-06_14-23',
-        '书名_繁体中文_香港_2026-08-06_14-23',
-        '書名_繁體中文_香港_2026-08-06_14-23'),
+        'BookTitle_{}_2026-08-06_14-23',
+        '书名_{}_2026-08-06_14-23',
+        '書名_{}_2026-08-06_14-23'),
     'Store conversion info in Comments': _T(
         'Store conversion info in Comments',
         '将转换信息写入简介',

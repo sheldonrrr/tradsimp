@@ -48,7 +48,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     SUFFIX_TIMESTAMP_COMPACT, SUFFIX_TIMESTAMP_DEFAULT, SUFFIX_TIMESTAMP_ISO,
     SUFFIX_TIMESTAMP_NO_SECONDS, SUFFIX_TIMESTAMP_OFF,
     normalize_suffix_timestamp_format, preview_conversion_info_comment_text,
-    suffix_timestamp_enabled,
+    suffix_timestamp_enabled, title_suffix_target_label,
 )
 from calibre_plugins.chinese_text_conversion.zhconvert_api import (
     ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_SITE_URL,
@@ -1352,14 +1352,20 @@ class ConversionDialog(Dialog):
         self.suffix_example_card.set_title(_('Example'))
         self.suffix_example_card.setToolTip(_('Click example to switch option'))
         fmt = self._suffix_timestamp_format_value()
-        if fmt == SUFFIX_TIMESTAMP_ISO:
-            example = _('Generated book suffix example iso')
-        elif fmt == SUFFIX_TIMESTAMP_COMPACT:
-            example = _('Generated book suffix example compact')
-        elif fmt == SUFFIX_TIMESTAMP_NO_SECONDS:
-            example = _('Generated book suffix example no seconds')
-        else:
+        if fmt == SUFFIX_TIMESTAMP_OFF:
             example = _('Generated book suffix example off')
+        else:
+            target = title_suffix_target_label(
+                self._selected_conversion_type(),
+                max(0, self.output_combo.currentIndex()),
+            )
+            if fmt == SUFFIX_TIMESTAMP_COMPACT:
+                template = _('Generated book suffix example compact')
+            elif fmt == SUFFIX_TIMESTAMP_NO_SECONDS:
+                template = _('Generated book suffix example no seconds')
+            else:
+                template = _('Generated book suffix example iso')
+            example = template.format(target)
         self.suffix_example_card.set_code_example(example, flash=flash)
         # Keep clickable so users can cycle formats even when Off is selected.
         self.suffix_example_card.setEnabled(True)
@@ -2039,6 +2045,7 @@ class ConversionDialog(Dialog):
         self.force_pivot_conversion.setEnabled(force_pivot_enabled)
         self.force_pivot_conversion_help_row.setEnabled(force_pivot_enabled)
         self._update_quotation_example()
+        self._update_suffix_example()
         if bilingual_enabled:
             self._update_bilingual_example()
         self._update_conversion_info_comments_preview()
