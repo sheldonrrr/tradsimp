@@ -846,10 +846,23 @@ def convert_calibre_metadata(mi, converter):
         mi.comments = _convert_text(converter, mi.comments)
 
 
+def _conversion_utcnow():
+    '''UTC "now" for Calibre Date / last_modified (timezone-aware when available).'''
+    try:
+        from calibre.utils.date import utcnow
+        return utcnow()
+    except Exception:
+        try:
+            from datetime import timezone
+            return datetime.now(timezone.utc)
+        except Exception:
+            return datetime.utcnow()
+
+
 def import_converted_book_as_new(
         db, source_book_id, converted_path, fmt, suffix_tag=None,
         converter=None, title_suffix='', conversion_stats=None,
-        store_conversion_info=False):
+        store_conversion_info=False, use_conversion_date=True):
     '''
     Add a new library entry with converted file; does not modify the source book.
     When converter is provided, OpenCC-converts title/authors/tags/publisher/comments
@@ -857,7 +870,10 @@ def import_converted_book_as_new(
     After conversion,
     Comments get a short plugin promo note (with ---- separator when prior comments
     exist). When store_conversion_info is True, a compact conversion stats summary
-    is appended under the promo. suffix_tag is unused (kept for call-site compat).
+    is appended under the promo. When use_conversion_date is True (default), the
+    new book's Date / last_modified follow conversion time so sorting by Date
+    finds the new entry; pubdate is left unchanged. suffix_tag is unused (kept
+    for call-site compat).
     Returns (new_book_id, new_title).
     '''
     mi = db.get_metadata(source_book_id, index_is_id=True)
@@ -878,6 +894,17 @@ def import_converted_book_as_new(
         new_mi.comments,
         build_library_conversion_comments_note(
             stats=conversion_stats, store_info=store_conversion_info))
+    if use_conversion_date:
+        # deepcopy_metadata copies the source Date; reset so new books sort as
+        # recently added (the usual “find my conversion” workflow).
+        now = _conversion_utcnow()
+        new_mi.timestamp = now
+        if hasattr(new_mi, 'last_modified'):
+            new_mi.last_modified = now
+        try:
+            os.utime(converted_path, None)
+        except Exception:
+            pass
 
     # Keep notify=False; GUI row insertion is handled in ui._refresh_library_new_books
     # via model.books_added() (Calibre plugin pattern). Avoid set_cover(notify=True)

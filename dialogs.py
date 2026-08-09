@@ -78,6 +78,8 @@ ZHCONVERT_DIALOG_SIZE = QSize(780, 640)
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
+NOWTINY_PLUGIN_SIMPLE_GOAL_URL = (
+    'https://www.mobileread.com/forums/showthread.php?p=4602877')
 XIAOHONGSHU_FEEDBACK_URL = 'http://xhslink.com/o/hdgQctdOte'
 
 # Cached OpenCC character markers for 简/繁 detection in symbol examples.
@@ -508,6 +510,29 @@ class PluginAboutDialog(QDialog):
             self.recommend_askai_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
         content_layout.addWidget(self.recommend_askai_card)
 
+        self.recommend_simple_goal_card = QWidget()
+        style_recommend_card(self.recommend_simple_goal_card)
+        simple_goal_layout = QHBoxLayout(self.recommend_simple_goal_card)
+        simple_goal_layout.setContentsMargins(12, 10, 12, 10)
+        simple_goal_layout.setSpacing(12)
+        simple_goal_text_layout = QVBoxLayout()
+        simple_goal_text_layout.setContentsMargins(0, 0, 0, 0)
+        simple_goal_text_layout.setSpacing(2)
+        self.recommend_simple_goal_title = QLabel()
+        self.recommend_simple_goal_title.setFont(feat_font)
+        simple_goal_text_layout.addWidget(self.recommend_simple_goal_title)
+        self.recommend_simple_goal_desc = QLabel()
+        self.recommend_simple_goal_desc.setWordWrap(True)
+        simple_goal_text_layout.addWidget(self.recommend_simple_goal_desc)
+        simple_goal_layout.addLayout(simple_goal_text_layout, 1)
+        self.recommend_simple_goal_btn = QPushButton()
+        self.recommend_simple_goal_btn.setCursor(Qt.PointingHandCursor)
+        self.recommend_simple_goal_btn.clicked.connect(
+            self._open_simple_goal_plugin)
+        simple_goal_layout.addWidget(
+            self.recommend_simple_goal_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+        content_layout.addWidget(self.recommend_simple_goal_card)
+
         self.recommend_note_label = QLabel()
         self.recommend_note_label.setWordWrap(True)
         content_layout.addWidget(self.recommend_note_label)
@@ -558,6 +583,12 @@ class PluginAboutDialog(QDialog):
         self.recommend_askai_title.setText(_('About recommendation Ask AI title'))
         self.recommend_askai_desc.setText(_('About recommendation Ask AI desc'))
         self.recommend_askai_btn.setText(_('About recommendation Open button'))
+        self.recommend_simple_goal_title.setText(_(
+            'About recommendation Simple Goal title'))
+        self.recommend_simple_goal_desc.setText(_(
+            'About recommendation Simple Goal desc'))
+        self.recommend_simple_goal_btn.setText(_(
+            'About recommendation Open button'))
         self.recommend_note_label.setText(_('About MobileRead note'))
         self.recommend_site_link_label.setText(
             _('About recommendations site link').format(url=NOWTINY_SITE_URL))
@@ -565,6 +596,7 @@ class PluginAboutDialog(QDialog):
             _('About Xiaohongshu feedback link').format(url=XIAOHONGSHU_FEEDBACK_URL))
         style_recommend_card(self.recommend_markdown_card)
         style_recommend_card(self.recommend_askai_card)
+        style_recommend_card(self.recommend_simple_goal_card)
         show_full_about = not self.first_run
         show_feedback_link = show_full_about and get_ui_language() == UI_LANG_ZH_CN
         self.first_run_lang_row.setVisible(self.first_run)
@@ -575,6 +607,7 @@ class PluginAboutDialog(QDialog):
         self.recommend_heading_label.setVisible(show_full_about)
         self.recommend_markdown_card.setVisible(show_full_about)
         self.recommend_askai_card.setVisible(show_full_about)
+        self.recommend_simple_goal_card.setVisible(show_full_about)
         self.recommend_note_label.setVisible(show_full_about)
         self.recommend_site_link_label.setVisible(show_full_about)
         self.feedback_link_label.setVisible(show_feedback_link)
@@ -597,6 +630,9 @@ class PluginAboutDialog(QDialog):
 
     def _open_askai_plugin(self):
         open_url(QUrl(NOWTINY_PLUGIN_ASKAI_URL))
+
+    def _open_simple_goal_plugin(self):
+        open_url(QUrl(NOWTINY_PLUGIN_SIMPLE_GOAL_URL))
 
     def mark_first_run_complete(self):
         if self.first_run:
@@ -974,6 +1010,21 @@ class ConversionDialog(Dialog):
         self.suffix_timestamp_format_combo.setVisible(self.force_entire_book)
         self.append_conversion_suffix_help_row.setVisible(self.force_entire_book)
         self.suffix_example_row.setVisible(self.force_entire_book)
+
+        self.use_conversion_date = QCheckBox(_('Use conversion date for new book'))
+        advanced_group_box_layout.addWidget(self.use_conversion_date)
+        self.use_conversion_date_help = QLabel()
+        self.use_conversion_date_help.setWordWrap(True)
+        self.use_conversion_date_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.use_conversion_date_help)
+        self.use_conversion_date_help_row = help_text_row(
+            self, self.use_conversion_date_help)
+        self.use_conversion_date_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(self.use_conversion_date_help_row)
+        self.use_conversion_date.setVisible(self.force_entire_book)
+        self.use_conversion_date_help_row.setVisible(self.force_entire_book)
 
         self.store_conversion_info_in_comments = QCheckBox(_(
             'Store conversion info in Comments'))
@@ -1402,6 +1453,9 @@ class ConversionDialog(Dialog):
         self._update_cjk_font_policy_help_text()
         self.append_conversion_suffix_help.setText(_('Generated book suffix help'))
         self.suffix_timestamp_format_combo.setToolTip('')
+        self.use_conversion_date_help.setText(_(
+            'Use conversion date for new book help'))
+        self.use_conversion_date.setToolTip('')
         self._update_conversion_info_comments_preview()
         self.bilingual_annotation_help.setText(_('Bilingual annotation help'))
         self.bilingual_annotation.setToolTip('')
@@ -1792,6 +1846,7 @@ class ConversionDialog(Dialog):
         self._populate_cjk_font_policy_combo()
         self.suffix_timestamp_format_label.setText(_('Suffix timestamp format'))
         self._populate_suffix_timestamp_format_combo()
+        self.use_conversion_date.setText(_('Use conversion date for new book'))
         self.store_conversion_info_in_comments.setText(_(
             'Store conversion info in Comments'))
         self.bilingual_heading.setText(_('Bilingual annotation section'))
@@ -1869,6 +1924,7 @@ class ConversionDialog(Dialog):
         self.include_metadata.blockSignals(state)
         self.cjk_font_policy_combo.blockSignals(state)
         self.suffix_timestamp_format_combo.blockSignals(state)
+        self.use_conversion_date.blockSignals(state)
         self.store_conversion_info_in_comments.blockSignals(state)
         self.bilingual_annotation.blockSignals(state)
         self.bilingual_mode_full_button.blockSignals(state)
@@ -1929,6 +1985,8 @@ class ConversionDialog(Dialog):
                 'append_conversion_suffix', True))
         suffix_idx = self.suffix_timestamp_format_combo.findData(suffix_fmt)
         self.suffix_timestamp_format_combo.setCurrentIndex(max(0, suffix_idx))
+        self.use_conversion_date.setChecked(bool(
+            self.prefs.get('use_conversion_date', True)))
         self.store_conversion_info_in_comments.setChecked(bool(
             self.prefs.get('store_conversion_info_in_comments', True)))
         self.bilingual_annotation.setChecked(bool(
@@ -2194,6 +2252,7 @@ class ConversionDialog(Dialog):
         self.prefs['suffix_timestamp_format'] = suffix_fmt
         self.prefs['append_conversion_suffix'] = suffix_timestamp_enabled(
             suffix_fmt)
+        self.prefs['use_conversion_date'] = self.use_conversion_date.isChecked()
         self.prefs['store_conversion_info_in_comments'] = (
             self.store_conversion_info_in_comments.isChecked())
         self.prefs['bilingual_annotation'] = (

@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 8 Aug, 2026',
-        '发布：2026年8月8日',
-        '發佈：2026年8月8日'),
+        'Released: 9 Aug, 2026',
+        '发布：2026年8月9日',
+        '發佈：2026年8月9日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -450,6 +450,15 @@ _MESSAGES = {
         'Choose Off to skip the identifying suffix.',
         '在新书标题末尾加上识别标记（文种、地区、可选时间戳）。选「不开启」则不加识别后缀。',
         '在新書標題末尾加上識別標記（文種、地區、可選時間戳）。選「不開啟」則不加識別後綴。'),
+    'Use conversion date for new book': _T(
+        'Set Date of new book to conversion time',
+        '新书「日期」使用转换时间',
+        '新書「日期」使用轉換時間'),
+    'Use conversion date for new book help': _T(
+        'New book Date is today so you can find it by sorting Date. '
+        'Off: keep the source book Date.',
+        '新书的「日期」为转换当天，便于按日期排序查找。关闭：沿用源书的日期。',
+        '新書的「日期」為轉換當天，便於按日期排序查找。關閉：沿用源書的日期。'),
     # Target markers in title-suffix examples (mirror library_flow kinds).
     'Suffix target simplified': _T('简体中文', '简体中文', '簡體中文'),
     'Suffix target traditional': _T('繁体中文', '繁体中文', '繁體中文'),
@@ -1375,6 +1384,21 @@ _MESSAGES = {
         '在閱讀與管理電子書時進行 AI 問答。',
         'Calibre 外掛 · Python\n'
         '在閱讀與管理電子書時進行 AI 問答。'),
+    'About recommendation Simple Goal title': _T(
+        'Simple Goal (for calibre)',
+        'Simple Goal（for calibre）',
+        'Simple Goal（for calibre）',
+        'Simple Goal（for calibre）'),
+    'About recommendation Simple Goal desc': _T(
+        'Calibre plugin · Python\n'
+        'Simple reading goal inside calibre: keep a short list of books you are '
+        'reading, see progress, and sync from the viewer.',
+        'Calibre 插件 · Python\n'
+        '在 calibre 内记录简单阅读目标：维护正在阅读的短书单、查看进度，并从阅读器同步。',
+        'Calibre 外掛 · Python\n'
+        '在 calibre 內記錄簡單閱讀目標：維護正在閱讀的短書單、查看進度，並從閱讀器同步。',
+        'Calibre 外掛 · Python\n'
+        '在 calibre 內記錄簡單閱讀目標：維護正在閱讀的短書單、查看進度，並從閱讀器同步。'),
     'About recommendation Open button': _T(
         'MobileRead',
         'MobileRead',

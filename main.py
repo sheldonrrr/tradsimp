@@ -101,6 +101,7 @@ REMOVE_EMBEDDED_FONTS = 19  # True/False — drop embedded font files for lighte
 REMOVE_IMAGE_FILES = 20  # True/False — drop image files for pure-text / faster processing
 SUFFIX_TIMESTAMP_FORMAT = 21  # 'off' | 'iso' | 'compact' | 'no_seconds'
 USE_MEDIAWIKI_ZHCONV = 22  # True/False — optional MediaWiki zhconv after OpenCC
+USE_CONVERSION_DATE = 23  # True/False — new book Date follows conversion time
 _LAST_OCR_PREVIEW_SAMPLES = []
 _LAST_OCR_SUMMARY_STATS = None
 
@@ -675,6 +676,7 @@ def prepare_prefs(prefs):
         prefs['force_pivot_conversion'] = True
         prefs['append_conversion_suffix'] = True
         prefs['suffix_timestamp_format'] = SUFFIX_TIMESTAMP_DEFAULT
+        prefs['use_conversion_date'] = True
         prefs['store_conversion_info_in_comments'] = True
         prefs['cjk_font_policy'] = 'keep'
         prefs['remove_embedded_fonts'] = False
@@ -708,6 +710,7 @@ def prepare_prefs(prefs):
     prefs.defaults['force_pivot_conversion'] = True
     prefs.defaults['append_conversion_suffix'] = True
     prefs.defaults['suffix_timestamp_format'] = SUFFIX_TIMESTAMP_DEFAULT
+    prefs.defaults['use_conversion_date'] = True
     prefs.defaults['store_conversion_info_in_comments'] = True
     prefs.defaults['cjk_font_policy'] = 'keep'
     prefs.defaults['remove_embedded_fonts'] = False
@@ -791,7 +794,8 @@ def build_criteria(prefs):
             prefs.get('suffix_timestamp_format'),
             append_conversion_suffix=prefs.get(
                 'append_conversion_suffix', True)),
-        prefs.get('use_mediawiki_zhconv', True))
+        prefs.get('use_mediawiki_zhconv', True),
+        prefs.get('use_conversion_date', True))
 
 
 def criteria_with_ocr_enabled(criteria, enabled):

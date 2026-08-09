@@ -42,6 +42,7 @@ from calibre_plugins.chinese_text_conversion.main import (
     INCLUDE_METADATA, INPUT_LOCALE, USE_JIEBA_SEGMENTATION,
     CONVERSION_TYPE, OUTPUT_LOCALE, BILINGUAL_ANNOTATION,
     APPEND_CONVERSION_SUFFIX, STORE_CONVERSION_INFO_IN_COMMENTS,
+    USE_CONVERSION_DATE,
     SUFFIX_TIMESTAMP_FORMAT,
     HTML_TextProcessor, OpenCC, apply_converter_segmentation,
     apply_converter_force_pivot, apply_converter_mediawiki_zhconv,
@@ -597,6 +598,12 @@ class ChineseTextAction(InterfaceAction):
                 and len(criteria) > STORE_CONVERSION_INFO_IN_COMMENTS
             ):
                 store_info = bool(criteria[STORE_CONVERSION_INFO_IN_COMMENTS])
+            use_conversion_date = True
+            if (
+                criteria is not None
+                and len(criteria) > USE_CONVERSION_DATE
+            ):
+                use_conversion_date = bool(criteria[USE_CONVERSION_DATE])
             conversion_stats = {
                 'chars_processed': chars_processed,
                 'chars_converted': chars_converted,
@@ -610,7 +617,8 @@ class ChineseTextAction(InterfaceAction):
                 db, result['book_id'], temp_path, fmt, result['suffix'],
                 converter=meta_converter, title_suffix=title_suffix,
                 conversion_stats=conversion_stats,
-                store_conversion_info=store_info)
+                store_conversion_info=store_info,
+                use_conversion_date=use_conversion_date)
             state['new_book_ids'].append(new_id)
             state['created'].append(new_title)
             saved_path = db.format_abspath(new_id, fmt, index_is_id=True)
