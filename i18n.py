@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 9 Aug, 2026',
-        '发布：2026年8月9日',
-        '發佈：2026年8月9日'),
+        'Released: 14 Aug, 2026',
+        '发布：2026年8月14日',
+        '發佈：2026年8月14日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -242,32 +242,32 @@ _MESSAGES = {
         'Check to allow region specific word replacements if available',
         '勾选以在可用时进行地区惯用词语替换', '勾選以在可用時進行地區慣用詞語替換'),
     'Use Jieba segmentation (experimental)': _T(
-        'Smarter word segmentation before convert',
+        'Smarter word segmentation (Jieba; uncheck for OpenCC mmseg)',
         '智能分词后再转换',
         '智慧分詞後再轉換'),
     'Use Jieba segmentation help': _T(
-        'Changes how text is cut into words before OpenCC runs (Jieba instead of default mmseg), '
-        'so compounds are less often mis-split (e.g. 王后). '
-        'Does not choose Taiwan/Hong Kong/Mainland wording—that is the option above. '
-        'First use may be a bit slower.',
-        '改变转换前如何切词（用 Jieba 替代默认 mmseg），减少词组被拆错（如「王后」）。'
-        '不负责两岸/港澳用词替换——那是上面的「替换为目标地区用词」。'
-        '首次使用可能稍慢。',
-        '改變轉換前如何切詞（用 Jieba 替代預設 mmseg），減少詞組被拆錯（如「王后」）。'
-        '不負責兩岸/港澳用詞替換——那是上面的「替換為目標地區用詞」。'
-        '首次使用可能稍慢。'),
+        'On = Jieba: cuts by words, so compounds are less often mis-split (e.g. 王后); '
+        'first use may be slower. '
+        'Off = OpenCC mmseg: dictionary longest-match, faster. '
+        'Jieba and mmseg are different segmentation methods, each with a different focus.',
+        '勾选 = Jieba：按词组切，减少「王后」这类被拆错；首次稍慢。'
+        '不勾选 = OpenCC mmseg：按词库最长匹配，更快。'
+        'Jieba 和 mmseg 是不同的分词方案，侧重不同。',
+        '勾選 = Jieba：按詞組切，減少「王后」這類被拆錯；首次稍慢。'
+        '不勾選 = OpenCC mmseg：按詞庫最長匹配，更快。'
+        'Jieba 和 mmseg 是不同的分詞方案，側重不同。'),
     'OpenCC segmentation mode: {0}': _T(
         'OpenCC segmentation mode: {0}',
         'OpenCC 分词模式：{0}',
         'OpenCC 分詞模式：{0}'),
     'Segmentation: Jieba': _T(
-        'Smarter word segmentation: on',
-        '智能分词后再转换：开',
-        '智慧分詞後再轉換：開'),
+        'Smarter word segmentation: Jieba',
+        '智能分词后再转换：Jieba',
+        '智慧分詞後再轉換：Jieba'),
     'Segmentation: OpenCC mmseg': _T(
-        'Smarter word segmentation: off',
-        '智能分词后再转换：关',
-        '智慧分詞後再轉換：關'),
+        'Smarter word segmentation: OpenCC mmseg',
+        '智能分词后再转换：OpenCC mmseg',
+        '智慧分詞後再轉換：OpenCC mmseg'),
     'Jieba segmentation samples:': _T(
         'Word-segmentation samples:',
         '智能分词样例：',
@@ -285,9 +285,9 @@ _MESSAGES = {
         '----智能分词样例结束----',
         '----智慧分詞樣例結束----'),
     'Use Jieba segmentation before OpenCC conversion (Default: False)': _T(
-        'Smarter word segmentation before OpenCC (Default: off)',
-        '智能分词后再转换（默认：关）',
-        '智慧分詞後再轉換（預設：關）'),
+        'Smarter word segmentation before OpenCC (Default: on)',
+        '智能分词后再转换（默认：开）',
+        '智慧分詞後再轉換（預設：開）'),
     'MediaWiki post-processing': _T(
         'MediaWiki post-processing',
         'MediaWiki后处理',

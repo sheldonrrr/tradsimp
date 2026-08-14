@@ -52,6 +52,10 @@ FORCED_PIVOT_REVERSE = {
     's2hkp': 'hk2sp',
 }
 
+# Regional reverse-phrase tables. Multi-char keys are merged into mmseg
+# segmentation so shorter TSPhrases hits cannot split 義大利 / 滑鼠 etc.
+REGIONAL_REVERSE_PHRASE_DICTS = ('TWPhrasesRev.txt', 'HKPhrasesRev.txt')
+
 
 class OpenCC:
     def __init__(self, resource_getter, conversion=None):
@@ -362,7 +366,12 @@ class OpenCC:
         return [text]
 
     def _mmseg(self, text):
-        """Forward maximum matching using the config segmentation dictionaries."""
+        """Forward maximum matching using the config segmentation dictionaries.
+
+        Unmatched characters stay in one run, matching OpenCC C++ MaxMatchSegmentation.
+        Emitting one character per miss would hide later phrase dictionaries
+        (e.g. TWPhrasesRev 義大利 → 意大利).
+        """
         if not text:
             return []
         if not self._seg_keys:
@@ -370,6 +379,7 @@ class OpenCC:
         segments = []
         i = 0
         n = len(text)
+        unmatched_start = None
         while i < n:
             matched_len = None
             max_try = min(self._seg_max_len, n - i)
@@ -378,9 +388,17 @@ class OpenCC:
                     matched_len = length
                     break
             if matched_len is None:
-                matched_len = 1
+                if unmatched_start is None:
+                    unmatched_start = i
+                i += 1
+                continue
+            if unmatched_start is not None:
+                segments.append(text[unmatched_start:i])
+                unmatched_start = None
             segments.append(text[i:i + matched_len])
             i += matched_len
+        if unmatched_start is not None:
+            segments.append(text[unmatched_start:n])
         return segments
 
     def _get_jieba(self):
@@ -675,8 +693,40 @@ class OpenCC:
         seg_dict_data = []
         self._add_dictionaries(self._segmentation_chain, seg_dict_data)
         self._seg_keys, self._seg_max_len = self._collect_segmentation_keys(seg_dict_data)
+        self._merge_regional_phrase_seg_keys()
         self._has_segmentation = bool(self._seg_keys)
         self._dict_init_done = True
+
+    def _merge_regional_phrase_seg_keys(self):
+        extra_keys, extra_max = self._collect_named_phrase_keys(
+            self._dict_chain_data, REGIONAL_REVERSE_PHRASE_DICTS)
+        if not extra_keys:
+            return
+        self._seg_keys.update(extra_keys)
+        self._seg_max_len = max(self._seg_max_len, extra_max)
+
+    def _collect_named_phrase_keys(self, chain_data, names):
+        names = set(names)
+        keys = set()
+        max_len = 1
+        for item in chain_data:
+            if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
+                child_keys, child_max = self._collect_named_phrase_keys(
+                    item[2], names)
+                keys.update(child_keys)
+                max_len = max(max_len, child_max)
+            elif (isinstance(item, tuple) and len(item) == 3
+                    and item[0] != 'group'):
+                _entry_max, map_dict, dict_name = item
+                if dict_name not in names:
+                    continue
+                for key in map_dict:
+                    if len(key) < 2:
+                        continue
+                    keys.add(key)
+                    if len(key) > max_len:
+                        max_len = len(key)
+        return keys, max_len
 
     def _collect_segmentation_keys(self, chain_data):
         keys = set()

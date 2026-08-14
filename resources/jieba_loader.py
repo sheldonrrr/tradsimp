@@ -121,18 +121,25 @@ def _import_jieba_from(parent_dir):
     return jieba
 
 
-def _read_stphrases_bytes():
-    """Load OpenCC STPhrases.txt (zip-safe via get_resources, else filesystem)."""
+_OPENCC_JIEBA_PHRASE_FILES = (
+    'STPhrases.txt',
+    'TWPhrasesRev.txt',
+    'HKPhrasesRev.txt',
+)
+
+
+def _read_opencc_dict_bytes(file_name):
+    """Load an OpenCC dictionary (zip-safe via get_resources, else filesystem)."""
     try:
         data = get_resources(
-            'resources/opencc_python/dictionary/STPhrases.txt')
+            'resources/opencc_python/dictionary/' + file_name)
     except Exception:
         data = None
     if data:
         return data
 
     fs_path = os.path.join(
-        _resources_dir(), 'opencc_python', 'dictionary', 'STPhrases.txt')
+        _resources_dir(), 'opencc_python', 'dictionary', file_name)
     if os.path.isfile(fs_path):
         with open(fs_path, 'rb') as handle:
             return handle.read()
@@ -155,23 +162,27 @@ def _iter_stphrase_keys(raw_bytes):
 
 def _inject_opencc_phrases(jieba_mod):
     """
-    Register OpenCC STPhrases keys in Jieba's user dictionary.
+    Register OpenCC phrase keys in Jieba's user dictionary.
 
     Without this, Jieba often splits ambiguous Simplified spans such as
     赵国王后 into 赵|国王|后, and OpenCC's character table then maps 后→後
-    (王后 becomes 王後). Phrase keys keep 王后 intact for the STPhrases hit.
+    (王后 becomes 王後). Regional reverse phrases (e.g. 義大利) must also
+    stay intact so TWPhrasesRev / HKPhrasesRev can match.
     """
     global _opencc_phrases_injected
     if _opencc_phrases_injected:
         return
-    raw = _read_stphrases_bytes()
-    if not raw:
-        print('OpenCC STPhrases unavailable; Jieba userdict not enriched.')
-        _opencc_phrases_injected = True
-        return
     add_word = jieba_mod.add_word
-    for key in _iter_stphrase_keys(raw):
-        add_word(key, freq=_OPENCC_PHRASE_FREQ)
+    loaded = 0
+    for file_name in _OPENCC_JIEBA_PHRASE_FILES:
+        raw = _read_opencc_dict_bytes(file_name)
+        if not raw:
+            continue
+        loaded += 1
+        for key in _iter_stphrase_keys(raw):
+            add_word(key, freq=_OPENCC_PHRASE_FREQ)
+    if not loaded:
+        print('OpenCC phrase dictionaries unavailable; Jieba userdict not enriched.')
     _opencc_phrases_injected = True
 
 

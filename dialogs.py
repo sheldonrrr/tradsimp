@@ -1942,7 +1942,7 @@ class ConversionDialog(Dialog):
         self.input_combo.setCurrentIndex(self.prefs['input_locale'])
         self.output_combo.setCurrentIndex(self.prefs['output_locale'])
         self.use_target_phrases.setChecked(bool(self.prefs.get('use_target_phrases', True)))
-        self.use_jieba_segmentation.setChecked(bool(self.prefs.get('use_jieba_segmentation', False)))
+        self.use_jieba_segmentation.setChecked(bool(self.prefs.get('use_jieba_segmentation', True)))
         self.use_mediawiki_zhconv.setChecked(bool(self.prefs.get('use_mediawiki_zhconv', True)))
 
         if self.prefs['conversion_type'] == 0:

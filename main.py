@@ -663,6 +663,7 @@ def prepare_prefs(prefs):
         prefs['input_locale_user_set'] = False
         prefs['output_locale_user_set'] = False
         prefs['use_target_phrases'] = True
+        prefs['use_jieba_segmentation'] = True
         prefs['quotation_type'] = 0
         prefs['output_orientation'] = 0
         prefs['output_orientation_user_set'] = False
@@ -695,7 +696,7 @@ def prepare_prefs(prefs):
     prefs.defaults['input_locale_user_set'] = False
     prefs.defaults['output_locale_user_set'] = False
     prefs.defaults['use_target_phrases'] = True
-    prefs.defaults['use_jieba_segmentation'] = False
+    prefs.defaults['use_jieba_segmentation'] = True
     prefs.defaults['use_mediawiki_zhconv'] = True
     prefs.defaults['quotation_type'] = 0
     prefs.defaults['output_orientation'] = 0
@@ -728,6 +729,13 @@ def prepare_prefs(prefs):
             prefs['use_target_phrases'] = True
             changed = True
         prefs['use_target_phrases_migrated_default_true'] = True
+        changed = True
+
+    if not prefs.get('use_jieba_segmentation_migrated_default_true', False):
+        if not prefs.get('use_jieba_segmentation', False):
+            prefs['use_jieba_segmentation'] = True
+            changed = True
+        prefs['use_jieba_segmentation_migrated_default_true'] = True
         changed = True
 
     # Migrate boolean append_conversion_suffix → suffix_timestamp_format.
@@ -778,7 +786,7 @@ def build_criteria(prefs):
         prefs.get('enable_vision_ocr_enhancement', False),
         prefs.get('include_metadata', True),
         prefs.get('bilingual_annotation', False),
-        prefs.get('use_jieba_segmentation', False),
+        prefs.get('use_jieba_segmentation', True),
         prefs.get('force_pivot_conversion', True),
         suffix_timestamp_enabled(prefs.get(
             'suffix_timestamp_format',
@@ -805,7 +813,7 @@ def criteria_with_ocr_enabled(criteria, enabled):
 
 
 def apply_converter_segmentation(converter, criteria, verbose=False):
-    """Apply mmseg (default) or optional Jieba segmentation to an OpenCC converter."""
+    """Apply Jieba (default) or OpenCC mmseg segmentation to a converter."""
     from calibre_plugins.chinese_text_conversion.resources.opencc_python.opencc import (
         SEGMENTATION_JIEBA, SEGMENTATION_MMSEG,
     )
