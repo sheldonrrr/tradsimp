@@ -8,7 +8,7 @@
 
 本儲存庫在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 外掛基礎上繼續開發與維護。
 
-**目前版本：3.11.3** · 適用於 Calibre 6.0 及以上 · 類型：**主書庫工具列動作**
+**目前版本：3.11.4** · 適用於 Calibre 6.0 及以上 · 類型：**主書庫工具列動作**
 
 ---
 
