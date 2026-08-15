@@ -425,8 +425,8 @@ def make_book_time_code(
 
 # Kind → fixed token written into library titles (stable for strip/regex).
 _SUFFIX_TARGET_TOKENS = {
-    'traditional_hong_kong': '繁体中文_香港',
-    'traditional_taiwan': '繁体中文_台湾',
+    'traditional_hong_kong': '繁體中文_香港',
+    'traditional_taiwan': '繁體中文_台灣',
     'japanese_kanji': '日文汉字',
     'simplified': '简体中文',
     'traditional': '繁体中文',
@@ -661,7 +661,7 @@ def build_library_conversion_comments_note(stats=None, store_info=False):
 _PLUGIN_TITLE_SUFFIX_RE = re.compile(
     r'(?:\s+|^)' + re.escape(PLUGIN_SAFE_NAME) + r'-\d{2}-\d{2}-\d{2}(?=\s*$)')
 _GENERATED_TITLE_SUFFIX_RE = re.compile(
-    r'_(?:简体中文|繁体中文(?:_(?:香港|台湾))?|日文汉字|中文转换)'
+    r'_(?:简体中文|繁[体體]中文(?:_(?:香港|台湾|台灣|臺灣))?|日文汉字|中文转换)'
     r'(?:_双语标注)?_(?:[A-Za-z0-9]{4}|'
     + _BOOK_TIME_CODE_RE.pattern + r')(?=\s*$)')
 

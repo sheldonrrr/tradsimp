@@ -463,9 +463,9 @@ _MESSAGES = {
     'Suffix target simplified': _T('简体中文', '简体中文', '簡體中文'),
     'Suffix target traditional': _T('繁体中文', '繁体中文', '繁體中文'),
     'Suffix target traditional hong kong': _T(
-        '繁体中文_香港', '繁体中文_香港', '繁體中文_香港'),
+        '繁體中文_香港', '繁體中文_香港', '繁體中文_香港'),
     'Suffix target traditional taiwan': _T(
-        '繁体中文_台湾', '繁体中文_台湾', '繁體中文_臺灣'),
+        '繁體中文_台灣', '繁體中文_台灣', '繁體中文_台灣'),
     'Suffix target japanese kanji': _T('日文汉字', '日文汉字', '日文漢字'),
     'Suffix target chinese conversion': _T('中文转换', '中文转换', '中文轉換'),
     # {} = localized Suffix target… (current output language).
