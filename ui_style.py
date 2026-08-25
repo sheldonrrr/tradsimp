@@ -6,21 +6,23 @@ __license__ = 'GPL 3'
 
 try:
     from qt.core import (
-        QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
-        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QTimer, QVBoxLayout,
-        QWidget, pyqtSignal,
+        QAbstractButton, QApplication, QColor, QButtonGroup, QFont, QFrame, QGroupBox,
+        QHBoxLayout, QIcon, QLabel, QLineF, QPalette, QPainter, QPen, QPixmap, QRadioButton,
+        QRectF, QSize, QSizePolicy, QStyle, QStyleOption, Qt, QTimer, QVBoxLayout, QWidget,
+        pyqtSignal,
     )
 except ImportError:
     from PyQt5.Qt import (
-        QColor, QButtonGroup, QFrame, QGroupBox, QHBoxLayout, QIcon, QLabel, QPalette,
-        QPainter, QPen, QPixmap, QRadioButton, QSize, QSizePolicy, Qt, QTimer, QVBoxLayout,
-        QWidget,
+        QAbstractButton, QApplication, QColor, QButtonGroup, QFont, QFrame, QGroupBox,
+        QHBoxLayout, QIcon, QLabel, QLineF, QPalette, QPainter, QPen, QPixmap, QRadioButton,
+        QRectF, QSize, QSizePolicy, QStyle, QStyleOption, Qt, QTimer, QVBoxLayout, QWidget,
     )
     from PyQt5.QtCore import pyqtSignal
 
 ICON_RESOURCE = 'images/TradSimpIcon.png'
 BRAND_ICON_PX = 40
-TEXT_DIRECTION_ICON_PX = 22
+ABOUT_ICON_PX = 64
+TEXT_DIRECTION_ICON_PX = 24
 
 # 8px spacing scale
 SPACE_XS = 4
@@ -38,6 +40,7 @@ FORM_ROW_SPACING = SPACE_SM
 FORM_LABEL_MIN_WIDTH = 72
 HELP_TEXT_INDENT = 20
 FOOTER_TOP_MARGIN = SPACE_MD
+TEXT_DIRECTION_ICON_TEXT_GAP = SPACE_SM
 
 BRAND_HEADER_ID = 'tradSimpBrandHeader'
 BRAND_TITLE_ID = 'tradSimpBrandTitle'
@@ -49,6 +52,9 @@ EXAMPLE_CARD_ID = 'tradSimpExampleCard'
 EXAMPLE_TITLE_ID = 'tradSimpExampleTitle'
 EXAMPLE_BODY_ID = 'tradSimpExampleBody'
 EXAMPLE_SECONDARY_ID = 'tradSimpExampleSecondary'
+TEXT_DIRECTION_TILE_ID = 'tradSimpTextDirTile'
+TEXT_DIRECTION_TILE_PAD_Y = SPACE_LG
+TEXT_DIRECTION_TILE_PAD_X = SPACE_MD
 
 
 def _palette_role(role_name, fallback):
@@ -83,6 +89,36 @@ def _is_dark_palette(palette):
     return window.isValid() and window.lightness() < 128
 
 
+def _mix_colors(base, other, factor):
+    return QColor(
+        int(base.red() + (other.red() - base.red()) * factor),
+        int(base.green() + (other.green() - base.green()) * factor),
+        int(base.blue() + (other.blue() - base.blue()) * factor),
+    )
+
+
+def _checked_tile_fill(palette):
+    '''Lifted panel so the selected card is clearly brighter than its neighbors.'''
+    window = _palette_color(palette, 'Window', 'Window', (32, 32, 32))
+    if _is_dark_palette(palette):
+        return _mix_colors(window, QColor(255, 255, 255), 0.24)
+    accent = _palette_color(palette, 'Highlight', 'Highlight', (40, 110, 220))
+    panel = _palette_color(palette, 'AlternateBase', 'AlternateBase', (240, 240, 240))
+    return _mix_colors(panel, accent, 0.22)
+
+
+def _checked_tile_border(palette):
+    '''High-contrast ring. macOS Highlight is often too close to the panel.'''
+    window = _palette_color(palette, 'Window', 'Window', (32, 32, 32))
+    text = _palette_color(palette, 'WindowText', 'WindowText', (230, 230, 230))
+    if _is_dark_palette(palette):
+        return _mix_colors(window, text, 0.82)
+    accent = _palette_color(palette, 'Highlight', 'Highlight', (40, 110, 220))
+    if accent.lightness() > 190:
+        return _mix_colors(accent, text, 0.5)
+    return accent
+
+
 def _separator_color(palette):
     '''Border / divider color with enough contrast in dark themes.
 
@@ -103,70 +139,269 @@ def _separator_color(palette):
     if not text.isValid():
         return QColor(150, 150, 150)
     # Blend ~40% toward text so the line reads as a separator, not a shadow.
-    factor = 0.4
-    return QColor(
-        int(mid.red() + (text.red() - mid.red()) * factor),
-        int(mid.green() + (text.green() - mid.green()) * factor),
-        int(mid.blue() + (text.blue() - mid.blue()) * factor),
-    )
+    return _mix_colors(mid, text, 0.4)
 
 
-def make_text_direction_icon(palette, vertical=False):
-    '''Draw compact, theme-aware reading-direction icons for radio buttons.'''
-    pixmap = QPixmap(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+def _qt_enum(owner, namespaced, legacy):
+    group = getattr(owner, namespaced.split('.')[0], None) if '.' in namespaced else None
+    if group is not None:
+        value = getattr(group, namespaced.split('.')[-1], None)
+        if value is not None:
+            return value
+    return getattr(owner, legacy)
+
+
+def _text_direction_pen(color, width=None):
+    if width is None:
+        width = max(1.8, TEXT_DIRECTION_ICON_PX * 0.085)
+    pen = QPen(color)
+    pen.setWidthF(width)
+    pen.setCapStyle(_qt_enum(Qt, 'PenCapStyle.RoundCap', 'RoundCap'))
+    pen.setJoinStyle(_qt_enum(Qt, 'PenJoinStyle.RoundJoin', 'RoundJoin'))
+    return pen
+
+
+def _draw_bounding_box_circles(painter, size, color):
+    '''Stroke-only frame: hollow corner rings, sides stopping at the rims.'''
+    width = max(1.35, size * 0.058)
+    radius = size * 0.16
+    margin = radius + width * 0.5 + 1.1
+    left = margin
+    right = size - margin
+    top = margin
+    bottom = size - margin
+
+    painter.setBrush(_qt_enum(Qt, 'BrushStyle.NoBrush', 'NoBrush'))
+    line_pen = _text_direction_pen(color, width)
+    line_pen.setCapStyle(_qt_enum(Qt, 'PenCapStyle.FlatCap', 'FlatCap'))
+    painter.setPen(line_pen)
+    painter.drawLine(QLineF(left + radius, top, right - radius, top))
+    painter.drawLine(QLineF(right, top + radius, right, bottom - radius))
+    painter.drawLine(QLineF(left + radius, bottom, right - radius, bottom))
+    painter.drawLine(QLineF(left, top + radius, left, bottom - radius))
+
+    painter.setPen(_text_direction_pen(color, width))
+    diameter = radius * 2.0
+    for cx, cy in ((left, top), (right, top), (left, bottom), (right, bottom)):
+        painter.drawEllipse(QRectF(cx - radius, cy - radius, diameter, diameter))
+
+
+def _draw_horizontal_text_lines(painter, size, color):
+    painter.setPen(_text_direction_pen(color))
+    pad = size * 0.16
+    span = size - pad * 2.0
+    widths = (1.0, 0.78, 0.52)
+    for i, fraction in enumerate(widths):
+        y = pad + span * (0.12 + i * 0.38)
+        painter.drawLine(int(round(pad)), int(round(y)),
+                         int(round(pad + span * fraction)), int(round(y)))
+
+
+def _draw_vertical_text_lines(painter, size, color):
+    '''Right-to-left columns of vertical strokes, like CJK vertical type.'''
+    painter.setPen(_text_direction_pen(color))
+    pad = size * 0.16
+    span = size - pad * 2.0
+    heights = (1.0, 0.78, 0.52)
+    for i, fraction in enumerate(heights):
+        x = size - pad - span * (0.12 + i * 0.38)
+        painter.drawLine(int(round(x)), int(round(pad)),
+                         int(round(x)), int(round(pad + span * fraction)))
+
+
+def make_text_direction_icon(palette, kind='horizontal'):
+    '''Theme-aware text-direction tile icon (unchanged / horizontal / vertical).'''
+    logical = TEXT_DIRECTION_ICON_PX
+    dpr = _device_pixel_ratio()
+    phys = max(1, int(round(logical * dpr)))
+    pixmap = QPixmap(phys, phys)
     pixmap.fill(Qt.GlobalColor.transparent if hasattr(Qt, 'GlobalColor') else Qt.transparent)
 
     text_color = _palette_color(palette, 'WindowText', 'WindowText', (80, 80, 80))
-    accent_color = _palette_color(palette, 'Highlight', 'Highlight', (40, 110, 220))
-
     painter = QPainter(pixmap)
     painter.setRenderHint(
         QPainter.RenderHint.Antialiasing
         if hasattr(QPainter, 'RenderHint') else QPainter.Antialiasing)
+    if dpr != 1.0:
+        painter.scale(dpr, dpr)
 
-    text_pen = QPen(text_color)
-    text_pen.setWidth(2)
-    text_pen.setCapStyle(
-        Qt.PenCapStyle.RoundCap if hasattr(Qt, 'PenCapStyle') else Qt.RoundCap)
-    painter.setPen(text_pen)
-
-    if vertical:
-        for x in (7, 14):
-            painter.drawLine(x, 4, x, 14)
-            painter.drawPoint(x, 18)
+    if kind == 'unchanged':
+        _draw_bounding_box_circles(painter, logical, text_color)
+    elif kind == 'vertical':
+        _draw_vertical_text_lines(painter, logical, text_color)
     else:
-        for y in (6, 11, 16):
-            painter.drawLine(4, y, 14, y)
-
-    arrow_pen = QPen(accent_color)
-    arrow_pen.setWidth(2)
-    arrow_pen.setCapStyle(
-        Qt.PenCapStyle.RoundCap if hasattr(Qt, 'PenCapStyle') else Qt.RoundCap)
-    arrow_pen.setJoinStyle(
-        Qt.PenJoinStyle.RoundJoin if hasattr(Qt, 'PenJoinStyle') else Qt.RoundJoin)
-    painter.setPen(arrow_pen)
-
-    if vertical:
-        painter.drawLine(18, 4, 18, 17)
-        painter.drawLine(18, 17, 15, 14)
-        painter.drawLine(18, 17, 21, 14)
-    else:
-        painter.drawLine(4, 19, 17, 19)
-        painter.drawLine(17, 19, 14, 16)
-        painter.drawLine(17, 19, 14, 21)
+        _draw_horizontal_text_lines(painter, logical, text_color)
 
     painter.end()
+    try:
+        pixmap.setDevicePixelRatio(dpr)
+    except Exception:
+        pass
     return QIcon(pixmap)
 
 
-def apply_text_direction_icons(horizontal_button, vertical_button):
-    '''Attach horizontal and vertical orientation icons to the text direction choices.'''
-    palette = horizontal_button.palette()
+class TextDirectionTile(QAbstractButton):
+    '''Card with a fixed 24px icon, explicit padding, and a label underneath.'''
+
+    def __init__(self, label, parent=None):
+        super(TextDirectionTile, self).__init__(parent)
+        self.setObjectName(TEXT_DIRECTION_TILE_ID)
+        self.setCheckable(True)
+        self.setAutoExclusive(True)
+        self.setAttribute(
+            _qt_enum(Qt, 'WidgetAttribute.WA_StyledBackground', 'WA_StyledBackground'),
+            True)
+        self.setSizePolicy(
+            _qt_enum(QSizePolicy, 'Policy.Expanding', 'Expanding'),
+            _qt_enum(QSizePolicy, 'Policy.Preferred', 'Preferred'),
+        )
+        self.setMinimumHeight(
+            TEXT_DIRECTION_ICON_PX + TEXT_DIRECTION_ICON_TEXT_GAP + 20
+            + TEXT_DIRECTION_TILE_PAD_Y * 2)
+
+        transparent = _qt_enum(Qt, 'WidgetAttribute.WA_TransparentForMouseEvents',
+                               'WA_TransparentForMouseEvents')
+        align_center = _qt_enum(Qt, 'AlignmentFlag.AlignCenter', 'AlignCenter')
+        align_hcenter = _qt_enum(Qt, 'AlignmentFlag.AlignHCenter', 'AlignHCenter')
+
+        self._icon_label = QLabel(self)
+        self._icon_label.setFixedSize(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+        self._icon_label.setAlignment(align_center)
+        self._icon_label.setAttribute(transparent, True)
+
+        self._text_label = QLabel(label, self)
+        self._text_label.setAlignment(align_hcenter)
+        self._text_label.setWordWrap(True)
+        self._text_label.setAttribute(transparent, True)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(
+            TEXT_DIRECTION_TILE_PAD_X,
+            TEXT_DIRECTION_TILE_PAD_Y,
+            TEXT_DIRECTION_TILE_PAD_X,
+            TEXT_DIRECTION_TILE_PAD_Y,
+        )
+        layout.setSpacing(TEXT_DIRECTION_ICON_TEXT_GAP)
+        layout.addWidget(self._icon_label, 0, align_hcenter)
+        layout.addWidget(self._text_label, 0, align_hcenter)
+        QAbstractButton.setText(self, label)
+        self.toggled.connect(self._sync_checked_chrome)
+        self._sync_checked_chrome(self.isChecked())
+
+    def setText(self, text):
+        self._text_label.setText(text)
+        QAbstractButton.setText(self, text)
+
+    def setIcon(self, icon):
+        size = QSize(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+        pixmap = icon.pixmap(size)
+        self._icon_label.setPixmap(pixmap)
+
+    def setIconSize(self, _size):
+        self._icon_label.setFixedSize(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
+
+    def _sync_checked_chrome(self, checked):
+        font = self._text_label.font()
+        if checked:
+            try:
+                weight = _qt_enum(QFont, 'Weight.DemiBold', 'DemiBold')
+            except AttributeError:
+                weight = _qt_enum(QFont, 'Weight.Bold', 'Bold')
+        else:
+            weight = _qt_enum(QFont, 'Weight.Normal', 'Normal')
+        font.setWeight(weight)
+        self._text_label.setFont(font)
+        self.setProperty('tileChecked', 'true' if checked else 'false')
+        style = self.style()
+        style.unpolish(self)
+        style.polish(self)
+        self.update()
+
+    def paintEvent(self, event):
+        option = QStyleOption()
+        option.initFrom(self)
+        state_on = _qt_enum(QStyle, 'StateFlag.State_On', 'State_On')
+        if self.isChecked():
+            option.state |= state_on
+        painter = QPainter(self)
+        try:
+            self.style().drawPrimitive(
+                _qt_enum(QStyle, 'PrimitiveElement.PE_Widget', 'PE_Widget'),
+                option, painter, self)
+        finally:
+            painter.end()
+
+
+def _text_direction_tile_stylesheet(palette):
+    return (
+        'QWidget#{tile_id} {{'
+        ' background-color: {alt_base};'
+        ' border: 2px solid transparent;'
+        ' border-radius: 8px;'
+        '}}'
+        'QWidget#{tile_id}:hover:!checked {{'
+        ' border-color: {muted_text};'
+        '}}'
+        'QWidget#{tile_id}:checked,'
+        'QWidget#{tile_id}[tileChecked=\"true\"] {{'
+        ' background-color: {tile_checked};'
+        ' border: 2px solid {tile_checked_border};'
+        '}}'
+        'QWidget#{tile_id}:disabled {{'
+        ' color: {muted_text};'
+        '}}'
+        'QWidget#{tile_id}:checked:disabled {{'
+        ' border-color: {separator};'
+        ' background-color: {alt_base};'
+        '}}'
+        'QWidget#{tile_id} QLabel {{'
+        ' background: transparent;'
+        ' border: none;'
+        '}}'
+    ).format(
+        tile_id=TEXT_DIRECTION_TILE_ID,
+        alt_base=palette.color(_palette_role('AlternateBase', 'AlternateBase')).name(),
+        separator=_separator_color(palette).name(),
+        muted_text=_muted_text_color(palette).name(),
+        tile_checked=_checked_tile_fill(palette).name(),
+        tile_checked_border=_checked_tile_border(palette).name(),
+    )
+
+
+def apply_text_direction_icons(no_change_button, horizontal_button, vertical_button):
+    '''Attach keep-as-is, horizontal, and vertical icons to the three tiles.'''
+    palette = no_change_button.palette()
     icon_size = QSize(TEXT_DIRECTION_ICON_PX, TEXT_DIRECTION_ICON_PX)
-    horizontal_button.setIcon(make_text_direction_icon(palette, vertical=False))
-    horizontal_button.setIconSize(icon_size)
-    vertical_button.setIcon(make_text_direction_icon(palette, vertical=True))
-    vertical_button.setIconSize(icon_size)
+    sheet = _text_direction_tile_stylesheet(palette)
+    for button, kind in (
+        (no_change_button, 'unchanged'),
+        (horizontal_button, 'horizontal'),
+        (vertical_button, 'vertical'),
+    ):
+        button.setIcon(make_text_direction_icon(palette, kind))
+        button.setIconSize(icon_size)
+        button.setStyleSheet(sheet)
+
+
+def build_text_direction_tiles(parent, labels, ids=None, tooltips=None):
+    '''Three equal columns: custom cards with icon above label.'''
+    button_group = QButtonGroup(parent)
+    button_group.setExclusive(True)
+    row = QHBoxLayout()
+    configure_layout(row, 'radio')
+    row.setSpacing(SPACE_SM)
+    buttons = []
+    for idx, label in enumerate(labels):
+        button = TextDirectionTile(label, parent)
+        if tooltips is not None and idx < len(tooltips) and tooltips[idx]:
+            button.setToolTip(tooltips[idx])
+        button_id = ids[idx] if ids is not None and idx < len(ids) else idx
+        button_group.addButton(button, button_id)
+        row.addWidget(button, 1)
+        buttons.append(button)
+    if len(buttons) >= 3:
+        apply_text_direction_icons(buttons[0], buttons[1], buttons[2])
+    return button_group, row, buttons
 
 
 def configure_layout(layout, role='section'):
@@ -233,7 +468,17 @@ def help_text_row(parent, label):
     return row
 
 
-def load_brand_pixmap():
+def _device_pixel_ratio():
+    try:
+        app = QApplication.instance()
+        if app is not None:
+            return max(1.0, float(app.devicePixelRatio()))
+    except Exception:
+        pass
+    return 1.0
+
+
+def load_brand_pixmap(size=None):
     try:
         data = get_resources(ICON_RESOURCE)  # noqa: F821 — injected by Calibre
     except Exception:
@@ -243,12 +488,58 @@ def load_brand_pixmap():
     pixmap = QPixmap()
     if not pixmap.loadFromData(data):
         return None
+    px = int(size or BRAND_ICON_PX)
+    dpr = _device_pixel_ratio()
+    phys = max(1, int(round(px * dpr)))
+    scaled = pixmap.scaled(
+        phys, phys, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     try:
-        from qt.core import Qt
-    except ImportError:
-        from PyQt5.Qt import Qt
-    return pixmap.scaled(
-        BRAND_ICON_PX, BRAND_ICON_PX, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled.setDevicePixelRatio(dpr)
+    except Exception:
+        pass
+    return scaled
+
+
+def make_about_icon_label():
+    '''Large centered plugin icon for the About dialog (macOS-style).'''
+    label = QLabel()
+    label.setFixedSize(ABOUT_ICON_PX, ABOUT_ICON_PX)
+    label.setAlignment(Qt.AlignCenter)
+    pixmap = load_brand_pixmap(ABOUT_ICON_PX)
+    if pixmap is not None and not pixmap.isNull():
+        label.setPixmap(pixmap)
+    else:
+        label.hide()
+    return label
+
+
+def build_about_identity():
+    '''Centered icon + name + version block for the About dialog.'''
+    header = QWidget()
+    header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+    layout = QVBoxLayout(header)
+    layout.setContentsMargins(0, SPACE_SM, 0, SPACE_SM)
+    layout.setSpacing(SPACE_XS)
+
+    icon_label = make_about_icon_label()
+    layout.addWidget(icon_label, 0, Qt.AlignHCenter)
+    layout.addSpacing(SPACE_LG)
+
+    title_label = QLabel()
+    title_label.setObjectName(BRAND_TITLE_ID)
+    title_label.setAlignment(Qt.AlignHCenter)
+    title_label.setWordWrap(False)
+    title_font = title_label.font()
+    title_font.setBold(True)
+    title_font.setPointSize(title_font.pointSize() + 1)
+    title_label.setFont(title_font)
+    layout.addWidget(title_label)
+
+    version_label = QLabel()
+    version_label.setObjectName(BRAND_SUBTITLE_ID)
+    version_label.setAlignment(Qt.AlignHCenter)
+    layout.addWidget(version_label)
+    return header, title_label, version_label
 
 
 def build_brand_header(title, subtitle):
@@ -313,6 +604,8 @@ def apply_dialog_stylesheet(widget):
     separator = _separator_color(palette).name()
     # Muted labels (brand subtitle, example titles): PlaceholderText, not Mid.
     muted_text = _muted_text_color(palette).name()
+    tile_checked = _checked_tile_fill(palette).name()
+    tile_checked_border = _checked_tile_border(palette).name()
     widget.setStyleSheet(
         '''
         QWidget#{header_id} {{
@@ -386,6 +679,30 @@ def apply_dialog_stylesheet(widget):
         QLabel#{example_secondary_id} {{
             color: {muted_text};
         }}
+        QWidget#{tile_id} {{
+            background-color: {alt_base};
+            border: 2px solid transparent;
+            border-radius: 8px;
+        }}
+        QWidget#{tile_id}:hover:!checked {{
+            border-color: {muted_text};
+        }}
+        QWidget#{tile_id}:checked,
+        QWidget#{tile_id}[tileChecked=\"true\"] {{
+            background-color: {tile_checked};
+            border: 2px solid {tile_checked_border};
+        }}
+        QWidget#{tile_id}:disabled {{
+            color: {muted_text};
+        }}
+        QWidget#{tile_id}:checked:disabled {{
+            border-color: {separator};
+            background-color: {alt_base};
+        }}
+        QWidget#{tile_id} QLabel {{
+            background: transparent;
+            border: none;
+        }}
         '''.format(
             header_id=BRAND_HEADER_ID,
             title_id=BRAND_TITLE_ID,
@@ -395,6 +712,11 @@ def apply_dialog_stylesheet(widget):
             example_card_id=EXAMPLE_CARD_ID,
             example_title_id=EXAMPLE_TITLE_ID,
             example_secondary_id=EXAMPLE_SECONDARY_ID,
+            tile_id=TEXT_DIRECTION_TILE_ID,
+            tile_pad_y=TEXT_DIRECTION_TILE_PAD_Y,
+            tile_pad_x=TEXT_DIRECTION_TILE_PAD_X,
+            tile_checked=tile_checked,
+            tile_checked_border=tile_checked_border,
             accent=highlight,
             alt_base=alt_base,
             base=base,

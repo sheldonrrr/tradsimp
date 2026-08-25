@@ -12,8 +12,8 @@ import shutil
 import subprocess
 import sys
 
-OPENCC_COMMIT = '2904aa4'
-OPENCC_TAG = 'master'
+OPENCC_COMMIT = '025f371'
+OPENCC_TAG = 'ver.1.4.2'
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DICT_DIR = os.path.join(PLUGIN_ROOT, 'resources', 'opencc_python', 'dictionary')
@@ -198,7 +198,7 @@ def update_readme() -> None:
     with open(readme, encoding='utf-8') as fh:
         text = fh.read()
     text = re.sub(
-        r'commit [0-9a-f]+(?: \(ver\.[^)]+\))?',
+        r'commit [0-9a-f]+(?: \([^)]+\))*',
         f'commit {OPENCC_COMMIT} ({OPENCC_TAG})',
         text,
         count=1,

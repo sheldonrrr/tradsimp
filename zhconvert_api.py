@@ -16,15 +16,26 @@ ZHCONVERT_TIMEOUT_SECONDS = 30
 ZHCONVERT_MAX_INPUT_BYTES = 64 * 1024
 
 ZHCONVERT_CONVERTERS = (
-    ('Traditional', 'Traditional Chinese'),
-    ('Simplified', 'Simplified Chinese'),
-    ('Taiwan', 'Taiwan Chinese'),
-    ('Hongkong', 'Hong Kong Chinese'),
-    ('China', 'Mainland China Chinese'),
-    ('WikiTraditional', 'Wiki Traditional Chinese'),
-    ('WikiSimplified', 'Wiki Simplified Chinese'),
+    ('Traditional', 'ZhConvert mode Traditional'),
+    ('Simplified', 'ZhConvert mode Simplified'),
+    ('Taiwan', 'ZhConvert mode Taiwan'),
+    ('Hongkong', 'ZhConvert mode Hong Kong'),
+    ('China', 'ZhConvert mode Mainland'),
+    ('WikiTraditional', 'ZhConvert mode Wiki Traditional'),
+    ('WikiSimplified', 'ZhConvert mode Wiki Simplified'),
 )
 ZHCONVERT_CONVERTER_IDS = frozenset(item[0] for item in ZHCONVERT_CONVERTERS)
+
+# Fixed glyph demos (not UI-translated) so regional wording stays visible.
+ZHCONVERT_MODE_EXAMPLES = {
+    'Traditional': '软件 → 軟件 · 内存 → 內存 · 计算机 → 計算機',
+    'Simplified': '軟體 → 软体 · 記憶體 → 记忆体 · 計算機 → 计算机',
+    'Taiwan': '软件 → 軟體 · 内存 → 記憶體 · 网络 → 網路',
+    'Hongkong': '软件 → 軟件 · 什么 → 甚麼 · 网络 → 網絡',
+    'China': '軟體 → 软件 · 記憶體 → 内存 · 網路 → 网络',
+    'WikiTraditional': '服务器 → 伺服器 · 数据库 → 資料庫 · 计算机 → 電腦',
+    'WikiSimplified': '伺服器 → 服务器 · 資料庫 → 数据库 · 電腦 → 计算机',
+}
 
 
 class ZhConvertError(Exception):

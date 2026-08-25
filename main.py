@@ -124,6 +124,13 @@ def get_resource_file(file_type, file_name):
     if file_type == CONFIG_FILE:
         return get_resources('resources/opencc_python/config/' + file_name)
     elif file_type == DICT_FILE:
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE, read_user_dict_bytes)
+        user_bytes = read_user_dict_bytes(file_name)
+        if user_bytes is not None:
+            return user_bytes
+        if file_name == USER_PHRASES_FILE:
+            return None
         return get_resources('resources/opencc_python/dictionary/' + file_name)
     else:
         raise ValueError('conversion value incorrect')
@@ -686,7 +693,6 @@ def prepare_prefs(prefs):
         prefs['profile_ui_language'] = prefs['ui_language']
         prefs['has_user_preferences'] = False
         prefs['about_shown'] = False
-        prefs['zhconvert_privacy_acknowledged'] = False
         changed = True
 
     prefs.defaults['input_source'] = 0
@@ -720,7 +726,6 @@ def prepare_prefs(prefs):
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
     prefs.defaults['about_shown'] = True
-    prefs.defaults['zhconvert_privacy_acknowledged'] = False
 
     # Legacy migration: older versions defaulted this to False.
     # Run once so existing users align with new default behavior.

@@ -25,6 +25,7 @@
 # - Optional Jieba segmentation mode for phrase-level accuracy
 ##########################################################
 
+import html
 import json
 import re
 
@@ -33,6 +34,42 @@ DICT_FILE = 'dictionary'
 
 SEGMENTATION_MMSEG = 'mmseg'
 SEGMENTATION_JIEBA = 'jieba'
+
+_HTML_TAG_RE = re.compile(r'</?[A-Za-z][^>]*>')
+_HTML_ENTITY_RE = re.compile(r'&(?:#\d+|#x[0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+);')
+_HTML_MARKUP_TOKENS = frozenset((
+    '<', '>', '/', '&', ';', '#',
+    'nbsp', 'ensp', 'emsp', 'thinsp', 'zwnj', 'zwj', 'shy',
+    'mdash', 'ndash', 'minus', 'hellip', 'middot',
+    'quot', 'amp', 'lt', 'gt', 'apos', 'copy', 'reg',
+    'ldquo', 'rdquo', 'lsquo', 'rsquo', 'laquo', 'raquo',
+    'p', 'br', 'div', 'span', 'em', 'strong', 'b', 'i', 'u', 'a',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol',
+    'sup', 'sub', 'section', 'blockquote',
+))
+
+
+def _plain_text_for_jieba_sample(text):
+    '''Drop HTML tags/entities so log samples show readable book text only.'''
+    cleaned = _HTML_TAG_RE.sub('', text or '')
+    cleaned = _HTML_ENTITY_RE.sub(' ', cleaned)
+    cleaned = html.unescape(cleaned)
+    cleaned = cleaned.replace('\xa0', ' ').replace('\u200b', '')
+    return ' '.join(cleaned.split())
+
+
+def _is_jieba_markup_token(token):
+    piece = (token or '').strip()
+    if not piece:
+        return True
+    if piece in _HTML_MARKUP_TOKENS:
+        return True
+    if piece.startswith('<') or piece.endswith('>'):
+        return True
+    if _HTML_ENTITY_RE.fullmatch(piece):
+        return True
+    lowered = piece.lower().strip('&;')
+    return lowered in _HTML_MARKUP_TOKENS
 
 CHAINED_CONVERSIONS = {
     'hk2tw': ('hk2t', 't2tw'),
@@ -55,6 +92,7 @@ FORCED_PIVOT_REVERSE = {
 # Regional reverse-phrase tables. Multi-char keys are merged into mmseg
 # segmentation so shorter TSPhrases hits cannot split 義大利 / 滑鼠 etc.
 REGIONAL_REVERSE_PHRASE_DICTS = ('TWPhrasesRev.txt', 'HKPhrasesRev.txt')
+USER_PHRASES_FILE = 'UserPhrases.txt'
 
 
 class OpenCC:
@@ -336,19 +374,31 @@ class OpenCC:
             return
         if not text or not segments or len(segments) < 2:
             return
+        display_text = _plain_text_for_jieba_sample(text)
+        kept = [
+            (seg, conv)
+            for seg, conv in zip(segments, converted_parts)
+            if not _is_jieba_markup_token(seg)
+        ]
+        if not kept:
+            return
+        display_segments, display_converted = zip(*kept)
+        # Prefer short CJK phrases; skip URLs / English punctuation noise.
+        if not any('\u4e00' <= ch <= '\u9fff' for ch in display_text):
+            return
         # Prefer short phrase-like spans; skip huge paragraphs.
-        if len(text) < 4 or len(text) > 40:
+        if len(display_text) < 4 or len(display_text) > 40:
             return
-        if not any(len(seg) >= 2 for seg in segments):
+        if not any(len(seg) >= 2 for seg in display_segments):
             return
-        key = text
+        key = display_text
         if key in self._jieba_sample_keys:
             return
         self._jieba_sample_keys.add(key)
         self._jieba_samples.append({
-            'text': text,
-            'segments': list(segments),
-            'converted_segments': list(converted_parts),
+            'text': display_text,
+            'segments': list(display_segments),
+            'converted_segments': list(display_converted),
         })
 
     def _should_segment(self):
@@ -685,6 +735,8 @@ class OpenCC:
         for chain in setting_json.get('conversion_chain'):
             self._add_dict_chain(self._dict_chain, chain.get('dict'))
 
+        self._prepend_user_phrases()
+
         self._normalization_chain_data = []
         self._add_dictionaries(self._normalization_chain, self._normalization_chain_data)
         self._dict_chain_data = []
@@ -760,7 +812,7 @@ class OpenCC:
                         converted_data_list = converted_data.splitlines()
                         for line in converted_data_list:
                             line = line.strip()
-                            if not line or line.startswith('#'):
+                            if not line or line.startswith('#') or '\t' not in line:
                                 continue
                             key, value = line.split('\t', 1)
                             map_dict[key] = value
@@ -789,6 +841,40 @@ class OpenCC:
             dict_chain.append(('group', match_policy, chain))
         elif dict_dict.get('type') == 'txt':
             dict_chain.append(dict_dict.get('file'))
+
+    def _user_phrases_present(self):
+        try:
+            data = self.resource_getter(DICT_FILE, USER_PHRASES_FILE)
+        except Exception:
+            return False
+        return bool(data)
+
+    def _prepend_user_phrases(self):
+        """Put UserPhrases.txt first in conversion and segmentation groups."""
+        if not self._user_phrases_present():
+            return
+        self._prepend_txt_to_chain(
+            self._dict_chain, USER_PHRASES_FILE, first_short_circuit=True)
+        self._prepend_txt_to_chain(
+            self._segmentation_chain, USER_PHRASES_FILE, first_short_circuit=False)
+
+    def _prepend_txt_to_chain(self, chain, filename, first_short_circuit):
+        if not chain:
+            if first_short_circuit:
+                chain.insert(0, filename)
+            else:
+                chain.append(('group', 'union', [filename]))
+            return
+        for item in chain:
+            if isinstance(item, tuple) and len(item) == 3 and item[0] == 'group':
+                _, policy, children = item
+                if first_short_circuit and policy != 'short_circuit':
+                    continue
+                if filename not in children:
+                    children.insert(0, filename)
+                return
+        if filename not in chain:
+            chain.insert(0, filename)
 
     def set_conversion(self, conversion):
         """

@@ -9,10 +9,10 @@ import time
 import traceback
 
 try:
-    from qt.core import QApplication, QMenu, QObject, QThread, pyqtSignal
+    from qt.core import QApplication, QMenu, QObject, QThread, QTimer, pyqtSignal
 except ImportError:
     from PyQt5.Qt import QApplication, QMenu
-    from PyQt5.QtCore import QObject, QThread, pyqtSignal
+    from PyQt5.QtCore import QObject, QThread, QTimer, pyqtSignal
 
 from calibre.gui2.actions import InterfaceAction
 from calibre.gui2 import error_dialog, info_dialog, question_dialog
@@ -26,7 +26,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     format_book_tag_log_lines,
     format_conversion_direction_label,
     format_conversion_stats_log, format_elapsed_duration,
-    format_progress_status_fields,
+    format_progress_status_fields, format_local_opencc_dicts_log,
     import_converted_book_as_new, log_phase_header, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     format_replacement_stats_log, format_conversion_diagnostics_log,
@@ -35,6 +35,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     count_image_resources_from_path,
     OCR_LARGE_IMAGE_COUNT_THRESHOLD, unsupported_language_skip_set_or_cancel,
     SUFFIX_TIMESTAMP_DEFAULT, normalize_suffix_timestamp_format,
+    confirm_and_open_release_notes,
 )
 from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
@@ -271,6 +272,14 @@ class ChineseTextAction(InterfaceAction):
         self._convert_menu_action.triggered.connect(self.convert_selected_books)
         self._zhconvert_menu_action = self._action_menu.addAction('')
         self._zhconvert_menu_action.triggered.connect(self.open_zhconvert_dialog)
+        self._dicts_menu_action = self._action_menu.addAction('')
+        self._dicts_menu_action.triggered.connect(
+            self.open_opencc_dictionaries_dialog)
+        self._action_menu.addSeparator()
+        self._about_menu_action = self._action_menu.addAction('')
+        self._about_menu_action.triggered.connect(self.open_about_dialog)
+        self._whats_new_menu_action = self._action_menu.addAction('')
+        self._whats_new_menu_action.triggered.connect(self.open_release_notes)
         self.qaction.setMenu(self._action_menu)
         self._update_action_translations()
 
@@ -280,6 +289,25 @@ class ChineseTextAction(InterfaceAction):
         if getattr(self, '_zhconvert_menu_action', None) is not None:
             self._zhconvert_menu_action.setText(
                 _('ZhConvert online short-text conversion'))
+        if getattr(self, '_dicts_menu_action', None) is not None:
+            self._dicts_menu_action.setText(_('OpenCC dictionaries'))
+        if getattr(self, '_about_menu_action', None) is not None:
+            self._about_menu_action.setText(_('About'))
+        if getattr(self, '_whats_new_menu_action', None) is not None:
+            self._whats_new_menu_action.setText(_("What's new"))
+
+    def open_about_dialog(self):
+        prefs = getPrefs()
+        prepare_prefs(prefs)
+        apply_ui_language_from_prefs(prefs)
+        self._update_action_translations()
+        from calibre_plugins.chinese_text_conversion.dialogs import PluginAboutDialog
+        dlg = PluginAboutDialog(self.gui, prefs, first_run=False)
+        dlg.exec_()
+        dlg.mark_first_run_complete()
+
+    def open_release_notes(self):
+        confirm_and_open_release_notes(self.gui)
 
     def open_zhconvert_dialog(self):
         prefs = getPrefs()
@@ -293,6 +321,16 @@ class ChineseTextAction(InterfaceAction):
             dlg.exec_()
         finally:
             self._zhconvert_dialog = None
+
+    def open_opencc_dictionaries_dialog(self):
+        prefs = getPrefs()
+        prepare_prefs(prefs)
+        apply_ui_language_from_prefs(prefs)
+        self._update_action_translations()
+        from calibre_plugins.chinese_text_conversion.dialogs import (
+            OpenCCDictionariesDialog)
+        dlg = OpenCCDictionariesDialog(self.gui, prefs)
+        dlg.exec_()
 
     def location_selected(self, loc):
         enabled = loc == 'library'
@@ -468,11 +506,15 @@ class ChineseTextAction(InterfaceAction):
             'recognized_images': [],
             'recognized_no_change': 0,
             'reason': '',
-            'jieba_sample_lines': [],
             'batch_started_at': time.time(),
             'total_chars_processed': 0,
             'total_chars_converted': 0,
             'total_elapsed_seconds': 0.0,
+            'books_expected': len(work),
+            'books_settled': 0,
+            'books_in_flight': 0,
+            'worker_finished': False,
+            'finish_done': False,
         }
         self._start_library_conversion_worker(work, criteria, conversion, status_dlg, state)
 
@@ -494,7 +536,7 @@ class ChineseTextAction(InterfaceAction):
             lambda failure: self._handle_library_book_failed(failure, status_dlg, state))
         worker.finished.connect(thread.quit)
         worker.finished.connect(
-            lambda: self._finish_library_conversion(status_dlg, state))
+            lambda: self._mark_library_worker_finished(status_dlg, state))
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
         thread.finished.connect(self._clear_library_worker_refs)
@@ -512,6 +554,7 @@ class ChineseTextAction(InterfaceAction):
         title = result['title']
         fmt = result['fmt']
         tmpdir = result.get('tmpdir')
+        state['books_in_flight'] = state.get('books_in_flight', 0) + 1
         try:
             changed_files = result.get('changed_files') or []
             ocr_stats = result.get('ocr_stats') or {}
@@ -542,14 +585,12 @@ class ChineseTextAction(InterfaceAction):
                 if chars_processed or elapsed_seconds:
                     log_section(
                         status_dlg,
-                        _('----Log conversion stats begin----'),
-                        _('----Log conversion stats end----'),
+                        _('----Log conversion stats----'),
                         [format_conversion_stats_log(
                             chars_processed=chars_processed,
                             chars_converted=chars_converted,
                             replacement_hits=replacement_hits,
-                            elapsed_seconds=elapsed_seconds)],
-                        step=1, total=1, blank_after=True)
+                            elapsed_seconds=elapsed_seconds)])
                 else:
                     status_dlg.log_result('')
                 return
@@ -611,6 +652,9 @@ class ChineseTextAction(InterfaceAction):
                 'elapsed_seconds': elapsed_seconds,
                 'suffix_tag': result.get('suffix'),
                 'generated_at': result.get('generated_at'),
+                'conversion_type': criteria[CONVERSION_TYPE],
+                'input_locale': criteria[INPUT_LOCALE],
+                'output_locale': criteria[OUTPUT_LOCALE],
                 'direction_label': _library_direction_label(criteria),
             }
             new_id, new_title = import_converted_book_as_new(
@@ -627,50 +671,40 @@ class ChineseTextAction(InterfaceAction):
             book_info = book_info + '\n' + format_book_tag_log_lines(
                 result['suffix'], result['generated_at'])
             if saved_path:
-                book_info = book_info + '\n' + _('Saved file log line').format(
-                    os.path.basename(saved_path), saved_path)
+                book_info = book_info + '\n' + _('Saved file name: {}').format(
+                    os.path.basename(saved_path))
+                book_info = book_info + '\n' + _('Saved file path: {}').format(
+                    saved_path)
 
             # Per-book result blocks under phase 2, numbered (k/K).
             diagnostic_log = result.get('diagnostic_log')
             jieba_log = result.get('jieba_log')
             section_specs = [
+                (_('----Log book info----'), [book_info]),
                 (
-                    _('----Log book info begin----'),
-                    _('----Log book info end----'),
-                    [book_info],
-                ),
-                (
-                    _('----Log conversion stats begin----'),
-                    _('----Log conversion stats end----'),
+                    _('----Log conversion stats----'),
                     [format_conversion_stats_log(
                         chars_processed=chars_processed,
                         chars_converted=chars_converted,
                         replacement_hits=replacement_hits,
                         elapsed_seconds=elapsed_seconds)],
                 ),
-                (
-                    _('----Log replacements begin----'),
-                    _('----Log replacements end----'),
-                    [result.get('replacement_log')],
-                ),
+                (_('----Log replacements----'), [result.get('replacement_log')]),
             ]
             if diagnostic_log:
                 section_specs.append((
-                    _('----Log conversion diagnostics begin----'),
-                    _('----Log conversion diagnostics end----'),
+                    _('----Log conversion diagnostics----'),
                     [diagnostic_log],
                 ))
             section_specs.append((
-                _('----Log preview begin----'),
-                _('----Log preview end----'),
+                _('----Log preview----'),
                 [excerpt],
             ))
             # Jieba runs before OpenCC; show samples after conversion results
             # so the log reads: convert first, then how Jieba split it.
             if jieba_log:
                 section_specs.append((
-                    _('----Log Jieba samples begin----'),
-                    _('----Log Jieba samples end----'),
+                    _('----Log Jieba samples----'),
                     [jieba_log],
                 ))
 
@@ -678,34 +712,47 @@ class ChineseTextAction(InterfaceAction):
             status_dlg.log_result(
                 _('—— {} ——').format(
                     _('Log book result divider').format(title)))
-            section_total = len(section_specs)
-            for step, (begin_msg, end_msg, body_lines) in enumerate(
-                    section_specs, start=1):
-                log_section(
-                    status_dlg, begin_msg, end_msg, body_lines,
-                    step=step, total=section_total, blank_after=True)
-            if jieba_log:
-                for line in str(jieba_log).splitlines():
-                    text = line.strip()
-                    if ' → ' not in text:
-                        continue
-                    sample_line = '  ' + text
-                    if (
-                        sample_line not in state['jieba_sample_lines']
-                        and len(state['jieba_sample_lines']) < 8
-                    ):
-                        state['jieba_sample_lines'].append(sample_line)
+            for title_line, body_lines in section_specs:
+                log_section(status_dlg, title_line, body_lines)
         except Exception:
             state['failed'].append((title, traceback.format_exc()))
             status_dlg.log_processing(_('Failed: {}').format(title))
         finally:
             if tmpdir:
                 shutil.rmtree(tmpdir, ignore_errors=True)
+            self._note_library_book_settled(
+                status_dlg, state, decrement_in_flight=True)
 
     def _handle_library_book_failed(self, failure, status_dlg, state):
         title = failure.get('title', _('Unknown'))
         state['failed'].append((title, failure.get('traceback', '')))
         status_dlg.log_processing(_('Failed: {}').format(title))
+        self._note_library_book_settled(status_dlg, state)
+
+    def _note_library_book_settled(
+            self, status_dlg, state, decrement_in_flight=False):
+        if decrement_in_flight:
+            state['books_in_flight'] = max(
+                0, state.get('books_in_flight', 0) - 1)
+        state['books_settled'] = state.get('books_settled', 0) + 1
+        self._maybe_finish_library_conversion(status_dlg, state)
+
+    def _mark_library_worker_finished(self, status_dlg, state):
+        state['worker_finished'] = True
+        QTimer.singleShot(
+            0, lambda: self._maybe_finish_library_conversion(status_dlg, state))
+
+    def _maybe_finish_library_conversion(self, status_dlg, state):
+        if state.get('finish_done'):
+            return
+        if not state.get('worker_finished'):
+            return
+        if state.get('books_in_flight', 0) > 0:
+            return
+        if state.get('books_settled', 0) < state.get('books_expected', 0):
+            return
+        state['finish_done'] = True
+        self._finish_library_conversion(status_dlg, state)
 
     def _merge_ocr_summary(self, state, ocr_stats):
         state['images_recognized'] += int(ocr_stats.get('images_recognized', 0) or 0)
@@ -769,9 +816,9 @@ class ChineseTextAction(InterfaceAction):
         summary.append(
             _('Segmentation: Jieba') if use_jieba else _('Segmentation: OpenCC mmseg')
         )
-        if use_jieba and state.get('jieba_sample_lines'):
-            summary.append(_('Jieba segmentation samples:'))
-            summary.extend(state['jieba_sample_lines'][:8])
+        local_dicts = format_local_opencc_dicts_log()
+        if local_dicts:
+            summary.append(local_dicts)
         use_mediawiki = (
             criteria is not None
             and len(criteria) > USE_MEDIAWIKI_ZHCONV
@@ -794,12 +841,8 @@ class ChineseTextAction(InterfaceAction):
         log_phase_header(
             status_dlg, 3, 3, _('Log phase summary'), blank_after=False)
         if summary:
-            log_section(
-                status_dlg,
-                _('----Log summary begin----'),
-                _('----Log summary end----'),
-                ['\n'.join(summary)],
-                step=1, total=1, blank_after=True)
+            status_dlg.log_result('\n'.join(summary))
+            status_dlg.log_result('')
         if state['new_book_ids']:
             if len(state['new_book_ids']) == 1:
                 status_dlg.log_result(_(

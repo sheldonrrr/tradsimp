@@ -125,11 +125,20 @@ _OPENCC_JIEBA_PHRASE_FILES = (
     'STPhrases.txt',
     'TWPhrasesRev.txt',
     'HKPhrasesRev.txt',
+    'UserPhrases.txt',
 )
 
 
 def _read_opencc_dict_bytes(file_name):
-    """Load an OpenCC dictionary (zip-safe via get_resources, else filesystem)."""
+    """Load an OpenCC dictionary (user override, then zip-safe bundled)."""
+    try:
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            read_user_dict_bytes)
+        data = read_user_dict_bytes(file_name)
+        if data:
+            return data
+    except Exception:
+        pass
     try:
         data = get_resources(
             'resources/opencc_python/dictionary/' + file_name)
@@ -184,6 +193,15 @@ def _inject_opencc_phrases(jieba_mod):
     if not loaded:
         print('OpenCC phrase dictionaries unavailable; Jieba userdict not enriched.')
     _opencc_phrases_injected = True
+
+
+def reinject_opencc_phrases():
+    """Re-register OpenCC phrase keys after the user saves local dictionaries."""
+    global _opencc_phrases_injected
+    _opencc_phrases_injected = False
+    if _jieba_module is None:
+        return
+    _inject_opencc_phrases(_jieba_module)
 
 
 def get_jieba():

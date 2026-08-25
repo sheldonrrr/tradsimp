@@ -11,7 +11,27 @@ from datetime import datetime
 
 from calibre_plugins.chinese_text_conversion.__init__ import (
     PLUGIN_RELEASE_THREAD_URL, PLUGIN_SAFE_NAME)
-from calibre_plugins.chinese_text_conversion.i18n import _
+from calibre_plugins.chinese_text_conversion.i18n import (
+    _, translate, UI_LANG_ZH_CN, UI_LANG_ZH_HK, UI_LANG_ZH_TW)
+
+
+def confirm_and_open_release_notes(parent):
+    '''Ask before opening the MobileRead release page in a browser.'''
+    from calibre.gui2 import open_url, question_dialog
+    try:
+        from qt.core import QUrl
+    except ImportError:
+        from PyQt5.QtCore import QUrl
+    proceed = question_dialog(
+        parent,
+        _("What's new"),
+        _('Open release notes confirm'),
+        default_yes=False,
+        yes_text=_('Open in browser'),
+        no_text=_('Cancel'),
+    )
+    if proceed:
+        open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
 
 
 _NON_CHINESE_ZH_VARIANTS = ('zh-latn', 'zh-cyrl', 'zh-bopo', 'zh-mong')
@@ -255,13 +275,15 @@ def format_replacement_stats_log(converter, max_samples=LIBRARY_REPLACEMENT_SAMP
     unique = len(counts)
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
     lines = prefix + [
-        _('OpenCC replacements: {} hits, {} unique pairs').format(total, unique),
+        _('OpenCC replacements: {} hits, {} unique pairs').format(
+            '{:,}'.format(total), '{:,}'.format(unique)),
     ]
     for (old, new), n in ranked[:max_samples]:
-        lines.append('  {} → {} (×{})'.format(old, new, n))
+        lines.append('  {} → {} (×{:,})'.format(old, new, n))
     remaining = unique - min(unique, max_samples)
     if remaining > 0:
-        lines.append(_('… and {} more unique pairs not shown').format(remaining))
+        lines.append(_('… and {} more unique pairs not shown').format(
+            '{:,}'.format(remaining)))
     return '\n'.join(lines)
 
 
@@ -281,11 +303,19 @@ def format_conversion_diagnostics_log(
         count for (kind, _source, _target), count in counts.items()
         if kind == 'ambiguous_character_fallback')
     lines = [
-        _('Conversion diagnostics: {} suspicious hits').format(total),
-        _('  Traditional-only input in Simplified mode: {}').format(mixed),
-        _('  Ambiguous character fallbacks: {}').format(ambiguous),
+        _('Conversion diagnostics: {} suspicious hits').format(
+            '{:,}'.format(total)),
+        _('  Traditional-only input in Simplified mode: {}').format(
+            '{:,}'.format(mixed)),
+        _('  Ambiguous character fallbacks: {}').format(
+            '{:,}'.format(ambiguous)),
     ]
-    for sample in samples[:max_samples]:
+    displayable = [
+        sample for sample in samples
+        if (sample.get('kind') == 'traditional_input_in_simplified_mode'
+            or (sample.get('source') or '') != (sample.get('target') or ''))
+    ]
+    for sample in displayable[:max_samples]:
         kind = sample.get('kind')
         source = sample.get('source') or ''
         target = sample.get('target') or ''
@@ -295,27 +325,77 @@ def format_conversion_diagnostics_log(
                 _('  Mixed input: {} (context: {})').format(source, context))
         else:
             lines.append(
-                _('  Ambiguous fallback: {} → {} ({})').format(
-                    source, target, sample.get('dictionary') or 'OpenCC'))
-    remaining = len(samples) - min(len(samples), max_samples)
+                _('  Ambiguous fallback: {} → {}').format(source, target))
+    remaining = len(displayable) - min(len(displayable), max_samples)
     if remaining > 0:
-        lines.append(_('… and {} more samples not shown').format(remaining))
+        lines.append(_('… and {} more samples not shown').format(
+            '{:,}'.format(remaining)))
     return '\n'.join(lines)
+
+
+def _text_has_cjk(text):
+    for ch in text or '':
+        if '\u4e00' <= ch <= '\u9fff':
+            return True
+    return False
+
+
+_JIEBA_LOG_TAG_RE = re.compile(r'</?[A-Za-z][^>]*>')
+_JIEBA_LOG_ENTITY_RE = re.compile(r'&(?:#\d+|#x[0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]+);')
+_JIEBA_LOG_MARKUP_TOKENS = frozenset((
+    '<', '>', '/', '&', ';', '#',
+    'nbsp', 'ensp', 'emsp', 'thinsp', 'zwnj', 'zwj', 'shy',
+    'mdash', 'ndash', 'minus', 'hellip', 'middot',
+    'quot', 'amp', 'lt', 'gt', 'apos',
+    'ldquo', 'rdquo', 'lsquo', 'rsquo', 'laquo', 'raquo',
+    'p', 'br', 'div', 'span', 'em', 'strong', 'b', 'i', 'u',
+))
+
+
+def _plain_jieba_log_text(text):
+    import html
+    cleaned = _JIEBA_LOG_TAG_RE.sub('', text or '')
+    cleaned = _JIEBA_LOG_ENTITY_RE.sub(' ', cleaned)
+    cleaned = html.unescape(cleaned).replace('\xa0', ' ')
+    return ' '.join(cleaned.split())
+
+
+def _is_jieba_log_markup_token(token):
+    piece = (token or '').strip()
+    if not piece or piece in _JIEBA_LOG_MARKUP_TOKENS:
+        return True
+    if piece.startswith('<') or piece.endswith('>'):
+        return True
+    if _JIEBA_LOG_ENTITY_RE.fullmatch(piece):
+        return True
+    return piece.lower().strip('&;') in _JIEBA_LOG_MARKUP_TOKENS
 
 
 def format_jieba_samples_log(converter, max_samples=LIBRARY_JIEBA_SAMPLE_LIMIT):
     """Human-readable Jieba cut samples: original → tokens → converted tokens."""
     samples = list(converter.get_jieba_samples() or [])
+    cjk_samples = [
+        sample for sample in samples if _text_has_cjk(sample.get('text') or '')]
+    samples = cjk_samples or samples
     if not samples:
         return _('No Jieba segmentation samples recorded for this book.')
-    lines = [_('Jieba segmentation samples:')]
+    lines = []
     for sample in samples[:max_samples]:
-        text = sample.get('text') or ''
+        text = _plain_jieba_log_text(sample.get('text') or '')
         segs = sample.get('segments') or []
         conv = sample.get('converted_segments') or []
-        cut = ' / '.join(segs)
-        out = ' / '.join(conv)
+        kept = [
+            (seg, converted)
+            for seg, converted in zip(segs, conv)
+            if not _is_jieba_log_markup_token(seg)
+        ]
+        if not text or not kept or not _text_has_cjk(text):
+            continue
+        cut = ' / '.join(seg for seg, _converted in kept)
+        out = ' / '.join(converted for _seg, converted in kept)
         lines.append('  {} → {} → {}'.format(text, cut, out))
+    if not lines:
+        return _('No Jieba segmentation samples recorded for this book.')
     return '\n'.join(lines)
 
 
@@ -560,11 +640,33 @@ def format_progress_enrichment(local_done, local_total, book_started_at, convert
     return ' · '.join(part for part in parts if part)
 
 
+def format_opencc_dict_version_label():
+    '''Read-only OpenCC pin plus local override summary.'''
+    from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+        bundled_opencc_pin, overridden_dict_names)
+    _commit, tag = bundled_opencc_pin()
+    names = overridden_dict_names()
+    if not names:
+        return _('OpenCC dictionary version: {}').format(tag)
+    return _('OpenCC dictionary version with local: {0} + {1} files ({2})').format(
+        tag, len(names), ', '.join(names))
+
+
+def format_local_opencc_dicts_log():
+    '''One log line listing local dictionary overrides, or empty.'''
+    from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+        overridden_dict_names)
+    names = overridden_dict_names()
+    if not names:
+        return ''
+    return _('Local OpenCC dictionaries: {}').format(', '.join(names))
+
+
 def format_conversion_stats_log(
         chars_processed=0, chars_converted=0, replacement_hits=0,
         elapsed_seconds=0):
     '''Human-readable per-book conversion stats for the status log.'''
-    return '\n'.join([
+    lines = [
         _('Conversion stats total characters: {}').format(
             '{:,}'.format(int(chars_processed or 0))),
         _('Conversion stats converted characters: {}').format(
@@ -573,65 +675,107 @@ def format_conversion_stats_log(
             '{:,}'.format(int(replacement_hits or 0))),
         _('Conversion stats process time: {}').format(
             format_elapsed_duration(elapsed_seconds)),
-    ])
+    ]
+    extra = format_local_opencc_dicts_log()
+    if extra:
+        lines.append(extra)
+    return '\n'.join(lines)
+
+
+def comments_template_language(conversion_type, output_locale=0):
+    '''Catalog language for Comments templates written into the new book.
+
+    Traditional targets use Traditional (Taiwan / Hong Kong) templates;
+    Simplified targets use Simplified templates. Other cases follow the UI.
+    '''
+    try:
+        conversion_type = int(conversion_type or 0)
+        output_locale = int(output_locale or 0)
+    except (TypeError, ValueError):
+        return None
+    kind = title_suffix_target_kind(conversion_type, output_locale)
+    if kind == 'traditional_hong_kong':
+        return UI_LANG_ZH_HK
+    if kind in ('traditional_taiwan', 'traditional'):
+        return UI_LANG_ZH_TW
+    if kind == 'simplified':
+        return UI_LANG_ZH_CN
+    return None
 
 
 def format_conversion_direction_label(
-        conversion_type, input_locale=0, output_locale=0):
+        conversion_type, input_locale=0, output_locale=0, lang=None):
     '''Short human-readable conversion direction for Comments / logs.'''
+    if lang is None:
+        lang = comments_template_language(conversion_type, output_locale)
     if conversion_type == 0:
-        return _('No Change')
+        return translate('No Change', lang)
     locale_names = {
-        0: _('Mainland'),
-        1: _('Hong Kong'),
-        2: _('Taiwan'),
-        3: _('Japanese Kanji'),
+        0: translate('Mainland', lang),
+        1: translate('Hong Kong', lang),
+        2: translate('Taiwan', lang),
+        3: translate('Japanese Kanji', lang),
     }
     src = locale_names.get(input_locale, str(input_locale))
     dst = locale_names.get(output_locale, str(output_locale))
     if conversion_type == 1:
-        return _('Comments direction trad to simp: {} → {}').format(src, dst)
+        return translate('Comments direction trad to simp: {} → {}', lang).format(
+            src, dst)
     if conversion_type == 2:
-        return _('Comments direction simp to trad: {} → {}').format(src, dst)
+        return translate('Comments direction simp to trad: {} → {}', lang).format(
+            src, dst)
     if conversion_type == 3:
-        return _('Comments direction trad to trad: {} → {}').format(src, dst)
+        return translate('Comments direction trad to trad: {} → {}', lang).format(
+            src, dst)
     return '{} → {}'.format(src, dst)
 
 
-def format_conversion_info_comment_lines(stats):
+def format_conversion_info_comment_lines(stats, lang=None):
     '''Compact conversion-info lines for Comments / 简介.'''
     stats = stats or {}
+    conversion_type = stats.get('conversion_type', 0)
+    input_locale = stats.get('input_locale', 0)
+    output_locale = stats.get('output_locale', 0)
+    if lang is None:
+        lang = comments_template_language(conversion_type, output_locale)
     lines = [
-        _('Comments conversion info header'),
-        _('Conversion stats total characters: {}').format(
+        translate('Comments conversion info header', lang),
+        translate('Conversion stats total characters: {}', lang).format(
             '{:,}'.format(int(stats.get('chars_processed', 0) or 0))),
-        _('Conversion stats converted characters: {}').format(
+        translate('Conversion stats converted characters: {}', lang).format(
             '{:,}'.format(int(stats.get('chars_converted', 0) or 0))),
-        _('Conversion stats replacement hits: {}').format(
+        translate('Conversion stats replacement hits: {}', lang).format(
             '{:,}'.format(int(stats.get('replacement_hits', 0) or 0))),
-        _('Conversion stats process time: {}').format(
+        translate('Conversion stats process time: {}', lang).format(
             format_elapsed_duration(stats.get('elapsed_seconds', 0))),
     ]
     suffix_tag = stats.get('suffix_tag')
     generated_at = stats.get('generated_at')
     if suffix_tag:
-        lines.append(_('Log conversion id: {}').format(suffix_tag))
+        lines.append(translate('Log conversion id: {}', lang).format(suffix_tag))
     if generated_at is not None:
         try:
             stamp = generated_at.strftime('%Y-%m-%d %H:%M:%S')
         except Exception:
             stamp = str(generated_at)
-        lines.append(_('Log generated at (local time): {}').format(stamp))
+        lines.append(translate('Log generated at (local time): {}', lang).format(
+            stamp))
     direction = stats.get('direction_label')
+    if not direction and conversion_type:
+        direction = format_conversion_direction_label(
+            conversion_type, input_locale, output_locale, lang=lang)
     if direction:
-        lines.append(_('Comments conversion direction: {}').format(direction))
+        lines.append(translate('Comments conversion direction: {}', lang).format(
+            direction))
     return lines
 
 
 def preview_conversion_info_comment_text(
         conversion_type=0, input_locale=0, output_locale=0):
     '''Settings preview of the Comments conversion-info block about to be written.'''
-    # Sample runtime fields so the template matches a real write; direction follows UI.
+    # Sample runtime fields so the template matches a real write; language
+    # follows the conversion target (Traditional templates for Traditional output).
+    lang = comments_template_language(conversion_type, output_locale)
     stats = {
         'chars_processed': 12345,
         'chars_converted': 2345,
@@ -639,22 +783,32 @@ def preview_conversion_info_comment_text(
         'elapsed_seconds': 12,
         'suffix_tag': '{}-14-23-00'.format(PLUGIN_SAFE_NAME),
         'generated_at': datetime(2026, 8, 6, 14, 23, 0),
+        'conversion_type': conversion_type,
+        'input_locale': input_locale,
+        'output_locale': output_locale,
         'direction_label': format_conversion_direction_label(
-            conversion_type, input_locale, output_locale),
+            conversion_type, input_locale, output_locale, lang=lang),
     }
-    return '\n'.join(format_conversion_info_comment_lines(stats))
+    return '\n'.join(format_conversion_info_comment_lines(stats, lang=lang))
 
 
-def build_library_conversion_comments_note(stats=None, store_info=False):
+def build_library_conversion_comments_note(stats=None, store_info=False, lang=None):
     '''Promo block (+ optional conversion stats) written into Comments / 简介.'''
+    stats = stats or {}
+    if lang is None:
+        lang = comments_template_language(
+            stats.get('conversion_type', 0),
+            stats.get('output_locale', 0))
     lines = [
-        _('Converted by Chinese Conversion · 简繁转换(for calibre) plugin'),
+        translate(
+            'Converted by Chinese Conversion · 简繁转换(for calibre) plugin',
+            lang),
         PLUGIN_RELEASE_THREAD_URL,
-        _('Plugin comments tagline'),
+        translate('Plugin comments tagline', lang),
     ]
     if store_info and stats:
         lines.append('')
-        lines.extend(format_conversion_info_comment_lines(stats))
+        lines.extend(format_conversion_info_comment_lines(stats, lang=lang))
     return '\n'.join(lines)
 
 
@@ -795,21 +949,14 @@ def log_phase_header(status_dlg, step, total, title, blank_after=True):
         status_dlg.log_result('')
 
 
-def log_section(status_dlg, begin_msg, end_msg, body_lines,
-                step=None, total=None, blank_after=False):
-    '''Write a bordered log block (begin line, body, end line).
-
-    When step/total are given, markers become ---- (n/N) … ---- so the
-    reader can follow prepare → per-book sections → summary order.
-    '''
-    if step is not None and total is not None:
-        begin_msg = format_numbered_log_marker(begin_msg, step, total)
-        end_msg = format_numbered_log_marker(end_msg, step, total)
-    status_dlg.log_result(begin_msg)
+def log_section(status_dlg, title, body_lines, blank_after=True):
+    '''Write a titled plain-text log block (one header, no matching end line).'''
+    title = (title or '').strip()
+    if title:
+        status_dlg.log_result(title)
     for line in body_lines:
         if line is not None and line != '':
             status_dlg.log_result(line)
-    status_dlg.log_result(end_msg)
     if blank_after:
         status_dlg.log_result('')
 
@@ -919,13 +1066,51 @@ def import_converted_book_as_new(
     return new_id, new_mi.title
 
 
+_PREVIEW_NAV_TOC_BASENAMES = frozenset((
+    'nav.xhtml', 'nav.html', 'nav.htm',
+    'toc.xhtml', 'toc.html', 'toc.htm',
+))
+
+
+def _is_preview_nav_or_toc(name):
+    base = os.path.basename(name or '').lower()
+    if base in _PREVIEW_NAV_TOC_BASENAMES:
+        return True
+    stem = os.path.splitext(base)[0]
+    return stem in ('nav', 'toc') or stem.startswith('toc')
+
+
+def _html_to_preview_text(source):
+    '''Strip tags but keep paragraph breaks so the log stays readable.'''
+    source = re.sub(
+        r'<(style|script)\b[^>]*>.*?</\1>',
+        ' ',
+        source,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    source = re.sub(r'<br\s*/?>', '\n', source, flags=re.IGNORECASE)
+    source = re.sub(
+        r'</(?:p|div|h[1-6]|li|tr|blockquote|section|article|header|nav)\s*>',
+        '\n',
+        source,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r'<[^>]+>', '', source)
+    text = text.replace('\xa0', ' ').replace('&nbsp;', ' ')
+    text = re.sub(r'[^\S\n]+', ' ', text)
+    text = re.sub(r' *\n *', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
 def text_preview_from_changes(container, changed_files, max_chars=LIBRARY_PREVIEW_MAX_CHARS):
-    '''Plain-text excerpt from the first changed HTML-like file.'''
+    '''Plain-text excerpt from the first changed content HTML file.'''
     html_names = sorted(
         n for n in changed_files
         if n.lower().endswith(('.html', '.htm', '.xhtml'))
     )
-    for name in html_names:
+    preferred = [n for n in html_names if not _is_preview_nav_or_toc(n)]
+    for name in (preferred or html_names):
         try:
             raw = container.raw_data(name)
             if isinstance(raw, bytes):
@@ -933,25 +1118,20 @@ def text_preview_from_changes(container, changed_files, max_chars=LIBRARY_PREVIE
         except Exception:
             continue
         source = raw
-        body_match = re.search(r'<body\b[^>]*>(.*?)</body>', source, flags=re.IGNORECASE | re.DOTALL)
+        body_match = re.search(
+            r'<body\b[^>]*>(.*?)</body>', source,
+            flags=re.IGNORECASE | re.DOTALL)
         if body_match:
             source = body_match.group(1)
-        source = re.sub(
-            r'<(style|script)\b[^>]*>.*?</\1>',
-            ' ',
-            source,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        text = re.sub(r'<[^>]+>', '', source)
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = _html_to_preview_text(source)
         if text:
             truncated = len(text) > max_chars
             if truncated:
-                text = text[:max_chars] + '…'
-            header = _('Preview length limit: {} characters').format(max_chars)
-            if truncated:
-                header = header + '\n' + _('Preview truncated hint')
-            return header + '\n\n' + _('File: ') + name + '\n\n' + text
+                text = text[:max_chars].rstrip() + '…'
+                header = _('Preview file header').format(name, max_chars)
+            else:
+                header = _('Preview file header full').format(name)
+            return header + '\n\n' + text
     if changed_files:
         return _('Changed files: ') + ', '.join(sorted(changed_files)[:20])
     return _('No text excerpt available.')

@@ -8,17 +8,19 @@ try:
     from qt.core import (Qt, QUrl, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
-                  QPushButton, QPlainTextEdit, QProgressBar, QObject, QThread, pyqtSignal)
+                  QPushButton, QPlainTextEdit, QProgressBar, QObject, QThread, pyqtSignal,
+                  QListWidget, QListWidgetItem, QAbstractItemView)
 except ImportError:
     from PyQt5.Qt import (Qt, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                           QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                           QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
-                          QPushButton, QPlainTextEdit, QProgressBar)
+                          QPushButton, QPlainTextEdit, QProgressBar, QListWidget, QListWidgetItem,
+                          QAbstractItemView)
     from PyQt5.QtCore import QUrl, QObject, QThread, pyqtSignal
 
 from calibre.utils.config import config_dir
 
-from calibre.gui2 import info_dialog, open_url, question_dialog
+from calibre.gui2 import error_dialog, info_dialog, open_url, question_dialog
 from calibre.gui2.tweak_book.widgets import Dialog
 
 from calibre_plugins.chinese_text_conversion import (
@@ -31,9 +33,9 @@ from calibre_plugins.chinese_text_conversion.i18n import (
 from calibre_plugins.chinese_text_conversion.ui_style import (
     HELP_TEXT_INDENT,
     apply_dialog_stylesheet, apply_text_direction_icons, configure_form_label, configure_layout,
-    build_example_preview_card, build_radio_group, build_section_group,
-    help_text_row, make_section_divider, polish_scroll_area, style_help_label,
-    style_recommend_card, style_subheading_label,
+    build_about_identity, build_example_preview_card, build_radio_group, build_section_group,
+    build_text_direction_tiles, help_text_row, make_section_divider, polish_scroll_area,
+    style_help_label, style_recommend_card, style_subheading_label,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import is_vision_ocr_supported
 from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
@@ -47,12 +49,13 @@ from calibre_plugins.chinese_text_conversion.resources.bilingual import (
 from calibre_plugins.chinese_text_conversion.library_flow import (
     SUFFIX_TIMESTAMP_COMPACT, SUFFIX_TIMESTAMP_DEFAULT, SUFFIX_TIMESTAMP_ISO,
     SUFFIX_TIMESTAMP_NO_SECONDS, SUFFIX_TIMESTAMP_OFF,
+    confirm_and_open_release_notes, format_opencc_dict_version_label,
     normalize_suffix_timestamp_format, preview_conversion_info_comment_text,
     suffix_timestamp_enabled, title_suffix_target_label,
 )
 from calibre_plugins.chinese_text_conversion.zhconvert_api import (
-    ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_SITE_URL,
-    ZhConvertError, convert_text as zhconvert_text,
+    ZHCONVERT_CONVERTERS, ZHCONVERT_MAX_INPUT_BYTES, ZHCONVERT_MODE_EXAMPLES,
+    ZHCONVERT_SITE_URL, ZhConvertError, convert_text as zhconvert_text,
 )
 
 '''
@@ -72,8 +75,9 @@ Note: This code is based on the Calibre plugin Diap's Editing Toolbag
 # Default size when no saved geometry (library conversion wizard)
 LIBRARY_CONVERSION_DIALOG_SIZE = QSize(760, 760)
 LIBRARY_STATUS_DIALOG_SIZE = QSize(720, 680)
-ABOUT_DIALOG_SIZE = QSize(560, 480)
+ABOUT_DIALOG_SIZE = QSize(620, 560)
 ZHCONVERT_DIALOG_SIZE = QSize(780, 640)
+DICT_MANAGER_DIALOG_SIZE = QSize(860, 640)
 
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
@@ -183,14 +187,10 @@ class ZhConvertDialog(QDialog):
         layout = QVBoxLayout(self)
         configure_layout(layout, 'dialog')
 
-        self.privacy_label = QLabel()
-        self.privacy_label.setWordWrap(True)
-        self.privacy_label.setTextFormat(Qt.RichText)
-        self.privacy_label.setOpenExternalLinks(False)
-        self.privacy_label.linkActivated.connect(
-            lambda _url: open_url(QUrl(ZHCONVERT_SITE_URL)))
-        style_help_label(self.privacy_label)
-        layout.addWidget(self.privacy_label)
+        self.intro_label = QLabel()
+        self.intro_label.setWordWrap(True)
+        style_help_label(self.intro_label)
+        layout.addWidget(self.intro_label)
 
         mode_row = QHBoxLayout()
         configure_layout(mode_row, 'form')
@@ -200,6 +200,11 @@ class ZhConvertDialog(QDialog):
         self.converter_combo = NoWheelComboBox()
         mode_row.addWidget(self.converter_combo, 1)
         layout.addLayout(mode_row)
+        self.example_row, self.example_card = build_example_preview_card(
+            self, title='', interactive=True)
+        self.example_card.clicked.connect(self._on_example_clicked)
+        self.converter_combo.currentIndexChanged.connect(self._update_example)
+        layout.addWidget(self.example_row)
 
         self.input_label = QLabel()
         layout.addWidget(self.input_label)
@@ -223,6 +228,15 @@ class ZhConvertDialog(QDialog):
         style_help_label(self.result_meta_label)
         layout.addWidget(self.result_meta_label)
 
+        self.footer_note_label = QLabel()
+        self.footer_note_label.setWordWrap(True)
+        self.footer_note_label.setTextFormat(Qt.RichText)
+        self.footer_note_label.setOpenExternalLinks(False)
+        self.footer_note_label.linkActivated.connect(
+            lambda _url: open_url(QUrl(ZHCONVERT_SITE_URL)))
+        style_help_label(self.footer_note_label)
+        layout.addWidget(self.footer_note_label)
+
         self.button_box = QDialogButtonBox()
         self.clear_button = self.button_box.addButton(
             '', QDialogButtonBox.ResetRole)
@@ -241,23 +255,39 @@ class ZhConvertDialog(QDialog):
 
     def apply_translations(self):
         self.setWindowTitle(_('ZhConvert online short-text conversion'))
-        self.privacy_label.setText(
-            _('ZhConvert persistent privacy notice').format(
-                url=ZHCONVERT_SITE_URL))
-        self.converter_label.setText(_('Conversion mode:'))
+        self.intro_label.setText(_('ZhConvert short-text intro'))
+        self.converter_label.setText(_('Convert to:'))
         selected = self.converter_combo.currentData()
         self.converter_combo.clear()
         for converter_id, label_msgid in ZHCONVERT_CONVERTERS:
             self.converter_combo.addItem(_(label_msgid), converter_id)
         selected_index = self.converter_combo.findData(selected or 'Traditional')
         self.converter_combo.setCurrentIndex(max(0, selected_index))
-        self.input_label.setText(_('Text to send:'))
+        self.input_label.setText(_('Text to convert:'))
         self.output_label.setText(_('Converted result:'))
         self.clear_button.setText(_('Clear'))
         self.copy_button.setText(_('Copy result'))
-        self.convert_button.setText(_('Send for conversion'))
+        self.convert_button.setText(_('Convert'))
         self.close_button.setText(_('Close'))
+        self.footer_note_label.setText(
+            _('ZhConvert footer note').format(url=ZHCONVERT_SITE_URL))
+        self._update_example()
         self._update_input_count()
+
+    def _update_example(self, _index=None):
+        self.example_card.set_title(_('Example'))
+        self.example_card.setToolTip(_('Click example to switch option'))
+        converter = self.converter_combo.currentData()
+        self.example_card.set_plain_example(
+            ZHCONVERT_MODE_EXAMPLES.get(converter) or '')
+
+    def _on_example_clicked(self):
+        count = self.converter_combo.count()
+        if count <= 1 or self._thread is not None:
+            return
+        self.converter_combo.setCurrentIndex(
+            (self.converter_combo.currentIndex() + 1) % count)
+        self.example_card.flash()
 
     def _update_input_count(self):
         byte_count = len(self.input_text.toPlainText().encode('utf-8'))
@@ -281,24 +311,6 @@ class ZhConvertDialog(QDialog):
         if result:
             QApplication.clipboard().setText(result)
 
-    def _confirm_online_use(self):
-        if self.prefs.get('zhconvert_privacy_acknowledged', False):
-            return True
-        confirmed = question_dialog(
-            self,
-            _('Confirm online conversion'),
-            _('ZhConvert first-use privacy summary'),
-            det_msg=_('ZhConvert first-use privacy details').format(
-                url=ZHCONVERT_SITE_URL),
-            default_yes=False,
-            yes_text=_('I understand; send this text'),
-            no_text=_('Cancel'),
-        )
-        if confirmed:
-            self.prefs['zhconvert_privacy_acknowledged'] = True
-            self.prefs.commit()
-        return confirmed
-
     def _start_conversion(self):
         if self._thread is not None:
             return
@@ -306,8 +318,6 @@ class ZhConvertDialog(QDialog):
         byte_count = len(text.encode('utf-8'))
         if not text.strip() or byte_count > ZHCONVERT_MAX_INPUT_BYTES:
             self._update_input_count()
-            return
-        if not self._confirm_online_use():
             return
 
         converter = self.converter_combo.currentData()
@@ -333,6 +343,8 @@ class ZhConvertDialog(QDialog):
 
     def _set_busy(self, busy):
         self.converter_combo.setEnabled(not busy)
+        self.example_card.setEnabled(not busy)
+        self.example_card.set_interactive(not busy)
         self.input_text.setReadOnly(busy)
         self.clear_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
@@ -384,6 +396,222 @@ class ZhConvertDialog(QDialog):
         super().closeEvent(event)
 
 
+class OpenCCDictionariesDialog(QDialog):
+    '''View and copy-on-write edit bundled OpenCC txt dictionaries.'''
+
+    def __init__(self, parent, prefs):
+        super().__init__(parent)
+        self.prefs = prefs
+        self._current_name = None
+        self._original_text = ''
+        self.setModal(True)
+        self.resize(DICT_MANAGER_DIALOG_SIZE)
+        self._build_ui()
+        apply_dialog_stylesheet(self)
+        self._populate_list()
+        if self.file_list.count():
+            self.file_list.setCurrentRow(0)
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        configure_layout(layout, 'dialog')
+        self.intro_label = QLabel()
+        self.intro_label.setWordWrap(True)
+        style_help_label(self.intro_label)
+        layout.addWidget(self.intro_label)
+        self.pin_label = QLabel()
+        self.pin_label.setWordWrap(True)
+        style_help_label(self.pin_label)
+        layout.addWidget(self.pin_label)
+
+        body = QHBoxLayout()
+        configure_layout(body, 'form')
+        self.file_list = QListWidget()
+        self.file_list.setMinimumWidth(240)
+        self.file_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.file_list.currentItemChanged.connect(self._on_current_item_changed)
+        body.addWidget(self.file_list)
+        self.editor = QPlainTextEdit()
+        wrap_mode = getattr(QPlainTextEdit, 'NoWrap', None)
+        if wrap_mode is None:
+            wrap_mode = QPlainTextEdit.LineWrapMode.NoWrap
+        self.editor.setLineWrapMode(wrap_mode)
+        body.addWidget(self.editor, 1)
+        layout.addLayout(body, 1)
+
+        buttons = QHBoxLayout()
+        configure_layout(buttons, 'form')
+        self.save_btn = QPushButton()
+        self.save_btn.clicked.connect(self._save_current)
+        buttons.addWidget(self.save_btn)
+        self.restore_btn = QPushButton()
+        self.restore_btn.clicked.connect(self._restore_current)
+        buttons.addWidget(self.restore_btn)
+        self.folder_btn = QPushButton()
+        self.folder_btn.clicked.connect(self._open_folder)
+        buttons.addWidget(self.folder_btn)
+        buttons.addStretch(1)
+        self.close_box = QDialogButtonBox(QDialogButtonBox.Close)
+        self.close_box.rejected.connect(self.reject)
+        buttons.addWidget(self.close_box)
+        layout.addLayout(buttons)
+        self.apply_translations()
+
+    def apply_translations(self):
+        self.setWindowTitle(_('OpenCC dictionaries'))
+        self.intro_label.setText(_('OpenCC dictionaries intro'))
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            bundled_opencc_pin)
+        commit, tag = bundled_opencc_pin()
+        self.pin_label.setText(_('Bundled OpenCC: {} ({})').format(tag, commit))
+        self.save_btn.setText(_('Save local dictionary'))
+        self.restore_btn.setText(_('Restore bundled'))
+        self.folder_btn.setText(_('Open dictionary folder'))
+        self._refresh_list_labels()
+
+    def _item_label(self, name):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE, is_overridden)
+        if name == USER_PHRASES_FILE:
+            if is_overridden(name):
+                return _('{} (local overlay)').format(name)
+            return _('{} (optional overlay)').format(name)
+        if is_overridden(name):
+            return _('{} (local)').format(name)
+        return _('{} (bundled)').format(name)
+
+    def _populate_list(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            MANAGED_DICT_FILES)
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
+        for name in MANAGED_DICT_FILES:
+            item = QListWidgetItem(self._item_label(name))
+            item.setData(Qt.UserRole, name)
+            self.file_list.addItem(item)
+        self.file_list.blockSignals(False)
+
+    def _refresh_list_labels(self):
+        for row in range(self.file_list.count()):
+            item = self.file_list.item(row)
+            name = item.data(Qt.UserRole)
+            item.setText(self._item_label(name))
+
+    def _is_dirty(self):
+        return self.editor.toPlainText() != self._original_text
+
+    def _on_current_item_changed(self, current, _previous):
+        if current is None:
+            return
+        name = current.data(Qt.UserRole)
+        if name == self._current_name:
+            return
+        if self._current_name and self._is_dirty():
+            if question_dialog(
+                    self, _('Save local dictionary'),
+                    _('Save changes to {}?').format(self._current_name),
+                    default_yes=True):
+                if not self._save_named(self._current_name, self.editor.toPlainText()):
+                    self._select_name(self._current_name)
+                    return
+        self._load_named(name)
+
+    def _select_name(self, name):
+        for row in range(self.file_list.count()):
+            item = self.file_list.item(row)
+            if item.data(Qt.UserRole) == name:
+                self.file_list.blockSignals(True)
+                self.file_list.setCurrentRow(row)
+                self.file_list.blockSignals(False)
+                return
+
+    def _load_named(self, name):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            read_effective_dict_text)
+        self._current_name = name
+        self._original_text = read_effective_dict_text(name)
+        self.editor.setPlainText(self._original_text)
+
+    def _save_named(self, name, text):
+        from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+            reinject_opencc_phrases)
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            save_override)
+        try:
+            save_override(name, text)
+        except Exception:
+            error_dialog(
+                self, _('Save local dictionary'),
+                _('Could not save the local dictionary.'),
+                show=True)
+            return False
+        self._original_text = text
+        try:
+            reinject_opencc_phrases()
+        except Exception:
+            pass
+        self._refresh_list_labels()
+        return True
+
+    def _save_current(self):
+        if not self._current_name:
+            return
+        if self._save_named(self._current_name, self.editor.toPlainText()):
+            info_dialog(
+                self, _('Save local dictionary'),
+                _('Saved local dictionary: {}').format(self._current_name),
+                show=True)
+
+    def _restore_current(self):
+        from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+            reinject_opencc_phrases)
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            is_overridden, restore_bundled)
+        name = self._current_name
+        if not name:
+            return
+        if not is_overridden(name):
+            info_dialog(
+                self, _('Restore bundled'),
+                _('This dictionary is already using the bundled file.'),
+                show=True)
+            return
+        if not question_dialog(
+                self, _('Restore bundled'),
+                _('Restore the bundled OpenCC file for {}? '
+                  'Local edits will be discarded.').format(name),
+                default_yes=False):
+            return
+        restore_bundled(name)
+        try:
+            reinject_opencc_phrases()
+        except Exception:
+            pass
+        self._load_named(name)
+        self._refresh_list_labels()
+        info_dialog(
+            self, _('Restore bundled'),
+            _('Restored bundled dictionary: {}').format(name),
+            show=True)
+
+    def _open_folder(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            ensure_user_dict_dir)
+        path = ensure_user_dict_dir()
+        open_url(QUrl.fromLocalFile(path))
+
+    def reject(self):
+        if self._current_name and self._is_dirty():
+            if question_dialog(
+                    self, _('Save local dictionary'),
+                    _('Save changes to {}?').format(self._current_name),
+                    default_yes=True):
+                if not self._save_named(
+                        self._current_name, self.editor.toPlainText()):
+                    return
+        super().reject()
+
+
 class PluginAboutDialog(QDialog):
     '''User-facing introduction: quick start, plugin summary, related plugins.'''
 
@@ -410,15 +638,8 @@ class PluginAboutDialog(QDialog):
         content_layout = QVBoxLayout(content)
         configure_layout(content_layout, 'sections')
 
-        self.title_label = QLabel()
-        title_font = self.title_label.font()
-        title_font.setBold(True)
-        title_font.setPointSize(title_font.pointSize() + 2)
-        self.title_label.setFont(title_font)
-        content_layout.addWidget(self.title_label)
-
-        self.version_label = QLabel()
-        content_layout.addWidget(self.version_label)
+        identity, self.title_label, self.version_label = build_about_identity()
+        content_layout.addWidget(identity)
 
         self.first_run_lang_row = QWidget()
         first_run_lang_layout = QHBoxLayout(self.first_run_lang_row)
@@ -561,7 +782,7 @@ class PluginAboutDialog(QDialog):
 
     def apply_translations(self):
         self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
-        self.title_label.setText(_('About Chinese Conversion · 简繁转换'))
+        self.title_label.setText(_('Plugin catalog name'))
         self.version_label.setText(_('Version: {}').format(PLUGIN_VERSION))
         self.first_run_ui_lang_label.setText(_('Interface Language:'))
         ui_lang_idx = self.first_run_ui_lang_combo.currentIndex()
@@ -742,18 +963,18 @@ class ConversionDialog(Dialog):
         text_direction_policy.setVerticalPolicy(QSizePolicy.Maximum)
         self.text_direction_group_box.setSizePolicy(text_direction_policy)
         widgetLayout.addWidget(self.text_direction_group_box)
-        self.text_direction_group, text_direction_radio_layout, text_direction_buttons = (
-            build_radio_group(
+        self.text_direction_group, text_direction_tile_layout, text_direction_buttons = (
+            build_text_direction_tiles(
                 self,
-                [_('No Change'), _('Horizontal'), _('Vertical')],
+                [_('No Change'), _('Horizontal (short)'), _('Vertical (short)')],
                 ids=[0, 1, 2],
+                tooltips=[_('Keep original layout'), _('Horizontal'), _('Vertical')],
             )
         )
-        text_direction_group_box_layout.addLayout(text_direction_radio_layout)
+        text_direction_group_box_layout.addLayout(text_direction_tile_layout)
         (self.text_dir_no_change_button,
          self.text_dir_horizontal_button,
          self.text_dir_vertical_button) = text_direction_buttons
-        apply_text_direction_icons(self.text_dir_horizontal_button, self.text_dir_vertical_button)
         self.text_direction_group.buttonClicked.connect(self._on_text_direction_clicked)
 
         self.operation_group_box, operation_group_box_layout = build_section_group(
@@ -845,6 +1066,12 @@ class ConversionDialog(Dialog):
         style_group_box_layout.addWidget(self.use_jieba_segmentation_help_row)
         self._update_jieba_segmentation_help_text()
         self.use_jieba_segmentation.stateChanged.connect(self._on_use_jieba_segmentation_changed)
+
+        self.opencc_dict_version_label = QLabel()
+        self.opencc_dict_version_label.setWordWrap(True)
+        self.opencc_dict_version_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.opencc_dict_version_label)
+        style_group_box_layout.addWidget(self.opencc_dict_version_label)
 
         self.use_mediawiki_zhconv = QCheckBox(_('MediaWiki post-processing'))
         style_group_box_layout.addWidget(self.use_mediawiki_zhconv)
@@ -1199,7 +1426,7 @@ class ConversionDialog(Dialog):
         else:
             self._apply_symbol_profile_default()
         self.about_btn.setText(_('About'))
-        self.check_updates_btn.setText(_('Check for updates'))
+        self.check_updates_btn.setText(_("What's new"))
         if not self.prefs.get('about_shown', True):
             self._show_about_dialog(first_run=True)
         apply_dialog_stylesheet(self)
@@ -1219,7 +1446,7 @@ class ConversionDialog(Dialog):
             self.on_ui_language_changed(lang)
 
     def _open_release_thread(self):
-        open_url(QUrl(PLUGIN_RELEASE_THREAD_URL))
+        confirm_and_open_release_notes(self)
 
     def _update_target_phrases_help_text(self):
         help_text = _('Use target region phrases help')
@@ -1230,6 +1457,9 @@ class ConversionDialog(Dialog):
         help_text = _('Use Jieba segmentation help')
         self.use_jieba_segmentation_help.setText(help_text)
         self.use_jieba_segmentation.setToolTip('')
+
+    def _update_opencc_dict_version_label(self):
+        self.opencc_dict_version_label.setText(format_opencc_dict_version_label())
 
     def _update_mediawiki_zhconv_help_text(self):
         help_text = _('MediaWiki post-processing help')
@@ -1823,15 +2053,21 @@ class ConversionDialog(Dialog):
         self._update_jieba_segmentation_help_text()
         self.use_mediawiki_zhconv.setText(_('MediaWiki post-processing'))
         self._update_mediawiki_zhconv_help_text()
+        self._update_opencc_dict_version_label()
 
         self.text_direction_group_box.setTitle(_('Text Direction:'))
         self.text_direction_group_box.setToolTip('')
         self.text_dir_no_change_button.setText(_('No Change'))
-        self.text_dir_horizontal_button.setText(_('Horizontal'))
-        self.text_dir_vertical_button.setText(_('Vertical'))
-        for btn in (self.text_dir_no_change_button, self.text_dir_horizontal_button,
-                    self.text_dir_vertical_button):
-            btn.setToolTip('')
+        self.text_dir_horizontal_button.setText(_('Horizontal (short)'))
+        self.text_dir_vertical_button.setText(_('Vertical (short)'))
+        self.text_dir_no_change_button.setToolTip(_('Keep original layout'))
+        self.text_dir_horizontal_button.setToolTip(_('Horizontal'))
+        self.text_dir_vertical_button.setToolTip(_('Vertical'))
+        apply_text_direction_icons(
+            self.text_dir_no_change_button,
+            self.text_dir_horizontal_button,
+            self.text_dir_vertical_button,
+        )
 
         self.advanced_group_box.setTitle(_('Advanced options'))
         self.quotation_heading.setText(_('Quotation Marks'))
@@ -1872,7 +2108,7 @@ class ConversionDialog(Dialog):
         self.source_group_box.setTitle(_('Source'))
         self.ui_lang_combo.blockSignals(False)
         self.about_btn.setText(_('About'))
-        self.check_updates_btn.setText(_('Check for updates'))
+        self.check_updates_btn.setText(_("What's new"))
         self._translate_standard_buttons(self.button_box)
 
         if self.punctuation_dialog is not None:
@@ -2454,7 +2690,6 @@ class LibraryConversionStatusDialog(QDialog):
         self.preview.appendPlainText(text)
         self.preview.verticalScrollBar().setValue(
             self.preview.verticalScrollBar().maximum())
-        QApplication.processEvents()
 
     def log_processing(self, message):
         self.append_preview(message)

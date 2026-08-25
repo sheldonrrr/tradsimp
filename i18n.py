@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 15 Aug, 2026',
-        '发布：2026年8月15日',
-        '發佈：2026年8月15日'),
+        'Released: 25 Aug, 2026',
+        '发布：2026年8月25日',
+        '發佈：2026年8月25日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -94,22 +94,114 @@ _MESSAGES = {
     'Mainland China Chinese': _T('Mainland China Chinese', '中国化', '中國化'),
     'Wiki Traditional Chinese': _T('Wiki Traditional Chinese', '维基繁体化', '維基繁體化'),
     'Wiki Simplified Chinese': _T('Wiki Simplified Chinese', '维基简体化', '維基簡體化'),
+    'ZhConvert mode Traditional': _T(
+        'Traditional Chinese (general)', '繁体中文（通用）', '繁體中文（通用）'),
+    'ZhConvert mode Simplified': _T(
+        'Simplified Chinese (general)', '简体中文（通用）', '簡體中文（通用）'),
+    'ZhConvert mode Taiwan': _T(
+        'Traditional Chinese (Taiwan)', '繁体中文（台湾）', '繁體中文（臺灣）'),
+    'ZhConvert mode Hong Kong': _T(
+        'Traditional Chinese (Hong Kong)', '繁体中文（香港）', '繁體中文（香港）'),
+    'ZhConvert mode Mainland': _T(
+        'Simplified Chinese (Mainland)', '简体中文（大陆）', '簡體中文（大陸）'),
+    'ZhConvert mode Wiki Traditional': _T(
+        'Traditional Chinese (Wiki)', '繁体中文（维基）', '繁體中文（維基）'),
+    'ZhConvert mode Wiki Simplified': _T(
+        'Simplified Chinese (Wiki)', '简体中文（维基）', '簡體中文（維基）'),
     'ZhConvert online short-text conversion': _T(
         'ZhConvert online short-text conversion',
         '繁化姬在线短文本转换',
         '繁化姬線上短文字轉換'),
     'Convert selected books': _T(
         'Convert selected books', '转换所选书籍', '轉換所選書籍'),
+    'OpenCC dictionaries': _T(
+        'OpenCC dictionaries', 'OpenCC 词库', 'OpenCC 詞庫'),
+    'OpenCC dictionary version: {}': _T(
+        'OpenCC dictionaries: {}',
+        'OpenCC 词库：{}',
+        'OpenCC 詞庫：{}'),
+    'OpenCC dictionary version with local: {0} + {1} files ({2})': _T(
+        'OpenCC dictionaries: {0} + local ({1} files: {2})',
+        'OpenCC 词库：{0} + 本地（{1} 个文件：{2}）',
+        'OpenCC 詞庫：{0} + 本機（{1} 個檔案：{2}）'),
+    'Local OpenCC dictionaries: {}': _T(
+        'Local OpenCC dictionaries: {}',
+        '本地 OpenCC 词库：{}',
+        '本機 OpenCC 詞庫：{}'),
+    'OpenCC dictionaries intro': _T(
+        'View and edit OpenCC-format dictionaries (tab-separated: source then target). '
+        'Save writes a local copy that replaces the bundled file of the same name. '
+        'Use UserPhrases.txt for small additions. Local copies hide later plugin dictionary updates until you restore bundled.',
+        '查看并编辑 OpenCC 格式词库（制表符分隔：源词，再目标）。'
+        '保存会写入本地副本，并替换同名的内置文件。'
+        '少量增补请用 UserPhrases.txt。本地副本会挡住插件后续词库更新，直到恢复内置。',
+        '查看並編輯 OpenCC 格式詞庫（製表符分隔：源詞，再目標）。'
+        '儲存會寫入本機副本，並取代同名的內建檔案。'
+        '少量增補請用 UserPhrases.txt。本機副本會擋住外掛後續詞庫更新，直到還原內建。'),
+    '{} (bundled)': _T('{} (bundled)', '{}（内置）', '{}（內建）'),
+    '{} (local)': _T('{} (local)', '{}（本地）', '{}（本機）'),
+    '{} (optional overlay)': _T(
+        '{} (optional overlay)', '{}（可选覆盖）', '{}（可選覆蓋）'),
+    '{} (local overlay)': _T(
+        '{} (local overlay)', '{}（本地覆盖）', '{}（本機覆蓋）'),
+    'Bundled OpenCC: {} ({})': _T(
+        'Bundled OpenCC: {} ({})',
+        '内置 OpenCC：{}（{}）',
+        '內建 OpenCC：{}（{}）'),
+    'Save local dictionary': _T(
+        'Save local dictionary', '保存本地词库', '儲存本機詞庫'),
+    'Restore bundled': _T(
+        'Restore bundled', '恢复内置', '還原內建'),
+    'Open dictionary folder': _T(
+        'Open dictionary folder', '打开词库文件夹', '開啟詞庫資料夾'),
+    'Save changes to {}?': _T(
+        'Save changes to {}?',
+        '要保存对 {} 的修改吗？',
+        '要儲存對 {} 的修改嗎？'),
+    'Restore the bundled OpenCC file for {}? Local edits will be discarded.': _T(
+        'Restore the bundled OpenCC file for {}? Local edits will be discarded.',
+        '恢复 {} 的内置 OpenCC 文件？本地修改将被丢弃。',
+        '還原 {} 的內建 OpenCC 檔案？本機修改將被捨棄。'),
+    'Saved local dictionary: {}': _T(
+        'Saved local dictionary: {}',
+        '已保存本地词库：{}',
+        '已儲存本機詞庫：{}'),
+    'Restored bundled dictionary: {}': _T(
+        'Restored bundled dictionary: {}',
+        '已恢复内置词库：{}',
+        '已還原內建詞庫：{}'),
+    'Could not save the local dictionary.': _T(
+        'Could not save the local dictionary.',
+        '无法保存本地词库。',
+        '無法儲存本機詞庫。'),
+    'This dictionary is already using the bundled file.': _T(
+        'This dictionary is already using the bundled file.',
+        '该词库已在使用内置文件。',
+        '此詞庫已在使用內建檔案。'),
     'Conversion mode:': _T('Conversion mode:', '转换模式：', '轉換模式：'),
+    'Convert to:': _T('Convert to:', '转为：', '轉為：'),
     'Text to send:': _T('Text to send:', '要发送的文字：', '要傳送的文字：'),
+    'Text to convert:': _T('Text to convert:', '要转换的文字：', '要轉換的文字：'),
     'Converted result:': _T('Converted result:', '转换结果：', '轉換結果：'),
     'Clear': _T('Clear', '清空', '清空'),
     'Copy result': _T('Copy result', '复制结果', '複製結果'),
     'Send for conversion': _T('Send for conversion', '发送转换', '傳送轉換'),
+    'Convert': _T('Convert', '转换', '轉換'),
     'ZhConvert input byte count': _T(
         'UTF-8 size: {count} / {limit} bytes',
         'UTF-8 大小：{count} / {limit} 字节',
         'UTF-8 大小：{count} / {limit} 位元組'),
+    'ZhConvert short-text intro': _T(
+        'Convert short text with ZhConvert:',
+        '使用繁化姬进行短文本转换：',
+        '使用繁化姬進行短文字轉換：'),
+    'ZhConvert footer note': _T(
+        '<a href="{url}">ZhConvert</a> is an excellent online conversion tool '
+        'with a free conversion API. This window is not an offline feature.',
+        '<a href="{url}">繁化姬</a>是一个优秀的在线转换工具，同时提供了免费的转换 API，'
+        '本工具为非离线功能。',
+        '<a href="{url}">繁化姬</a>是一個優秀的線上轉換工具，同時提供了免費的轉換 API，'
+        '本工具為非離線功能。'),
     'ZhConvert persistent privacy notice': _T(
         'Optional online tool: only text entered here is sent to a third-party service. '
         'This program uses the <a href="{url}">ZhConvert API</a>; commercial use of '
@@ -118,23 +210,6 @@ _MESSAGES = {
         '<a href="{url}">繁化姬 API</a>；繁化姬商用必须付费。电子书转换仍完全离线。',
         '可選線上工具：僅在此處輸入的文字會傳送給第三方服務。本程式使用'
         '<a href="{url}">繁化姬 API</a>；繁化姬商用必須付費。電子書轉換仍完全離線。'),
-    'Confirm online conversion': _T(
-        'Confirm online conversion', '确认在线转换', '確認線上轉換'),
-    'ZhConvert first-use privacy summary': _T(
-        'The text in this window will be uploaded to ZhConvert for conversion.',
-        '此窗口中的文字将上传至繁化姬进行转换。',
-        '此視窗中的文字將上傳至繁化姬進行轉換。'),
-    'ZhConvert first-use privacy details': _T(
-        'ZhConvert is a third-party service. Its public documentation does not specify '
-        'text-retention practices. Do not send private or sensitive content. Results may '
-        'contain errors and should be reviewed. This program uses the ZhConvert API '
-        '({url}); commercial use of ZhConvert requires payment.',
-        '繁化姬是第三方服务，其公开文档未说明文字留存方式。请勿发送隐私或敏感内容；'
-        '转换结果可能出错，使用前应人工校阅。本程序使用繁化姬 API（{url}）；繁化姬商用必须付费。',
-        '繁化姬是第三方服務，其公開文件未說明文字留存方式。請勿傳送隱私或敏感內容；'
-        '轉換結果可能出錯，使用前應人工校閱。本程式使用繁化姬 API（{url}）；繁化姬商用必須付費。'),
-    'I understand; send this text': _T(
-        'I understand; send this text', '我已了解，发送文字', '我已了解，傳送文字'),
     'Contacting ZhConvert…': _T(
         'Contacting ZhConvert…', '正在连接繁化姬…', '正在連線繁化姬…'),
     'ZhConvert result metadata': _T(
@@ -343,6 +418,12 @@ _MESSAGES = {
     'Text Direction:': _T('Set text direction:', '设置文字方向：', '設定文字方向：'),
     'Horizontal': _T('Left to right (horizontal)', '从左到右（横排）', '從左到右（橫排）'),
     'Vertical': _T('Top to bottom (vertical)', '从上到下（竖排）', '從上到下（直排）'),
+    'Horizontal (short)': _T('Horizontal', '横排', '橫排'),
+    'Vertical (short)': _T('Vertical', '竖排', '直排'),
+    'Keep original layout': _T(
+        'Keep the original layout as-is',
+        '保持原文排版，不改变横排或竖排',
+        '保持原文排版，不改變橫排或直排'),
     'Select the desired text orientation': _T(
         'Choose left-to-right or top-to-bottom reading order',
         '选择从左到右或从上到下的阅读顺序',
@@ -848,6 +929,14 @@ _MESSAGES = {
         'Saved file: {}, save path: {}',
         '已保存文件：{}，保存路径：{}',
         '已儲存檔案：{}，儲存路徑：{}'),
+    'Saved file name: {}': _T(
+        'Saved file: {}',
+        '已保存文件：{}',
+        '已儲存檔案：{}'),
+    'Saved file path: {}': _T(
+        'Save path: {}',
+        '保存路径：{}',
+        '儲存路徑：{}'),
     'Log conversion id: {}': _T(
         'Conversion id: {}',
         '转换标识：{}',
@@ -893,6 +982,30 @@ _MESSAGES = {
         'Results for “{}”',
         '《{}》处理结果',
         '《{}》處理結果'),
+    '----Log book info----': _T(
+        '---- Book info ----',
+        '----本书处理信息----',
+        '----本書處理資訊----'),
+    '----Log conversion stats----': _T(
+        '---- Conversion stats ----',
+        '----转换统计----',
+        '----轉換統計----'),
+    '----Log replacements----': _T(
+        '---- Replacement stats ----',
+        '----替换统计----',
+        '----替換統計----'),
+    '----Log conversion diagnostics----': _T(
+        '---- Conversion diagnostics ----',
+        '----转换诊断----',
+        '----轉換診斷----'),
+    '----Log preview----': _T(
+        '---- Preview ----',
+        '----预览结果----',
+        '----預覽結果----'),
+    '----Log Jieba samples----': _T(
+        '---- Word-segmentation samples ----',
+        '----智能分词样例----',
+        '----智慧分詞樣例----'),
     '----Log book info begin----': _T(
         '----Book processing info begin----',
         '----本书处理信息开始----',
@@ -933,6 +1046,30 @@ _MESSAGES = {
         '----Conversion diagnostics end----',
         '----转换诊断结束----',
         '----轉換診斷結束----'),
+    'Conversion diagnostics: {} suspicious hits': _T(
+        'Conversion diagnostics: {} suspicious hits',
+        '转换诊断：{} 处可疑命中',
+        '轉換診斷：{} 處可疑命中'),
+    '  Traditional-only input in Simplified mode: {}': _T(
+        '  Traditional-only input in Simplified mode: {}',
+        '  简体模式下的繁体输入：{}',
+        '  簡體模式下的繁體輸入：{}'),
+    '  Ambiguous character fallbacks: {}': _T(
+        '  Ambiguous character fallbacks: {}',
+        '  多义字回退：{}',
+        '  多義字回退：{}'),
+    '  Mixed input: {} (context: {})': _T(
+        '  Mixed input: {} (context: {})',
+        '  混用输入：{}（上下文：{}）',
+        '  混用輸入：{}（上下文：{}）'),
+    '  Ambiguous fallback: {} → {}': _T(
+        '  One character, several forms: {} → {}',
+        '  一字多形，采用常用写法：{} → {}',
+        '  一字多形，採用常用寫法：{} → {}'),
+    '… and {} more samples not shown': _T(
+        '… and {} more samples not shown',
+        '……另有 {} 条样例未列出',
+        '……另有 {} 條樣例未列出'),
     'Conversion stats total characters: {}': _T(
         'Total characters: {}',
         '总字符数：{}',
@@ -1017,6 +1154,14 @@ _MESSAGES = {
         'Preview text was truncated at the limit above.',
         '预览正文已在上述字数处截断。',
         '預覽正文已在上述字數處截斷。'),
+    'Preview file header': _T(
+        'File: {} (first {} characters)',
+        '文件：{}（前 {} 字）',
+        '檔案：{}（前 {} 字）'),
+    'Preview file header full': _T(
+        'File: {}',
+        '文件：{}',
+        '檔案：{}'),
     'File: ': _T('File: ', '文件：', '檔案：'),
     'Changed files: ': _T('Changed files: ', '已更改文件：', '已變更檔案：'),
     'No text excerpt available.': _T(
@@ -1212,7 +1357,13 @@ _MESSAGES = {
         '所选输出配置不受支持。\n请使用其他输入/输出语言风格组合。',
         '所選輸出設定不受支援。\n請使用其他輸入/輸出語言風格組合。'),
     'About': _T('About', '关于', '關於'),
+    "What's new": _T("What's new ↗", '新版本说明 ↗', '新版本說明 ↗'),
     'Check for updates': _T('New version features ↗', '新版本功能 ↗', '新版本功能 ↗'),
+    'Open release notes confirm': _T(
+        'This will open the MobileRead release page in your browser.',
+        '将在浏览器中打开 MobileRead 发布页，查看本插件的新版本说明。',
+        '將在瀏覽器中開啟 MobileRead 發佈頁，查看此外掛的新版本說明。'),
+    'Open in browser': _T('Open in browser ↗', '在浏览器中打开 ↗', '在瀏覽器中開啟 ↗'),
     'About Chinese Conversion · 简繁转换': _T(
         'About Chinese Conversion · 简繁转换',
         '关于 Chinese Conversion · 简繁转换',
@@ -1270,21 +1421,21 @@ _MESSAGES = {
         '• Batch convert EPUB/AZW3 in the library; adds new books, originals unchanged\n'
         '• Optional ZhConvert online window for manually entered short text (never reads books)\n'
         '• Library conversion log shows character counts, process time, and OpenCC replacement statistics\n'
-        '• Optional conversion summary stored in book Comments; OpenCC ver.1.4.1 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
+        '• Optional conversion summary stored in book Comments; OpenCC ver.1.4.2 dictionaries; UI: English, Simplified Chinese, Traditional (Taiwan / Hong Kong)',
         '• 繁体 ↔ 简体，以及繁体地区用词互转（大陆 / 香港 / 台湾）\n'
         '• 香港 ↔ 台湾繁体互转；简繁/繁简流程中支持香港、台湾惯用词语模式\n'
         '• 引号样式、从左到右/从上到下的排版与标点调整\n'
         '• 在书库中批量处理 EPUB / AZW3；生成新书，不修改原书\n'
         '• 可选的繁化姬在线短文本窗口，仅处理手动输入的文字（不读取书籍）\n'
         '• 书库转换日志展示字符数、耗时与 OpenCC 替换统计\n'
-        '• 可选将转换摘要写入书籍简介；OpenCC ver.1.4.1 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
+        '• 可选将转换摘要写入书籍简介；OpenCC ver.1.4.2 词库；界面可选 English / 简体中文 / 繁体（台湾）/ 繁体（香港）',
         '• 繁體 ↔ 簡體，以及繁體地區用詞互轉（大陸 / 香港 / 臺灣）\n'
         '• 香港 ↔ 臺灣繁體互轉；簡繁/繁簡流程中支援香港、臺灣慣用詞語模式\n'
         '• 引號樣式、從左到右/從上到下的排版與標點調整\n'
         '• 在書庫中批次處理 EPUB / AZW3；產生新書，不修改原書\n'
         '• 可選的繁化姬線上短文字視窗，僅處理手動輸入的文字（不讀取書籍）\n'
         '• 書庫轉換日誌展示字元數、耗時與 OpenCC 替換統計\n'
-        '• 可選將轉換摘要寫入書籍簡介；OpenCC ver.1.4.1 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
+        '• 可選將轉換摘要寫入書籍簡介；OpenCC ver.1.4.2 詞庫；介面可選 English / 簡體中文 / 繁體（台灣）/ 繁體（香港）'),
     'About quick start': _T(
         'About quick start',
         '快速上手',
@@ -1504,11 +1655,18 @@ def apply_ui_language_from_prefs(prefs):
     set_ui_language(lang)
 
 
-def _(message):
+def translate(message, lang=None):
+    '''Look up msgid in lang; omit lang (or pass None) to use the current UI language.'''
     entry = _MESSAGES.get(message)
     if entry is None:
         return message
-    return entry.get(_current_ui_lang, message)
+    if lang not in (UI_LANG_EN, UI_LANG_ZH_CN, UI_LANG_ZH_TW, UI_LANG_ZH_HK):
+        lang = _current_ui_lang
+    return entry.get(lang, message)
+
+
+def _(message):
+    return translate(message)
 
 
 def ngettext(singular, plural, n):
