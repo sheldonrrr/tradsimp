@@ -9,14 +9,16 @@ try:
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                   QPushButton, QPlainTextEdit, QProgressBar, QObject, QThread, pyqtSignal,
-                  QListWidget, QListWidgetItem, QAbstractItemView)
+                  QListWidget, QListWidgetItem, QAbstractItemView, QTableWidget,
+                  QTableWidgetItem, QLineEdit, QCompleter, QHeaderView, QStringListModel)
 except ImportError:
     from PyQt5.Qt import (Qt, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                           QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                           QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                           QPushButton, QPlainTextEdit, QProgressBar, QListWidget, QListWidgetItem,
-                          QAbstractItemView)
-    from PyQt5.QtCore import QUrl, QObject, QThread, pyqtSignal
+                          QAbstractItemView, QTableWidget, QTableWidgetItem, QLineEdit,
+                          QCompleter, QHeaderView)
+    from PyQt5.QtCore import QUrl, QObject, QThread, pyqtSignal, QStringListModel
 
 from calibre.utils.config import config_dir
 
@@ -153,6 +155,37 @@ class NoWheelComboBox(QComboBox):
         if self.view().isVisible():
             return super().wheelEvent(event)
         event.ignore()
+
+
+def _qt_case_insensitive():
+    value = getattr(Qt, 'CaseInsensitive', None)
+    if value is not None:
+        return value
+    return Qt.CaseSensitivity.CaseInsensitive
+
+
+def _qt_match_contains():
+    value = getattr(Qt, 'MatchContains', None)
+    if value is not None:
+        return value
+    flags = getattr(Qt, 'MatchFlag', None)
+    return getattr(flags, 'MatchContains', None) if flags is not None else None
+
+
+def _qt_header_resize_to_contents():
+    value = getattr(QHeaderView, 'ResizeToContents', None)
+    if value is not None:
+        return value
+    mode = getattr(QHeaderView, 'ResizeMode', None)
+    return getattr(mode, 'ResizeToContents', None) if mode is not None else None
+
+
+def _qt_header_stretch():
+    value = getattr(QHeaderView, 'Stretch', None)
+    if value is not None:
+        return value
+    mode = getattr(QHeaderView, 'ResizeMode', None)
+    return getattr(mode, 'Stretch', None) if mode is not None else None
 
 
 class ZhConvertWorker(QObject):
@@ -444,7 +477,13 @@ class OpenCCDictionariesDialog(QDialog):
             wrap_mode = QPlainTextEdit.LineWrapMode.NoWrap
         self.editor.setLineWrapMode(wrap_mode)
         self.comment_highlighter = attach_comment_line_highlighter(self.editor)
-        body.addWidget(self.editor, 1)
+        self.phrase_panel = self._build_phrase_panel()
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        configure_layout(right_layout, 'zero')
+        right_layout.addWidget(self.editor, 1)
+        right_layout.addWidget(self.phrase_panel, 1)
+        body.addWidget(right, 1)
         layout.addLayout(body, 1)
 
         buttons = QHBoxLayout()
@@ -465,20 +504,126 @@ class OpenCCDictionariesDialog(QDialog):
         layout.addLayout(buttons)
         self.apply_translations()
 
+    def _build_phrase_panel(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            PHRASE_DIRECTIONS)
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        configure_layout(layout, 'form')
+        self.phrase_search = QLineEdit()
+        self.phrase_search.textChanged.connect(self._filter_phrase_table)
+        layout.addWidget(self.phrase_search)
+        self.phrase_table = QTableWidget(0, 3)
+        self.phrase_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.phrase_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        no_edit = getattr(QAbstractItemView, 'NoEditTriggers', None)
+        if no_edit is None:
+            no_edit = QAbstractItemView.EditTrigger.NoEditTriggers
+        self.phrase_table.setEditTriggers(no_edit)
+        self.phrase_table.verticalHeader().setVisible(False)
+        self.phrase_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        header = self.phrase_table.horizontalHeader()
+        contents_mode = _qt_header_resize_to_contents()
+        stretch_mode = _qt_header_stretch()
+        if contents_mode is not None:
+            header.setSectionResizeMode(0, contents_mode)
+            header.setSectionResizeMode(1, stretch_mode or contents_mode)
+            header.setSectionResizeMode(2, stretch_mode or contents_mode)
+        self.phrase_table.itemSelectionChanged.connect(self._on_phrase_row_changed)
+        layout.addWidget(self.phrase_table, 1)
+
+        form = QHBoxLayout()
+        configure_layout(form, 'form')
+        self.phrase_direction_label = QLabel()
+        configure_form_label(self.phrase_direction_label)
+        form.addWidget(self.phrase_direction_label)
+        self.phrase_direction = NoWheelComboBox()
+        for direction in PHRASE_DIRECTIONS:
+            self.phrase_direction.addItem('', direction)
+        form.addWidget(self.phrase_direction, 1)
+        layout.addLayout(form)
+
+        pair = QHBoxLayout()
+        configure_layout(pair, 'form')
+        self.phrase_source_label = QLabel()
+        configure_form_label(self.phrase_source_label)
+        pair.addWidget(self.phrase_source_label)
+        self.phrase_source = QLineEdit()
+        self._source_model = QStringListModel(self)
+        self._source_completer = QCompleter(self._source_model, self)
+        self._source_completer.setCaseSensitivity(_qt_case_insensitive())
+        match_contains = _qt_match_contains()
+        if match_contains is not None and hasattr(self._source_completer, 'setFilterMode'):
+            self._source_completer.setFilterMode(match_contains)
+        self._source_completer.activated.connect(self._on_source_completer_activated)
+        self.phrase_source.setCompleter(self._source_completer)
+        pair.addWidget(self.phrase_source, 1)
+        self.phrase_target_label = QLabel()
+        configure_form_label(self.phrase_target_label)
+        pair.addWidget(self.phrase_target_label)
+        self.phrase_target = QLineEdit()
+        pair.addWidget(self.phrase_target, 1)
+        layout.addLayout(pair)
+
+        actions = QHBoxLayout()
+        configure_layout(actions, 'form')
+        self.phrase_add_btn = QPushButton()
+        self.phrase_add_btn.clicked.connect(self._on_phrase_add)
+        actions.addWidget(self.phrase_add_btn)
+        self.phrase_update_btn = QPushButton()
+        self.phrase_update_btn.clicked.connect(self._on_phrase_update)
+        actions.addWidget(self.phrase_update_btn)
+        self.phrase_delete_btn = QPushButton()
+        self.phrase_delete_btn.clicked.connect(self._on_phrase_delete)
+        actions.addWidget(self.phrase_delete_btn)
+        actions.addStretch(1)
+        layout.addLayout(actions)
+        self.phrase_hint_label = QLabel()
+        self.phrase_hint_label.setWordWrap(True)
+        style_help_label(self.phrase_hint_label)
+        layout.addWidget(self.phrase_hint_label)
+        panel.hide()
+        return panel
+
     def apply_translations(self):
         self.setWindowTitle(_('OpenCC dictionaries'))
-        self.intro_label.setText(_('OpenCC dictionaries intro'))
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            bundled_opencc_pin)
+            PHRASE_DIRECTIONS, bundled_opencc_pin, phrase_direction_label)
         commit, tag = bundled_opencc_pin()
         self.pin_label.setText(_('Bundled OpenCC: {} ({})').format(tag, commit))
         self.comment_hint_label.setText(_('Dictionary comment lines hint'))
         if getattr(self, 'comment_highlighter', None) is not None:
             self.comment_highlighter.set_palette(self.editor.palette())
         self.save_btn.setText(_('Save local dictionary'))
-        self.restore_btn.setText(_('Restore bundled'))
         self.folder_btn.setText(_('Open dictionary folder'))
+        self.phrase_search.setPlaceholderText(_('Search custom phrases'))
+        self.phrase_table.setHorizontalHeaderLabels([
+            _('Conversion direction'),
+            _('Original phrase'),
+            _('Target phrase'),
+        ])
+        self.phrase_direction_label.setText(_('Conversion direction'))
+        current_dir = self.phrase_direction.currentData()
+        self.phrase_direction.blockSignals(True)
+        for index, direction in enumerate(PHRASE_DIRECTIONS):
+            self.phrase_direction.setItemText(index, phrase_direction_label(direction))
+            self.phrase_direction.setItemData(index, direction)
+        if current_dir:
+            found = self.phrase_direction.findData(current_dir)
+            if found >= 0:
+                self.phrase_direction.setCurrentIndex(found)
+        self.phrase_direction.blockSignals(False)
+        self.phrase_source_label.setText(_('Original phrase'))
+        self.phrase_target_label.setText(_('Target phrase'))
+        self.phrase_source.setPlaceholderText(_('Original phrase'))
+        self.phrase_target.setPlaceholderText(_('Target phrase'))
+        self.phrase_add_btn.setText(_('Add phrase'))
+        self.phrase_update_btn.setText(_('Update phrase'))
+        self.phrase_delete_btn.setText(_('Delete phrase'))
+        self._refresh_phrase_chrome()
         self._refresh_list_labels()
+        if self._current_name:
+            self._reload_phrase_table()
 
     def _item_label(self, name):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
@@ -509,6 +654,12 @@ class OpenCCDictionariesDialog(QDialog):
             item.setText(self._item_label(name))
 
     def _is_dirty(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE)
+        if self._current_name == USER_PHRASES_FILE:
+            return False
+        if self.editor.isHidden():
+            return False
         return self.editor.toPlainText() != self._original_text
 
     def _on_current_item_changed(self, current, _previous):
@@ -538,13 +689,220 @@ class OpenCCDictionariesDialog(QDialog):
 
     def _load_named(self, name):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, ensure_user_phrases_file, read_effective_dict_text)
-        if name == USER_PHRASES_FILE:
-            ensure_user_phrases_file(create_if_missing=False)
-            self._refresh_list_labels()
+            USER_PHRASES_FILE, import_legacy_user_phrases_if_needed,
+            read_effective_dict_text)
         self._current_name = name
+        if name == USER_PHRASES_FILE:
+            import_legacy_user_phrases_if_needed()
+            self._show_phrase_panel()
+            self._reload_phrase_table()
+            self._refresh_list_labels()
+            return
+        self._show_text_editor()
         self._original_text = read_effective_dict_text(name)
         self.editor.setPlainText(self._original_text)
+
+    def _show_phrase_panel(self):
+        self.editor.hide()
+        self.phrase_panel.show()
+        self._refresh_phrase_chrome()
+
+    def _show_text_editor(self):
+        self.phrase_panel.hide()
+        self.editor.show()
+        self._refresh_phrase_chrome()
+
+    def _refresh_phrase_chrome(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE)
+        phrase_mode = self._current_name == USER_PHRASES_FILE
+        if phrase_mode:
+            self.intro_label.setText(_('Custom phrases intro'))
+            self.comment_hint_label.hide()
+            self.save_btn.hide()
+            self.restore_btn.setText(_('Restore bundled'))
+        else:
+            self.intro_label.setText(_('OpenCC dictionaries intro'))
+            self.comment_hint_label.show()
+            self.save_btn.show()
+            self.restore_btn.setText(_('Restore bundled'))
+
+    def _current_phrase_direction(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            DEFAULT_PHRASE_DIRECTION)
+        data = self.phrase_direction.currentData()
+        return data or DEFAULT_PHRASE_DIRECTION
+
+    def _set_phrase_hint(self, text):
+        self.phrase_hint_label.setText(text or '')
+
+    def _phrase_form_values(self):
+        return (
+            self._current_phrase_direction(),
+            self.phrase_source.text().strip(),
+            self.phrase_target.text().strip(),
+        )
+
+    def _reload_phrase_table(self):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            load_user_phrases, phrase_direction_label, user_phrase_sources)
+        query = (self.phrase_search.text() or '').strip().lower()
+        self.phrase_table.blockSignals(True)
+        self.phrase_table.setRowCount(0)
+        for phrase in load_user_phrases():
+            haystack = ' '.join((
+                phrase_direction_label(phrase['direction']),
+                phrase['source'],
+                phrase['target'],
+            )).lower()
+            if query and query not in haystack:
+                continue
+            row = self.phrase_table.rowCount()
+            self.phrase_table.insertRow(row)
+            direction_item = QTableWidgetItem(
+                phrase_direction_label(phrase['direction']))
+            direction_item.setData(Qt.UserRole, phrase)
+            self.phrase_table.setItem(row, 0, direction_item)
+            self.phrase_table.setItem(row, 1, QTableWidgetItem(phrase['source']))
+            self.phrase_table.setItem(row, 2, QTableWidgetItem(phrase['target']))
+        self.phrase_table.blockSignals(False)
+        self._source_model.setStringList(user_phrase_sources())
+
+    def _filter_phrase_table(self, _text=None):
+        self._reload_phrase_table()
+
+    def _selected_phrase(self):
+        items = self.phrase_table.selectedItems()
+        if not items:
+            return None
+        item = self.phrase_table.item(items[0].row(), 0)
+        if item is None:
+            return None
+        return item.data(Qt.UserRole)
+
+    def _select_phrase_row(self, direction, source):
+        for row in range(self.phrase_table.rowCount()):
+            item = self.phrase_table.item(row, 0)
+            phrase = item.data(Qt.UserRole) if item is not None else None
+            if phrase and phrase['direction'] == direction and phrase['source'] == source:
+                self.phrase_table.blockSignals(True)
+                self.phrase_table.selectRow(row)
+                self.phrase_table.scrollToItem(item)
+                self.phrase_table.blockSignals(False)
+                self._fill_phrase_form(phrase)
+                return True
+        return False
+
+    def _fill_phrase_form(self, phrase):
+        if not phrase:
+            return
+        found = self.phrase_direction.findData(phrase['direction'])
+        if found >= 0:
+            self.phrase_direction.setCurrentIndex(found)
+        self.phrase_source.setText(phrase['source'])
+        self.phrase_target.setText(phrase['target'])
+
+    def _on_phrase_row_changed(self):
+        phrase = self._selected_phrase()
+        if phrase:
+            self._fill_phrase_form(phrase)
+            self._set_phrase_hint('')
+
+    def _on_source_completer_activated(self, text):
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            find_user_phrase)
+        existing = find_user_phrase(self._current_phrase_direction(), text)
+        if not existing:
+            return
+        self.phrase_source.deselect()
+        popup = self._source_completer.popup()
+        if popup is not None:
+            popup.hide()
+            clear_sel = getattr(popup, 'clearSelection', None)
+            if callable(clear_sel):
+                clear_sel()
+        self._select_phrase_row(existing['direction'], existing['source'])
+        self._set_phrase_hint(_('This phrase is already added.'))
+
+    def _on_phrase_add(self):
+        from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+            reinject_opencc_phrases)
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            add_user_phrase, find_user_phrase)
+        direction, source, target = self._phrase_form_values()
+        if not source or not target:
+            self._set_phrase_hint(_('Enter both phrases.'))
+            return
+        existing = find_user_phrase(direction, source)
+        if existing:
+            self._select_phrase_row(direction, source)
+            self._set_phrase_hint(_('This phrase is already added.'))
+            return
+        phrase, status = add_user_phrase(direction, source, target)
+        if status != 'ok':
+            self._set_phrase_hint(_('Enter both phrases.'))
+            return
+        try:
+            reinject_opencc_phrases()
+        except Exception:
+            pass
+        self._reload_phrase_table()
+        self._select_phrase_row(phrase['direction'], phrase['source'])
+        self._refresh_list_labels()
+        self._set_phrase_hint('')
+
+    def _on_phrase_update(self):
+        from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+            reinject_opencc_phrases)
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            update_user_phrase)
+        selected = self._selected_phrase()
+        if not selected:
+            self._set_phrase_hint(_('Select a phrase to update.'))
+            return
+        direction, source, target = self._phrase_form_values()
+        if not source or not target:
+            self._set_phrase_hint(_('Enter both phrases.'))
+            return
+        phrase, status = update_user_phrase(
+            selected['direction'], selected['source'], direction, source, target)
+        if status == 'duplicate':
+            self._select_phrase_row(direction, source)
+            self._set_phrase_hint(_('This phrase is already added.'))
+            return
+        if status != 'ok':
+            self._set_phrase_hint(_('Enter both phrases.'))
+            return
+        try:
+            reinject_opencc_phrases()
+        except Exception:
+            pass
+        self._reload_phrase_table()
+        self._select_phrase_row(phrase['direction'], phrase['source'])
+        self._refresh_list_labels()
+        self._set_phrase_hint('')
+
+    def _on_phrase_delete(self):
+        from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
+            reinject_opencc_phrases)
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            delete_user_phrase)
+        selected = self._selected_phrase()
+        if not selected:
+            self._set_phrase_hint(_('Select a phrase to delete.'))
+            return
+        if not delete_user_phrase(selected['direction'], selected['source']):
+            self._set_phrase_hint(_('Select a phrase to delete.'))
+            return
+        try:
+            reinject_opencc_phrases()
+        except Exception:
+            pass
+        self.phrase_source.clear()
+        self.phrase_target.clear()
+        self._reload_phrase_table()
+        self._refresh_list_labels()
+        self._set_phrase_hint('')
 
     def _save_named(self, name, text):
         from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
@@ -568,7 +926,9 @@ class OpenCCDictionariesDialog(QDialog):
         return True
 
     def _save_current(self):
-        if not self._current_name:
+        from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE)
+        if not self._current_name or self._current_name == USER_PHRASES_FILE:
             return
         if self._save_named(self._current_name, self.editor.toPlainText()):
             info_dialog(
@@ -580,9 +940,36 @@ class OpenCCDictionariesDialog(QDialog):
         from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
             reinject_opencc_phrases)
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
+            USER_PHRASES_FILE, clear_user_phrases, has_user_phrases,
             is_overridden, restore_bundled)
         name = self._current_name
         if not name:
+            return
+        if name == USER_PHRASES_FILE:
+            if not has_user_phrases():
+                info_dialog(
+                    self, _('Restore bundled'),
+                    _('No custom phrases to clear.'),
+                    show=True)
+                return
+            if not question_dialog(
+                    self, _('Restore bundled'),
+                    _('Clear custom phrases?'),
+                    default_yes=False):
+                return
+            clear_user_phrases()
+            try:
+                reinject_opencc_phrases()
+            except Exception:
+                pass
+            self._reload_phrase_table()
+            self.phrase_source.clear()
+            self.phrase_target.clear()
+            self._refresh_list_labels()
+            info_dialog(
+                self, _('Restore bundled'),
+                _('Cleared custom phrases.'),
+                show=True)
             return
         if not is_overridden(name):
             info_dialog(
@@ -610,12 +997,12 @@ class OpenCCDictionariesDialog(QDialog):
 
     def _open_folder(self):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, ensure_user_dict_dir, ensure_user_phrases_file)
-        if self._current_name == USER_PHRASES_FILE and self._is_dirty():
+            USER_PHRASES_FILE, ensure_user_dict_dir)
+        if (self._current_name and self._current_name != USER_PHRASES_FILE
+                and self._is_dirty()):
             self._save_named(self._current_name, self.editor.toPlainText())
-        ensure_user_phrases_file()
-        self._refresh_list_labels()
         path = ensure_user_dict_dir()
+        self._refresh_list_labels()
         open_url(QUrl.fromLocalFile(path))
 
     def reject(self):

@@ -220,6 +220,86 @@ _MESSAGES = {
         'This dictionary is already using the bundled file.',
         '该词库已在使用内置文件。',
         '此詞庫已在使用內建檔案。'),
+    'Phrase direction s2t': _T(
+        'Simplified → Traditional (general)',
+        '简体 → 繁体（通用）',
+        '簡體 → 繁體（通用）'),
+    'Phrase direction s2tw': _T(
+        'Simplified → Taiwan',
+        '简体 → 台湾',
+        '簡體 → 臺灣'),
+    'Phrase direction s2hk': _T(
+        'Simplified → Hong Kong',
+        '简体 → 香港',
+        '簡體 → 香港'),
+    'Phrase direction t2s': _T(
+        'Traditional → Simplified',
+        '繁体 → 简体',
+        '繁體 → 簡體'),
+    'Phrase direction tw2s': _T(
+        'Taiwan → Simplified',
+        '台湾 → 简体',
+        '臺灣 → 簡體'),
+    'Phrase direction hk2s': _T(
+        'Hong Kong → Simplified',
+        '香港 → 简体',
+        '香港 → 簡體'),
+    'Phrase direction t2tw': _T(
+        'Traditional → Taiwan',
+        '繁体 → 台湾',
+        '繁體 → 臺灣'),
+    'Phrase direction t2hk': _T(
+        'Traditional → Hong Kong',
+        '繁体 → 香港',
+        '繁體 → 香港'),
+    'Custom phrases intro': _T(
+        'Add your own phrase pairs. Choose a conversion direction, then type the original phrase and the replacement. '
+        'No Tab key is needed. Search the list to avoid adding the same original phrase twice.',
+        '在此添加自定义词组：选择转换方向，再填写原词组和目标词组，不用按 Tab。'
+        '可搜索已添加的词组，避免重复。',
+        '在此新增自訂詞組：選擇轉換方向，再填寫原詞組和目標詞組，不必按 Tab。'
+        '可搜尋已新增的詞組，避免重複。'),
+    'Search custom phrases': _T(
+        'Search added phrases',
+        '搜索已添加的词组',
+        '搜尋已新增的詞組'),
+    'Conversion direction': _T(
+        'Conversion direction', '转换方向', '轉換方向'),
+    'Original phrase': _T(
+        'Original phrase', '原词组', '原詞組'),
+    'Target phrase': _T(
+        'Target phrase', '目标词组', '目標詞組'),
+    'Add phrase': _T('Add', '添加', '新增'),
+    'Update phrase': _T('Update', '更新', '更新'),
+    'Delete phrase': _T('Delete', '删除', '刪除'),
+    'This phrase is already added.': _T(
+        'This phrase is already added.',
+        '已经添加过该词组。',
+        '已經新增過該詞組。'),
+    'Enter both phrases.': _T(
+        'Enter both the original phrase and the target phrase.',
+        '请填写原词组和目标词组。',
+        '請填寫原詞組和目標詞組。'),
+    'Select a phrase to update.': _T(
+        'Select a phrase in the list to update.',
+        '请先在列表中选中要更新的词组。',
+        '請先在列表中選取要更新的詞組。'),
+    'Select a phrase to delete.': _T(
+        'Select a phrase in the list to delete.',
+        '请先在列表中选中要删除的词组。',
+        '請先在列表中選取要刪除的詞組。'),
+    'Clear custom phrases?': _T(
+        'Remove all custom phrases? This cannot be undone.',
+        '清除全部自定义词组？此操作无法撤销。',
+        '清除全部自訂詞組？此操作無法還原。'),
+    'No custom phrases to clear.': _T(
+        'There are no custom phrases to clear.',
+        '目前没有可清除的自定义词组。',
+        '目前沒有可清除的自訂詞組。'),
+    'Cleared custom phrases.': _T(
+        'Cleared custom phrases.',
+        '已清除自定义词组。',
+        '已清除自訂詞組。'),
     'Conversion mode:': _T('Conversion mode:', '转换模式：', '轉換模式：'),
     'Convert to:': _T('Convert to:', '转为：', '轉為：'),
     'Text to send:': _T('Text to send:', '要发送的文字：', '要傳送的文字：'),

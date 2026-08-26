@@ -803,10 +803,10 @@ class OpenCC:
                 self._add_dictionaries(children, chain)
                 chain_data.append(('group', policy, chain))
             else:
-                if item not in self.dict_cache:
+                if item not in self.dict_cache or item == USER_PHRASES_FILE:
                     map_dict = {}
                     max_len = 1
-                    bytes = self.resource_getter(DICT_FILE, item)
+                    bytes = self._dict_file_bytes(item)
                     if bytes is not None:
                         converted_data = bytes.decode("utf-8")
                         converted_data_list = converted_data.splitlines()
@@ -820,7 +820,8 @@ class OpenCC:
                                 max_len = len(key)
                         entry = (max_len, map_dict, item)
                         chain_data.append(entry)
-                        self.dict_cache[item] = entry
+                        if item != USER_PHRASES_FILE:
+                            self.dict_cache[item] = entry
                     else:
                         raise IOError('unable to open opencc dictionary: ' + item)
                 else:
@@ -842,9 +843,16 @@ class OpenCC:
         elif dict_dict.get('type') == 'txt':
             dict_chain.append(dict_dict.get('file'))
 
+    def _dict_file_bytes(self, file_name):
+        getter = self.resource_getter
+        set_conv = getattr(getter, 'set_conversion', None)
+        if file_name == USER_PHRASES_FILE and callable(set_conv):
+            set_conv(self.conversion)
+        return getter(DICT_FILE, file_name)
+
     def _user_phrases_present(self):
         try:
-            data = self.resource_getter(DICT_FILE, USER_PHRASES_FILE)
+            data = self._dict_file_bytes(USER_PHRASES_FILE)
         except Exception:
             return False
         return bool(data)

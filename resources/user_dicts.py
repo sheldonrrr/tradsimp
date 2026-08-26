@@ -5,9 +5,62 @@ from __future__ import print_function
 
 import os
 import re
+import json
 
 USER_PHRASES_FILE = 'UserPhrases.txt'
+USER_PHRASES_JSON = 'user_phrases.json'
 PLUGIN_DICT_SUBDIR = ('plugins', 'chinese_text_conversion', 'dictionaries')
+
+PHRASE_DIRECTION_S2T = 's2t'
+PHRASE_DIRECTION_S2TW = 's2tw'
+PHRASE_DIRECTION_S2HK = 's2hk'
+PHRASE_DIRECTION_T2S = 't2s'
+PHRASE_DIRECTION_TW2S = 'tw2s'
+PHRASE_DIRECTION_HK2S = 'hk2s'
+PHRASE_DIRECTION_T2TW = 't2tw'
+PHRASE_DIRECTION_T2HK = 't2hk'
+
+PHRASE_DIRECTIONS = (
+    PHRASE_DIRECTION_S2T,
+    PHRASE_DIRECTION_S2TW,
+    PHRASE_DIRECTION_S2HK,
+    PHRASE_DIRECTION_T2S,
+    PHRASE_DIRECTION_TW2S,
+    PHRASE_DIRECTION_HK2S,
+    PHRASE_DIRECTION_T2TW,
+    PHRASE_DIRECTION_T2HK,
+)
+
+_PHRASE_DIRECTION_MSGIDS = {
+    PHRASE_DIRECTION_S2T: 'Phrase direction s2t',
+    PHRASE_DIRECTION_S2TW: 'Phrase direction s2tw',
+    PHRASE_DIRECTION_S2HK: 'Phrase direction s2hk',
+    PHRASE_DIRECTION_T2S: 'Phrase direction t2s',
+    PHRASE_DIRECTION_TW2S: 'Phrase direction tw2s',
+    PHRASE_DIRECTION_HK2S: 'Phrase direction hk2s',
+    PHRASE_DIRECTION_T2TW: 'Phrase direction t2tw',
+    PHRASE_DIRECTION_T2HK: 'Phrase direction t2hk',
+}
+
+# OpenCC config name -> phrase-direction keys that apply.
+CONVERSION_PHRASE_DIRS = {
+    's2t': (PHRASE_DIRECTION_S2T,),
+    's2tw': (PHRASE_DIRECTION_S2TW,),
+    's2twp': (PHRASE_DIRECTION_S2TW,),
+    's2hk': (PHRASE_DIRECTION_S2HK,),
+    's2hkp': (PHRASE_DIRECTION_S2HK,),
+    't2s': (PHRASE_DIRECTION_T2S,),
+    'tw2s': (PHRASE_DIRECTION_T2S, PHRASE_DIRECTION_TW2S),
+    'tw2sp': (PHRASE_DIRECTION_T2S, PHRASE_DIRECTION_TW2S),
+    'hk2s': (PHRASE_DIRECTION_T2S, PHRASE_DIRECTION_HK2S),
+    'hk2sp': (PHRASE_DIRECTION_T2S, PHRASE_DIRECTION_HK2S),
+    't2tw': (PHRASE_DIRECTION_T2TW,),
+    't2hk': (PHRASE_DIRECTION_T2HK,),
+    'hk2tw': (PHRASE_DIRECTION_T2TW,),
+    'tw2hk': (PHRASE_DIRECTION_T2HK,),
+}
+
+DEFAULT_PHRASE_DIRECTION = PHRASE_DIRECTION_S2T
 
 # Files the dictionary manager lists. UserPhrases.txt is a local overlay only.
 MANAGED_DICT_FILES = (
@@ -109,6 +162,8 @@ def user_dict_path(file_name):
 
 
 def is_overridden(file_name):
+    if file_name == USER_PHRASES_FILE:
+        return has_user_phrases()
     try:
         path = user_dict_path(file_name)
     except ValueError:
@@ -189,11 +244,14 @@ def restore_bundled(file_name):
 def overridden_dict_names():
     names = []
     directory = user_dict_dir()
-    if not os.path.isdir(directory):
-        return names
-    for name in MANAGED_DICT_FILES:
-        if os.path.isfile(os.path.join(directory, name)):
-            names.append(name)
+    if os.path.isdir(directory):
+        for name in MANAGED_DICT_FILES:
+            if name == USER_PHRASES_FILE:
+                continue
+            if os.path.isfile(os.path.join(directory, name)):
+                names.append(name)
+    if has_user_phrases():
+        names.insert(0, USER_PHRASES_FILE)
     return names
 
 
@@ -210,3 +268,240 @@ def bundled_opencc_pin():
 
 def bundled_opencc_tag():
     return bundled_opencc_pin()[1]
+
+
+def phrase_direction_label(direction):
+    from calibre_plugins.chinese_text_conversion.i18n import _
+    msgid = _PHRASE_DIRECTION_MSGIDS.get(direction)
+    if msgid:
+        return _(msgid)
+    return direction
+
+
+def user_phrases_json_path():
+    return os.path.join(user_dict_dir(), USER_PHRASES_JSON)
+
+
+def user_phrases_json_exists():
+    return os.path.isfile(user_phrases_json_path())
+
+
+def _normalize_phrase(item):
+    if not isinstance(item, dict):
+        return None
+    direction = item.get('direction') or DEFAULT_PHRASE_DIRECTION
+    if direction not in PHRASE_DIRECTIONS:
+        direction = DEFAULT_PHRASE_DIRECTION
+    source = (item.get('source') or '').strip()
+    target = (item.get('target') or '').strip()
+    if not source or not target:
+        return None
+    return {
+        'direction': direction,
+        'source': source,
+        'target': target,
+    }
+
+
+def _parse_legacy_user_phrase_lines(text):
+    phrases = []
+    seen = set()
+    for line in (text or '').splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or '\t' not in stripped:
+            continue
+        source, target = stripped.split('\t', 1)
+        source = source.strip()
+        target = target.strip()
+        if not source or not target:
+            continue
+        key = (DEFAULT_PHRASE_DIRECTION, source)
+        if key in seen:
+            continue
+        seen.add(key)
+        phrases.append({
+            'direction': DEFAULT_PHRASE_DIRECTION,
+            'source': source,
+            'target': target,
+        })
+    return phrases
+
+
+def _write_user_phrases(phrases):
+    directory = ensure_user_dict_dir()
+    path = os.path.join(directory, USER_PHRASES_JSON)
+    payload = {'phrases': list(phrases)}
+    data = json.dumps(payload, ensure_ascii=False, indent=2)
+    if not data.endswith('\n'):
+        data += '\n'
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(data)
+    return path
+
+
+def import_legacy_user_phrases_if_needed():
+    """Create JSON from an existing UserPhrases.txt the first time."""
+    path = user_phrases_json_path()
+    if os.path.isfile(path):
+        return
+    raw = read_user_dict_bytes(USER_PHRASES_FILE)
+    text = raw.decode('utf-8', errors='replace') if raw else ''
+    phrases = _parse_legacy_user_phrase_lines(text)
+    _write_user_phrases(phrases)
+
+
+def load_user_phrases():
+    import_legacy_user_phrases_if_needed()
+    path = user_phrases_json_path()
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            payload = json.load(handle)
+    except Exception:
+        return []
+    items = payload.get('phrases') if isinstance(payload, dict) else payload
+    if not isinstance(items, list):
+        return []
+    phrases = []
+    seen = set()
+    for item in items:
+        phrase = _normalize_phrase(item)
+        if phrase is None:
+            continue
+        key = (phrase['direction'], phrase['source'])
+        if key in seen:
+            continue
+        seen.add(key)
+        phrases.append(phrase)
+    return phrases
+
+
+def save_user_phrases(phrases):
+    cleaned = []
+    seen = set()
+    for item in phrases or []:
+        phrase = _normalize_phrase(item)
+        if phrase is None:
+            continue
+        key = (phrase['direction'], phrase['source'])
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(phrase)
+    _write_user_phrases(cleaned)
+    return cleaned
+
+
+def has_user_phrases():
+    return bool(load_user_phrases())
+
+
+def find_user_phrase(direction, source):
+    source = (source or '').strip()
+    for phrase in load_user_phrases():
+        if phrase['direction'] == direction and phrase['source'] == source:
+            return phrase
+    return None
+
+
+def add_user_phrase(direction, source, target):
+    phrase = _normalize_phrase({
+        'direction': direction,
+        'source': source,
+        'target': target,
+    })
+    if phrase is None:
+        return None, 'empty'
+    if find_user_phrase(phrase['direction'], phrase['source']):
+        return None, 'duplicate'
+    phrases = load_user_phrases()
+    phrases.append(phrase)
+    save_user_phrases(phrases)
+    return phrase, 'ok'
+
+
+def update_user_phrase(old_direction, old_source, direction, source, target):
+    phrase = _normalize_phrase({
+        'direction': direction,
+        'source': source,
+        'target': target,
+    })
+    if phrase is None:
+        return None, 'empty'
+    old_source = (old_source or '').strip()
+    phrases = load_user_phrases()
+    index = None
+    for i, existing in enumerate(phrases):
+        if (existing['direction'] == old_direction
+                and existing['source'] == old_source):
+            index = i
+            break
+    if index is None:
+        return None, 'missing'
+    collision = find_user_phrase(phrase['direction'], phrase['source'])
+    if collision is not None and not (
+            phrase['direction'] == old_direction
+            and phrase['source'] == old_source):
+        return None, 'duplicate'
+    phrases[index] = phrase
+    save_user_phrases(phrases)
+    return phrase, 'ok'
+
+
+def delete_user_phrase(direction, source):
+    source = (source or '').strip()
+    phrases = load_user_phrases()
+    kept = [
+        item for item in phrases
+        if not (item['direction'] == direction and item['source'] == source)
+    ]
+    if len(kept) == len(phrases):
+        return False
+    save_user_phrases(kept)
+    return True
+
+
+def clear_user_phrases():
+    _write_user_phrases([])
+
+
+def user_phrase_sources():
+    sources = []
+    seen = set()
+    for phrase in load_user_phrases():
+        source = phrase['source']
+        if source in seen:
+            continue
+        seen.add(source)
+        sources.append(source)
+    return sources
+
+
+def read_user_phrases_opencc_bytes(conversion):
+    """OpenCC txt bytes for phrases that apply to this conversion, or None."""
+    phrases = load_user_phrases()
+    if not phrases:
+        return None
+    if conversion:
+        allowed = CONVERSION_PHRASE_DIRS.get(conversion, ())
+        if not allowed:
+            return None
+        phrases = [
+            item for item in phrases if item['direction'] in allowed
+        ]
+    if not phrases:
+        return None
+    lines = [
+        '%s\t%s' % (item['source'], item['target'])
+        for item in phrases
+    ]
+    return ('\n'.join(lines) + '\n').encode('utf-8')
+
+
+def iter_user_phrase_keys():
+    """Multi-character source keys for Jieba injection."""
+    for phrase in load_user_phrases():
+        source = phrase.get('source') or ''
+        if len(source) >= 2:
+            yield source

@@ -125,7 +125,15 @@ def get_resource_file(file_type, file_name):
         return get_resources('resources/opencc_python/config/' + file_name)
     elif file_type == DICT_FILE:
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, read_user_dict_bytes)
+            USER_PHRASES_FILE, read_user_dict_bytes, read_user_phrases_opencc_bytes,
+            user_phrases_json_exists)
+        if file_name == USER_PHRASES_FILE:
+            conversion = getattr(get_resource_file, 'conversion', None)
+            data = read_user_phrases_opencc_bytes(conversion)
+            if data:
+                return data
+            if user_phrases_json_exists():
+                return None
         user_bytes = read_user_dict_bytes(file_name)
         if user_bytes is not None:
             return user_bytes
@@ -134,6 +142,14 @@ def get_resource_file(file_type, file_name):
         return get_resources('resources/opencc_python/dictionary/' + file_name)
     else:
         raise ValueError('conversion value incorrect')
+
+
+def _set_resource_conversion(conversion):
+    get_resource_file.conversion = conversion
+
+
+get_resource_file.set_conversion = _set_resource_conversion
+get_resource_file.conversion = None
 
 
 # regular expression to remove ruby text
