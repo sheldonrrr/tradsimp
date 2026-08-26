@@ -32,10 +32,12 @@ from calibre_plugins.chinese_text_conversion.i18n import (
 )
 from calibre_plugins.chinese_text_conversion.ui_style import (
     HELP_TEXT_INDENT,
-    apply_dialog_stylesheet, apply_text_direction_icons, configure_form_label, configure_layout,
-    build_about_identity, build_example_preview_card, build_radio_group, build_section_group,
-    build_text_direction_tiles, help_text_row, make_section_divider, polish_scroll_area,
-    style_help_label, style_recommend_card, style_subheading_label,
+    apply_dialog_stylesheet, apply_text_direction_icons,
+    attach_comment_line_highlighter, configure_form_label, configure_layout,
+    build_about_identity, build_example_preview_card, build_radio_group,
+    build_section_group, build_text_direction_tiles, help_text_row,
+    make_section_divider, polish_scroll_area, style_help_label, style_recommend_card,
+    style_subheading_label,
 )
 from calibre_plugins.chinese_text_conversion.ocr_compat import is_vision_ocr_supported
 from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
@@ -408,6 +410,7 @@ class OpenCCDictionariesDialog(QDialog):
         self.resize(DICT_MANAGER_DIALOG_SIZE)
         self._build_ui()
         apply_dialog_stylesheet(self)
+        self.comment_highlighter.set_palette(self.editor.palette())
         self._populate_list()
         if self.file_list.count():
             self.file_list.setCurrentRow(0)
@@ -423,6 +426,10 @@ class OpenCCDictionariesDialog(QDialog):
         self.pin_label.setWordWrap(True)
         style_help_label(self.pin_label)
         layout.addWidget(self.pin_label)
+        self.comment_hint_label = QLabel()
+        self.comment_hint_label.setWordWrap(True)
+        style_help_label(self.comment_hint_label)
+        layout.addWidget(self.comment_hint_label)
 
         body = QHBoxLayout()
         configure_layout(body, 'form')
@@ -436,6 +443,7 @@ class OpenCCDictionariesDialog(QDialog):
         if wrap_mode is None:
             wrap_mode = QPlainTextEdit.LineWrapMode.NoWrap
         self.editor.setLineWrapMode(wrap_mode)
+        self.comment_highlighter = attach_comment_line_highlighter(self.editor)
         body.addWidget(self.editor, 1)
         layout.addLayout(body, 1)
 
@@ -464,6 +472,9 @@ class OpenCCDictionariesDialog(QDialog):
             bundled_opencc_pin)
         commit, tag = bundled_opencc_pin()
         self.pin_label.setText(_('Bundled OpenCC: {} ({})').format(tag, commit))
+        self.comment_hint_label.setText(_('Dictionary comment lines hint'))
+        if getattr(self, 'comment_highlighter', None) is not None:
+            self.comment_highlighter.set_palette(self.editor.palette())
         self.save_btn.setText(_('Save local dictionary'))
         self.restore_btn.setText(_('Restore bundled'))
         self.folder_btn.setText(_('Open dictionary folder'))
@@ -527,7 +538,10 @@ class OpenCCDictionariesDialog(QDialog):
 
     def _load_named(self, name):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            read_effective_dict_text)
+            USER_PHRASES_FILE, ensure_user_phrases_file, read_effective_dict_text)
+        if name == USER_PHRASES_FILE:
+            ensure_user_phrases_file(create_if_missing=False)
+            self._refresh_list_labels()
         self._current_name = name
         self._original_text = read_effective_dict_text(name)
         self.editor.setPlainText(self._original_text)
@@ -596,7 +610,11 @@ class OpenCCDictionariesDialog(QDialog):
 
     def _open_folder(self):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            ensure_user_dict_dir)
+            USER_PHRASES_FILE, ensure_user_dict_dir, ensure_user_phrases_file)
+        if self._current_name == USER_PHRASES_FILE and self._is_dirty():
+            self._save_named(self._current_name, self.editor.toPlainText())
+        ensure_user_phrases_file()
+        self._refresh_list_labels()
         path = ensure_user_dict_dir()
         open_url(QUrl.fromLocalFile(path))
 

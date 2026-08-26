@@ -8,7 +8,8 @@ try:
     from qt.core import (
         QAbstractButton, QApplication, QColor, QButtonGroup, QFont, QFrame, QGroupBox,
         QHBoxLayout, QIcon, QLabel, QLineF, QPalette, QPainter, QPen, QPixmap, QRadioButton,
-        QRectF, QSize, QSizePolicy, QStyle, QStyleOption, Qt, QTimer, QVBoxLayout, QWidget,
+        QRectF, QSize, QSizePolicy, QStyle, QStyleOption, QSyntaxHighlighter, QTextCharFormat,
+        Qt, QTimer, QVBoxLayout, QWidget,
         pyqtSignal,
     )
 except ImportError:
@@ -18,6 +19,7 @@ except ImportError:
         QRectF, QSize, QSizePolicy, QStyle, QStyleOption, Qt, QTimer, QVBoxLayout, QWidget,
     )
     from PyQt5.QtCore import pyqtSignal
+    from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat
 
 ICON_RESOURCE = 'images/TradSimpIcon.png'
 BRAND_ICON_PX = 40
@@ -441,6 +443,29 @@ def configure_form_label(label):
         from PyQt5.Qt import Qt
     label.setMinimumWidth(FORM_LABEL_MIN_WIDTH)
     label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+
+class CommentLineHighlighter(QSyntaxHighlighter):
+    '''Render # lines in the dictionary editor as muted notes.'''
+
+    def __init__(self, document, palette):
+        super(CommentLineHighlighter, self).__init__(document)
+        self._fmt = QTextCharFormat()
+        self._fmt.setForeground(_muted_text_color(palette))
+
+    def set_palette(self, palette):
+        self._fmt.setForeground(_muted_text_color(palette))
+        self.rehighlight()
+
+    def highlightBlock(self, text):
+        if (text or '').lstrip().startswith('#'):
+            self.setFormat(0, len(text), self._fmt)
+
+
+def attach_comment_line_highlighter(editor):
+    highlighter = CommentLineHighlighter(editor.document(), editor.palette())
+    editor._comment_line_highlighter = highlighter
+    return highlighter
 
 
 def style_help_label(label, enabled=True):

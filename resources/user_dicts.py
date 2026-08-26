@@ -36,17 +36,19 @@ MANAGED_DICT_FILES = (
     'CJK_Compatibility_Ideographs.txt',
 )
 
-USER_PHRASES_TEMPLATE = (
-    '# Open Chinese Convert (OpenCC) Dictionary\n'
-    '# File: UserPhrases.txt\n'
-    '# Format: key\tvalue(s) (values separated by spaces)\n'
-    '# Local overlay: highest priority in conversion and segmentation.\n'
-    '# This file is not bundled with OpenCC; Restore bundled deletes it.\n'
-    '# Prefer this file for small additions instead of copying STPhrases.txt.\n'
-    '#\n'
-    '# Example:\n'
-    '# 服务器\t伺服器\n'
-)
+
+def user_phrases_template():
+    from calibre_plugins.chinese_text_conversion.i18n import _
+    return _('UserPhrases.txt template')
+
+
+def _user_phrases_has_data(text):
+    for line in (text or '').splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith('#') and '\t' in stripped:
+            return True
+    return False
+
 
 _PIN_RE = re.compile(r'commit ([0-9a-f]+) \(([^)]+)\)')
 _FALLBACK_COMMIT = '025f371'
@@ -83,6 +85,22 @@ def ensure_user_dict_dir():
     path = user_dict_dir()
     if not os.path.isdir(path):
         os.makedirs(path)
+    return path
+
+
+def ensure_user_phrases_file(create_if_missing=True):
+    """Create or refresh the local UserPhrases.txt starter file."""
+    directory = ensure_user_dict_dir()
+    path = os.path.join(directory, USER_PHRASES_FILE)
+    template = user_phrases_template()
+    if not os.path.isfile(path):
+        if create_if_missing:
+            save_override(USER_PHRASES_FILE, template)
+    else:
+        with open(path, 'rb') as handle:
+            existing = handle.read().decode('utf-8', errors='replace')
+        if not _user_phrases_has_data(existing):
+            save_override(USER_PHRASES_FILE, template)
     return path
 
 
@@ -136,7 +154,7 @@ def read_effective_dict_bytes(file_name):
     if user_bytes is not None:
         return user_bytes
     if file_name == USER_PHRASES_FILE:
-        return USER_PHRASES_TEMPLATE.encode('utf-8')
+        return user_phrases_template().encode('utf-8')
     return read_bundled_dict_bytes(file_name)
 
 

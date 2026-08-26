@@ -129,15 +129,57 @@ _MESSAGES = {
         '本地 OpenCC 词库：{}',
         '本機 OpenCC 詞庫：{}'),
     'OpenCC dictionaries intro': _T(
-        'View and edit OpenCC-format dictionaries (tab-separated: source then target). '
+        'View and edit OpenCC-format dictionaries. One pair per line: source, then Tab (not Space), then target. '
         'Save writes a local copy that replaces the bundled file of the same name. '
         'Use UserPhrases.txt for small additions. Local copies hide later plugin dictionary updates until you restore bundled.',
-        '查看并编辑 OpenCC 格式词库（制表符分隔：源词，再目标）。'
+        '查看并编辑 OpenCC 格式词库。每行一组：源词，再按 Tab 键（不是空格），再写目标词。'
         '保存会写入本地副本，并替换同名的内置文件。'
         '少量增补请用 UserPhrases.txt。本地副本会挡住插件后续词库更新，直到恢复内置。',
-        '查看並編輯 OpenCC 格式詞庫（製表符分隔：源詞，再目標）。'
+        '查看並編輯 OpenCC 格式詞庫。每行一組：源詞，再按 Tab 鍵（不是空白鍵），再寫目標詞。'
         '儲存會寫入本機副本，並取代同名的內建檔案。'
         '少量增補請用 UserPhrases.txt。本機副本會擋住外掛後續詞庫更新，直到還原內建。'),
+    'Dictionary comment lines hint': _T(
+        'Gray lines that start with # are notes only. They are not used when converting. '
+        'Delete the # at the start of a line to turn that line on.',
+        '灰色、以 # 开头的行只是说明，不会用于转换。删掉行首的 #，这一行才会生效。',
+        '灰色、以 # 開頭的行只是說明，不會用於轉換。刪掉行首的 #，這一行才會生效。'),
+    'UserPhrases.txt template': _T(
+        '# UserPhrases.txt — local overlay (highest priority)\n'
+        '#\n'
+        '# One pair per line.\n'
+        '# Between the two words press Tab (the Tab key), not Space.\n'
+        '# A space between source and target does nothing.\n'
+        '# Several targets: source<TAB>targetA targetB\n'
+        '#\n'
+        '# Example (the gap is a Tab, not spaces):\n'
+        '# 服务器\t伺服器\n'
+        '#\n'
+        '# Remove the leading # for a line to take effect.\n'
+        '# Restore bundled deletes this file.\n',
+        '# UserPhrases.txt — 本地优先词库（转换和分词时优先级最高）\n'
+        '#\n'
+        '# 每行一组对应关系。\n'
+        '# 两个词中间请按 Tab 键，不要按空格。\n'
+        '# 源词和目标词之间用空格无效。\n'
+        '# 多个候选目标时，才在目标词之间用空格：源词<TAB>目标A 目标B\n'
+        '#\n'
+        '# 示例（中间空隙是 Tab，不是空格）：\n'
+        '# 服务器\t伺服器\n'
+        '#\n'
+        '# 去掉行首的 # 才会生效。\n'
+        '# 点「恢复内置」会删除本文件。\n',
+        '# UserPhrases.txt — 本機優先詞庫（轉換與分詞時優先級最高）\n'
+        '#\n'
+        '# 每行一組對應關係。\n'
+        '# 兩個詞中間請按 Tab 鍵，不要按空白鍵。\n'
+        '# 源詞和目標詞之間用空白無效。\n'
+        '# 多個候選目標時，才在目標詞之間用空白：源詞<TAB>目標A 目標B\n'
+        '#\n'
+        '# 示例（中間空隙是 Tab，不是空白）：\n'
+        '# 服务器\t伺服器\n'
+        '#\n'
+        '# 去掉行首的 # 才會生效。\n'
+        '# 點「還原內建」會刪除本檔案。\n'),
     '{} (bundled)': _T('{} (bundled)', '{}（内置）', '{}（內建）'),
     '{} (local)': _T('{} (local)', '{}（本地）', '{}（本機）'),
     '{} (optional overlay)': _T(
