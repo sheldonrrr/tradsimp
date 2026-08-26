@@ -115,7 +115,7 @@ _MESSAGES = {
     'Convert selected books': _T(
         'Convert selected books', '转换所选书籍', '轉換所選書籍'),
     'OpenCC dictionaries': _T(
-        'OpenCC dictionaries', 'OpenCC 词库', 'OpenCC 詞庫'),
+        'Custom dictionaries', '自定义字典', '自訂字典'),
     'OpenCC dictionary version: {}': _T(
         'OpenCC dictionaries: {}',
         'OpenCC 词库：{}',
@@ -129,22 +129,30 @@ _MESSAGES = {
         '本地 OpenCC 词库：{}',
         '本機 OpenCC 詞庫：{}'),
     'OpenCC dictionaries intro': _T(
-        'View and edit OpenCC-format dictionaries. One pair per line: source, then Tab (not Space), then target. '
+        'Manage custom dictionaries here. Prefer the first item on the left, '
+        'UserPhrases.txt (custom dictionary file), for small additions; '
+        'saved entries take effect first during conversion. '
+        'The other items are bundled OpenCC dictionaries. '
+        'One pair per line: source, then Tab (not Space), then target. '
         'Save writes a local copy that replaces the bundled file of the same name. '
-        'Use UserPhrases.txt for small additions. Local copies hide later plugin dictionary updates until you restore bundled.',
-        '查看并编辑 OpenCC 格式词库。每行一组：源词，再按 Tab 键（不是空格），再写目标词。'
-        '保存会写入本地副本，并替换同名的内置文件。'
-        '少量增补请用 UserPhrases.txt。本地副本会挡住插件后续词库更新，直到恢复内置。',
-        '查看並編輯 OpenCC 格式詞庫。每行一組：源詞，再按 Tab 鍵（不是空白鍵），再寫目標詞。'
-        '儲存會寫入本機副本，並取代同名的內建檔案。'
-        '少量增補請用 UserPhrases.txt。本機副本會擋住外掛後續詞庫更新，直到還原內建。'),
+        'Local copies hide later plugin dictionary updates until you delete the custom data.',
+        '在此管理自定义字典。请优先使用左侧第一项 UserPhrases.txt（自定义字典文件）做少量增补，'
+        '保存后会最优先参与转换。其余条目是 OpenCC 内置词库。'
+        '每行一组：源词，再按 Tab 键（不是空格），再写目标词。'
+        '保存会写入本地副本并替换同名内置文件。'
+        '本地副本会挡住插件后续词库更新，直到删除自定义数据。',
+        '在此管理自訂字典。請優先使用左側第一項 UserPhrases.txt（自訂字典檔）做少量增補，'
+        '儲存後會最優先參與轉換。其餘條目是 OpenCC 內建詞庫。'
+        '每行一組：源詞，再按 Tab 鍵（不是空白鍵），再寫目標詞。'
+        '儲存會寫入本機副本並取代同名內建檔案。'
+        '本機副本會擋住外掛後續詞庫更新，直到刪除自訂資料。'),
     'Dictionary comment lines hint': _T(
         'Gray lines that start with # are notes only. They are not used when converting. '
         'Delete the # at the start of a line to turn that line on.',
         '灰色、以 # 开头的行只是说明，不会用于转换。删掉行首的 #，这一行才会生效。',
         '灰色、以 # 開頭的行只是說明，不會用於轉換。刪掉行首的 #，這一行才會生效。'),
     'UserPhrases.txt template': _T(
-        '# UserPhrases.txt — local overlay (highest priority)\n'
+        '# UserPhrases.txt — custom dictionary file (highest priority)\n'
         '#\n'
         '# One pair per line.\n'
         '# Between the two words press Tab (the Tab key), not Space.\n'
@@ -155,8 +163,8 @@ _MESSAGES = {
         '# 服务器\t伺服器\n'
         '#\n'
         '# Remove the leading # for a line to take effect.\n'
-        '# Restore bundled deletes this file.\n',
-        '# UserPhrases.txt — 本地优先词库（转换和分词时优先级最高）\n'
+        '# Delete custom data clears this file.\n',
+        '# UserPhrases.txt — 自定义字典文件（转换和分词时优先级最高）\n'
         '#\n'
         '# 每行一组对应关系。\n'
         '# 两个词中间请按 Tab 键，不要按空格。\n'
@@ -167,8 +175,8 @@ _MESSAGES = {
         '# 服务器\t伺服器\n'
         '#\n'
         '# 去掉行首的 # 才会生效。\n'
-        '# 点「恢复内置」会删除本文件。\n',
-        '# UserPhrases.txt — 本機優先詞庫（轉換與分詞時優先級最高）\n'
+        '# 点「删除自定义数据」会清空本文件。\n',
+        '# UserPhrases.txt — 自訂字典檔（轉換與分詞時優先級最高）\n'
         '#\n'
         '# 每行一組對應關係。\n'
         '# 兩個詞中間請按 Tab 鍵，不要按空白鍵。\n'
@@ -179,47 +187,55 @@ _MESSAGES = {
         '# 服务器\t伺服器\n'
         '#\n'
         '# 去掉行首的 # 才會生效。\n'
-        '# 點「還原內建」會刪除本檔案。\n'),
+        '# 點「刪除自訂資料」會清空本檔案。\n'),
     '{} (bundled)': _T('{} (bundled)', '{}（内置）', '{}（內建）'),
     '{} (local)': _T('{} (local)', '{}（本地）', '{}（本機）'),
-    '{} (optional overlay)': _T(
-        '{} (optional overlay)', '{}（可选覆盖）', '{}（可選覆蓋）'),
-    '{} (local overlay)': _T(
-        '{} (local overlay)', '{}（本地覆盖）', '{}（本機覆蓋）'),
+    '{} (custom dictionary file)': _T(
+        '{} (custom dictionary file)',
+        '{}（自定义字典文件）',
+        '{}（自訂字典檔）'),
     'Bundled OpenCC: {} ({})': _T(
-        'Bundled OpenCC: {} ({})',
-        '内置 OpenCC：{}（{}）',
-        '內建 OpenCC：{}（{}）'),
+        'Bundled OpenCC dictionaries: {} ({})',
+        '内置 OpenCC 词库：{}（{}）',
+        '內建 OpenCC 詞庫：{}（{}）'),
     'Save local dictionary': _T(
-        'Save local dictionary', '保存本地词库', '儲存本機詞庫'),
-    'Restore bundled': _T(
-        'Restore bundled', '恢复内置', '還原內建'),
+        'Save custom dictionary', '保存自定义字典', '儲存自訂字典'),
+    'Delete custom data': _T(
+        'Delete custom data', '删除自定义数据', '刪除自訂資料'),
     'Open dictionary folder': _T(
-        'Open dictionary folder', '打开词库文件夹', '開啟詞庫資料夾'),
+        'Open dictionary folder', '打开自定义字典文件夹', '開啟自訂字典資料夾'),
     'Save changes to {}?': _T(
         'Save changes to {}?',
         '要保存对 {} 的修改吗？',
         '要儲存對 {} 的修改嗎？'),
     'Restore the bundled OpenCC file for {}? Local edits will be discarded.': _T(
-        'Restore the bundled OpenCC file for {}? Local edits will be discarded.',
-        '恢复 {} 的内置 OpenCC 文件？本地修改将被丢弃。',
-        '還原 {} 的內建 OpenCC 檔案？本機修改將被捨棄。'),
+        'Delete the local copy of {}? The bundled OpenCC file will be used again.',
+        '删除 {} 的自定义数据？将恢复使用内置文件。',
+        '刪除 {} 的自訂資料？將恢復使用內建檔案。'),
+    'Delete custom phrase data? The default instructions will be restored.': _T(
+        'Delete custom phrase data? The default instructions will be restored.',
+        '删除自定义词组数据？将恢复为当前语言的默认说明。',
+        '刪除自訂詞組資料？將恢復為目前語言的預設說明。'),
     'Saved local dictionary: {}': _T(
-        'Saved local dictionary: {}',
-        '已保存本地词库：{}',
-        '已儲存本機詞庫：{}'),
+        'Saved custom dictionary: {}',
+        '已保存自定义字典：{}',
+        '已儲存自訂字典：{}'),
     'Restored bundled dictionary: {}': _T(
-        'Restored bundled dictionary: {}',
-        '已恢复内置词库：{}',
-        '已還原內建詞庫：{}'),
+        'Deleted custom data for {}. The bundled file is in use again.',
+        '已删除 {} 的自定义数据，已恢复使用内置文件。',
+        '已刪除 {} 的自訂資料，已恢復使用內建檔案。'),
+    'Custom data cleared. Default instructions restored.': _T(
+        'Custom data cleared. The default instructions in the current language have been restored.',
+        '已清空自定义数据，并恢复为当前语言的默认说明。',
+        '已清空自訂資料，並恢復為目前語言的預設說明。'),
     'Could not save the local dictionary.': _T(
-        'Could not save the local dictionary.',
-        '无法保存本地词库。',
-        '無法儲存本機詞庫。'),
+        'Could not save the custom dictionary.',
+        '无法保存自定义字典。',
+        '無法儲存自訂字典。'),
     'This dictionary is already using the bundled file.': _T(
-        'This dictionary is already using the bundled file.',
-        '该词库已在使用内置文件。',
-        '此詞庫已在使用內建檔案。'),
+        'This dictionary has no custom data.',
+        '该字典没有自定义数据。',
+        '此字典沒有自訂資料。'),
     'Phrase direction s2t': _T(
         'Simplified → Traditional (general)',
         '简体 → 繁体（通用）',
@@ -1497,6 +1513,18 @@ _MESSAGES = {
         'ZhConvert online short-text tool. Ebook conversion adds new books and leaves originals unchanged.',
         '离线简繁电子书转换（OpenCC），并提供可选的繁化姬在线短文本工具；书库转换新增书籍，不修改原书。',
         '離線簡繁電子書轉換（OpenCC），並提供可選的繁化姬線上短文字工具；書庫轉換新增書籍，不修改原書。'),
+    'About iOS early bird': _T(
+        'Early-bird iOS reward: This plugin now has an iOS app of the same name '
+        '(<a href="{app_url}">Trad-Simp Chinese Conversion</a>). '
+        'It is currently available outside the China App Store at a one-time price of $17.99. '
+        'Email the author (see the footer at <a href="{site_url}">https://nowtiny.xyz/</a>) to request a code. '
+        'I will reply to the first 10 early-bird users with a one-time free App activation code — first come, first served.',
+        '',
+        '早鳥 iOS 獎勵：此外掛已上線同名的 iOS App'
+        '（<a href="{app_url}">Trad-Simp Chinese Conversion</a>），'
+        '目前在非中國區上線，永久售價 $17.99。'
+        '請直接發郵件到作者信箱（見 <a href="{site_url}">https://nowtiny.xyz/</a> 網頁底部）索取，'
+        '我將回覆前 10 位早鳥使用者，免費贈予一次性的 App 啟動碼，早索取早得。'),
     'About MobileRead link': _T(
         '<a href="{url}">MobileRead release thread</a>',
         '<a href="{url}">MobileRead 发布帖</a>',

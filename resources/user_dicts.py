@@ -90,11 +90,6 @@ MANAGED_DICT_FILES = (
 )
 
 
-def user_phrases_template():
-    from calibre_plugins.chinese_text_conversion.i18n import _
-    return _('UserPhrases.txt template')
-
-
 def _user_phrases_has_data(text):
     for line in (text or '').splitlines():
         stripped = line.strip()
@@ -102,6 +97,34 @@ def _user_phrases_has_data(text):
             return True
     return False
 
+
+USER_PHRASES_TEMPLATE = (
+    '# Open Chinese Convert (OpenCC) Dictionary\n'
+    '# This file is your custom phrase conversion list: UserPhrases.txt\n'
+    '# It is not bundled with OpenCC; Delete custom data clears it.\n'
+    '# Prefer this file for small additions instead of copying STPhrases.txt.\n'
+    '#\n'
+    '# Add phrase mappings on new lines below.\n'
+    '# Format: [source phrase]TAB[target phrase]\n'
+    '# Lines starting with # are comments and are not added to the phrase data.\n'
+    '# Custom entries are not tied to a conversion direction, but they take effect first.\n'
+    '# Continue adding below the example.\n'
+    '#\n'
+    '# Example:\n'
+    '# 服务器\t伺服器\n'
+)
+
+
+def user_phrases_template():
+    '''Header comments for a new UserPhrases.txt, in the current UI language.'''
+    try:
+        from calibre_plugins.chinese_text_conversion.i18n import _
+        text = _('UserPhrases.txt template')
+    except Exception:
+        text = USER_PHRASES_TEMPLATE
+    if not text.endswith('\n'):
+        text += '\n'
+    return text
 
 _PIN_RE = re.compile(r'commit ([0-9a-f]+) \(([^)]+)\)')
 _FALLBACK_COMMIT = '025f371'

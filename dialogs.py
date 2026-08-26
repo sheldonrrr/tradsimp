@@ -84,6 +84,9 @@ ZHCONVERT_DIALOG_SIZE = QSize(780, 640)
 DICT_MANAGER_DIALOG_SIZE = QSize(860, 640)
 
 NOWTINY_SITE_URL = 'https://www.nowtiny.xyz/en'
+NOWTINY_HOME_URL = 'https://nowtiny.xyz/'
+IOS_APP_STORE_URL = (
+    'https://apps.apple.com/us/app/trad-simp-chinese-conversion/id6801521061')
 NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?p=4591602'
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
 NOWTINY_PLUGIN_SIMPLE_GOAL_URL = (
@@ -467,7 +470,7 @@ class OpenCCDictionariesDialog(QDialog):
         body = QHBoxLayout()
         configure_layout(body, 'form')
         self.file_list = QListWidget()
-        self.file_list.setMinimumWidth(240)
+        self.file_list.setMinimumWidth(300)
         self.file_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self.file_list.currentItemChanged.connect(self._on_current_item_changed)
         body.addWidget(self.file_list)
@@ -595,6 +598,7 @@ class OpenCCDictionariesDialog(QDialog):
         if getattr(self, 'comment_highlighter', None) is not None:
             self.comment_highlighter.set_palette(self.editor.palette())
         self.save_btn.setText(_('Save local dictionary'))
+        self.restore_btn.setText(_('Delete custom data'))
         self.folder_btn.setText(_('Open dictionary folder'))
         self.phrase_search.setPlaceholderText(_('Search custom phrases'))
         self.phrase_table.setHorizontalHeaderLabels([
@@ -629,9 +633,7 @@ class OpenCCDictionariesDialog(QDialog):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
             USER_PHRASES_FILE, is_overridden)
         if name == USER_PHRASES_FILE:
-            if is_overridden(name):
-                return _('{} (local overlay)').format(name)
-            return _('{} (optional overlay)').format(name)
+            return _('{} (custom dictionary file)').format(name)
         if is_overridden(name):
             return _('{} (local)').format(name)
         return _('{} (bundled)').format(name)
@@ -689,8 +691,11 @@ class OpenCCDictionariesDialog(QDialog):
 
     def _load_named(self, name):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, import_legacy_user_phrases_if_needed,
+            USER_PHRASES_FILE, ensure_user_phrases_file,
+            import_legacy_user_phrases_if_needed,
             read_effective_dict_text)
+        if name == USER_PHRASES_FILE:
+            ensure_user_phrases_file()
         self._current_name = name
         if name == USER_PHRASES_FILE:
             import_legacy_user_phrases_if_needed()
@@ -720,12 +725,12 @@ class OpenCCDictionariesDialog(QDialog):
             self.intro_label.setText(_('Custom phrases intro'))
             self.comment_hint_label.hide()
             self.save_btn.hide()
-            self.restore_btn.setText(_('Restore bundled'))
+            self.restore_btn.setText(_('Delete custom data'))
         else:
             self.intro_label.setText(_('OpenCC dictionaries intro'))
             self.comment_hint_label.show()
             self.save_btn.show()
-            self.restore_btn.setText(_('Restore bundled'))
+            self.restore_btn.setText(_('Delete custom data'))
 
     def _current_phrase_direction(self):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
@@ -940,24 +945,25 @@ class OpenCCDictionariesDialog(QDialog):
         from calibre_plugins.chinese_text_conversion.resources.jieba_loader import (
             reinject_opencc_phrases)
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, clear_user_phrases, has_user_phrases,
-            is_overridden, restore_bundled)
+            USER_PHRASES_FILE, clear_user_phrases, ensure_user_phrases_file,
+            has_user_phrases, is_overridden, restore_bundled)
         name = self._current_name
         if not name:
             return
         if name == USER_PHRASES_FILE:
             if not has_user_phrases():
                 info_dialog(
-                    self, _('Restore bundled'),
+                    self, _('Delete custom data'),
                     _('No custom phrases to clear.'),
                     show=True)
                 return
             if not question_dialog(
-                    self, _('Restore bundled'),
+                    self, _('Delete custom data'),
                     _('Clear custom phrases?'),
                     default_yes=False):
                 return
             clear_user_phrases()
+            ensure_user_phrases_file()
             try:
                 reinject_opencc_phrases()
             except Exception:
@@ -967,18 +973,18 @@ class OpenCCDictionariesDialog(QDialog):
             self.phrase_target.clear()
             self._refresh_list_labels()
             info_dialog(
-                self, _('Restore bundled'),
+                self, _('Delete custom data'),
                 _('Cleared custom phrases.'),
                 show=True)
             return
-        if not is_overridden(name):
+        if not is_overridden(name) and not self._is_dirty():
             info_dialog(
-                self, _('Restore bundled'),
+                self, _('Delete custom data'),
                 _('This dictionary is already using the bundled file.'),
                 show=True)
             return
         if not question_dialog(
-                self, _('Restore bundled'),
+                self, _('Delete custom data'),
                 _('Restore the bundled OpenCC file for {}? '
                   'Local edits will be discarded.').format(name),
                 default_yes=False):
@@ -991,16 +997,17 @@ class OpenCCDictionariesDialog(QDialog):
         self._load_named(name)
         self._refresh_list_labels()
         info_dialog(
-            self, _('Restore bundled'),
+            self, _('Delete custom data'),
             _('Restored bundled dictionary: {}').format(name),
             show=True)
 
     def _open_folder(self):
         from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
-            USER_PHRASES_FILE, ensure_user_dict_dir)
+            USER_PHRASES_FILE, ensure_user_dict_dir, ensure_user_phrases_file)
         if (self._current_name and self._current_name != USER_PHRASES_FILE
                 and self._is_dirty()):
             self._save_named(self._current_name, self.editor.toPlainText())
+        ensure_user_phrases_file()
         path = ensure_user_dict_dir()
         self._refresh_list_labels()
         open_url(QUrl.fromLocalFile(path))
@@ -1072,6 +1079,12 @@ class PluginAboutDialog(QDialog):
         self.description_label = QLabel()
         self.description_label.setWordWrap(True)
         content_layout.addWidget(self.description_label)
+
+        self.ios_early_bird_label = QLabel()
+        self.ios_early_bird_label.setWordWrap(True)
+        self.ios_early_bird_label.setTextFormat(Qt.RichText)
+        self.ios_early_bird_label.setOpenExternalLinks(True)
+        content_layout.addWidget(self.ios_early_bird_label)
 
         self.mobile_read_link_label = QLabel()
         self.mobile_read_link_label.setWordWrap(True)
@@ -1199,6 +1212,9 @@ class PluginAboutDialog(QDialog):
         self.first_run_ui_lang_combo.blockSignals(False)
         self.first_run_intro_label.setText(_('About welcome first run'))
         self.description_label.setText(_('Plugin description'))
+        ios_early_bird = _('About iOS early bird').format(
+            app_url=IOS_APP_STORE_URL, site_url=NOWTINY_HOME_URL)
+        self.ios_early_bird_label.setText(ios_early_bird)
         self.mobile_read_link_label.setText(
             _('About MobileRead link').format(url=PLUGIN_RELEASE_THREAD_URL))
         self.section_divider_label.setText(_('About section divider'))
@@ -1228,6 +1244,7 @@ class PluginAboutDialog(QDialog):
         self.first_run_lang_row.setVisible(self.first_run)
         self.first_run_intro_label.setVisible(self.first_run)
         self.description_label.setVisible(show_full_about)
+        self.ios_early_bird_label.setVisible(show_full_about and bool(ios_early_bird))
         self.mobile_read_link_label.setVisible(show_full_about)
         self.section_divider_label.setVisible(show_full_about)
         self.recommend_heading_label.setVisible(show_full_about)
