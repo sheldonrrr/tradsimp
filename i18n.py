@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 25 Aug, 2026',
-        '发布：2026年8月25日',
-        '發佈：2026年8月25日'),
+        'Released: 28 Aug, 2026',
+        '发布：2026年8月28日',
+        '發佈：2026年8月28日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -116,6 +116,10 @@ _MESSAGES = {
         'Convert selected books', '转换所选书籍', '轉換所選書籍'),
     'OpenCC dictionaries': _T(
         'Custom dictionaries', '自定义字典', '自訂字典'),
+    'Plugin version: {}': _T(
+        'Plugin version: {}',
+        '插件版本：{}',
+        '外掛版本：{}'),
     'OpenCC dictionary version: {}': _T(
         'OpenCC dictionaries: {}',
         'OpenCC 词库：{}',
@@ -412,6 +416,22 @@ _MESSAGES = {
         '(Mainland, Hong Kong, Taiwan), including Hong Kong ↔ Taiwan.',
         '仍是繁体字，在不同地区繁体之间调整字形习惯（大陆/香港/台湾），含香港与台湾互转。',
         '仍是繁體字，在不同地區繁體之間調整字形習慣（大陸/香港/臺灣），含香港與臺灣互轉。'),
+    'Script detect simplified': _T(
+        'Detected Simplified Chinese.',
+        '检测到简体中文。',
+        '偵測到簡體中文。'),
+    'Script detect traditional': _T(
+        'Detected Traditional Chinese.',
+        '检测到繁体中文。',
+        '偵測到繁體中文。'),
+    'Writing mode detect vertical': _T(
+        'Detected vertical layout.',
+        '检测到竖排。',
+        '偵測到直排。'),
+    'Writing mode detect horizontal': _T(
+        'Detected horizontal layout.',
+        '检测到横排。',
+        '偵測到橫排。'),
     'Language Styles': _T('Set language styles', '设置语言风格', '設定語言風格'),
     'Input:': _T('Input:', '输入：', '輸入：'),
     'Output:': _T('Output:', '输出：', '輸出：'),

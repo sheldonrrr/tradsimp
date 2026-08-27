@@ -8,7 +8,7 @@
 
 本仓库在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 插件基础上继续开发与维护。
 
-**当前版本：3.12.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
+**当前版本：3.13.0** · 适用于 Calibre 6.0 及以上 · 类型：**主书库工具栏动作**
 
 ---
 
@@ -117,3 +117,4 @@ source scripts/caldbg.fish
 - 插件代码：[GPL v3](LICENSE)
 - OpenCC 数据与 opencc-python 组件：Apache License 2.0（见 `resources/opencc_python/`）
 - 可选 Jieba 分词：MIT（精简内置副本见 `resources/jieba/`，基于 [fxsjy/jieba](https://github.com/fxsjy/jieba) v0.42.1）
+- 简繁判定算法来自 [hanzidentifier](https://github.com/tsroten/hanzidentifier)（MIT）；字表使用已捆绑的 OpenCC STCharacters。

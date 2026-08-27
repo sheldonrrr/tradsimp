@@ -47,6 +47,13 @@ from calibre_plugins.chinese_text_conversion.resources.cjk_fonts import (
     format_cjk_font_policy_help, normalize_cjk_font_policy,
     scan_book_fonts_from_path,
 )
+from calibre_plugins.chinese_text_conversion.resources.script_detect import (
+    HORIZONTAL as WRITING_HORIZONTAL,
+    SIMPLIFIED as SCRIPT_SIMPLIFIED,
+    TRADITIONAL as SCRIPT_TRADITIONAL,
+    VERTICAL as WRITING_VERTICAL,
+    inspect_book,
+)
 from calibre_plugins.chinese_text_conversion.resources.bilingual import (
     BILINGUAL_MODE_CHANGED, BILINGUAL_MODE_FULL, normalize_bilingual_mode,
 )
@@ -1307,6 +1314,8 @@ class ConversionDialog(Dialog):
         self.force_entire_book = force_entire_book
         self.book_font_scan_path = book_font_scan_path
         self._book_font_scan_info = None
+        self._script_detect_kind = None
+        self._writing_mode_kind = None
         Dialog.__init__(self, _('Chinese Conversion'), 'chinese_conversion_dialog', parent)
         self.punctuation_dialog = PuncuationDialog(self.parent, self.prefs, punc_dict, default_omitted_puncuation)
         if self.force_entire_book:
@@ -1399,6 +1408,17 @@ class ConversionDialog(Dialog):
          self.text_dir_vertical_button) = text_direction_buttons
         self.text_direction_group.buttonClicked.connect(self._on_text_direction_clicked)
 
+        self.writing_mode_help = QLabel()
+        self.writing_mode_help.setWordWrap(True)
+        self.writing_mode_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.writing_mode_help)
+        self.writing_mode_help.setStyleSheet(
+            self.writing_mode_help.styleSheet() + ' padding-top: 0px; padding-bottom: 0px;')
+        self.writing_mode_help_row = help_text_row(self, self.writing_mode_help)
+        self.writing_mode_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        text_direction_group_box_layout.addWidget(self.writing_mode_help_row)
+        self._update_writing_mode_hint_text()
+
         self.operation_group_box, operation_group_box_layout = build_section_group(
             self, _('Conversion Direction'))
         operation_policy = self.operation_group_box.sizePolicy()
@@ -1419,6 +1439,20 @@ class ConversionDialog(Dialog):
          self.simp_to_trad_button,
          self.trad_to_trad_button) = operation_buttons
         operation_group_box_layout.addLayout(operation_radio_layout)
+
+        self.script_detect_help = QLabel()
+        self.script_detect_help.setWordWrap(True)
+        self.script_detect_help.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.script_detect_help)
+        self.script_detect_help.setStyleSheet(
+            self.script_detect_help.styleSheet() + ' padding-top: 0px; padding-bottom: 0px;')
+        self.script_detect_help_row = help_text_row(self, self.script_detect_help)
+        self.script_detect_help_row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        operation_group_box_layout.addWidget(self.script_detect_help_row)
+        self._update_script_detect_hint_text()
+        self._refresh_script_detect()
+        self._update_script_detect_hint_text()
+        self._update_writing_mode_hint_text()
 
         self.trad_to_trad_help = QLabel()
         self.trad_to_trad_help.setWordWrap(True)
@@ -1842,6 +1876,7 @@ class ConversionDialog(Dialog):
         ui_lang = normalize_ui_language(self.ui_lang_combo.currentIndex())
         if not self.prefs.get('has_user_preferences', False):
             self._apply_conversion_direction_for_ui_language(ui_lang)
+            self._apply_script_detect_direction_if_first_run()
             self._apply_locale_defaults_for_selected_direction(ui_lang)
             self._apply_output_orientation_default_for_ui_language(ui_lang, force=True)
             self._apply_symbol_profile_default(force=True)
@@ -1907,6 +1942,59 @@ class ConversionDialog(Dialog):
             self._book_font_scan_info = scan_book_fonts_from_path(path)
         else:
             self._book_font_scan_info = None
+
+    def _refresh_script_detect(self):
+        path = self.book_font_scan_path
+        if path:
+            self._script_detect_kind, self._writing_mode_kind = inspect_book(path)
+        else:
+            self._script_detect_kind = None
+            self._writing_mode_kind = None
+
+    def _update_script_detect_hint_text(self):
+        kind = getattr(self, '_script_detect_kind', None)
+        if kind == SCRIPT_SIMPLIFIED:
+            text = _('Script detect simplified')
+            visible = True
+        elif kind == SCRIPT_TRADITIONAL:
+            text = _('Script detect traditional')
+            visible = True
+        else:
+            text = ''
+            visible = False
+        self.script_detect_help.setText(text)
+        self.script_detect_help.setVisible(visible)
+        self.script_detect_help_row.setVisible(visible)
+
+    def _update_writing_mode_hint_text(self):
+        kind = getattr(self, '_writing_mode_kind', None)
+        if kind == WRITING_VERTICAL:
+            text = _('Writing mode detect vertical')
+            visible = True
+        elif kind == WRITING_HORIZONTAL:
+            text = _('Writing mode detect horizontal')
+            visible = True
+        else:
+            text = ''
+            visible = False
+        self.writing_mode_help.setText(text)
+        self.writing_mode_help.setVisible(visible)
+        self.writing_mode_help_row.setVisible(visible)
+
+    def _apply_script_detect_direction_if_first_run(self):
+        if self.prefs.get('has_user_preferences', False):
+            return
+        kind = getattr(self, '_script_detect_kind', None)
+        if kind == SCRIPT_SIMPLIFIED:
+            direction_button = self.simp_to_trad_button
+        elif kind == SCRIPT_TRADITIONAL:
+            direction_button = self.trad_to_simp_button
+        else:
+            return
+        self.block_signals(True)
+        direction_button.setChecked(True)
+        self.block_signals(False)
+        self.update_gui()
 
     def _cjk_font_policy_value(self):
         data = self.cjk_font_policy_combo.currentData()
@@ -2402,6 +2490,8 @@ class ConversionDialog(Dialog):
             self.set_to_preferences()
         else:
             self._apply_conversion_direction_for_ui_language(lang_index)
+            if not has_user_preferences:
+                self._apply_script_detect_direction_if_first_run()
             self._apply_locale_defaults_for_selected_direction(lang_index)
             self._apply_output_orientation_default_for_ui_language(lang_index, force=True)
             self._apply_symbol_profile_default(force=True)
@@ -2451,6 +2541,7 @@ class ConversionDialog(Dialog):
         self.trad_to_simp_button.setText(_('Traditional to Simplified'))
         self.simp_to_trad_button.setText(_('Simplified to Traditional'))
         self.trad_to_trad_button.setText(_('Traditional to Traditional'))
+        self._update_script_detect_hint_text()
         self._update_trad_to_trad_help_text()
 
         self.style_group_box.setTitle(_('Language Styles'))
@@ -2490,6 +2581,7 @@ class ConversionDialog(Dialog):
             self.text_dir_horizontal_button,
             self.text_dir_vertical_button,
         )
+        self._update_writing_mode_hint_text()
 
         self.advanced_group_box.setTitle(_('Advanced options'))
         self.quotation_heading.setText(_('Quotation Marks'))

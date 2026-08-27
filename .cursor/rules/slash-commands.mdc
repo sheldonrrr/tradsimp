@@ -7,7 +7,7 @@ alwaysApply: true
 
 | Command | Action |
 |---------|--------|
-| `/push` | Commit current progress with a readable English message, then push (usually `main` → `origin/main`) |
+| `/push` | **Default:** commit all current local project work, then push (usually `main` → `origin/main`). Do not push-only while leaving uncommitted changes. |
 | `/pack` | Run `bash scripts/package.sh` → `dist/chinese_text_conversion-X.Y.Z.zip` |
 | `/upgrade-version` | Bump version per `.cursor/rules/version-update.mdc` |
 
@@ -19,6 +19,7 @@ Use clear English with connecting words (not telegraphic keyword stacks), e.g. �
 
 ## Defaults
 
+- `/push` (and Git/diff-tab **Push** in this repo): commit **all** current worktree progress that belongs in the repo, then push. Do not skip the commit step when there are uncommitted files.
 - Push target: current branch’s upstream; if on `main`, push to `origin/main`.
 - Never force-push unless the user explicitly asks.
 - `/upgrade-version` does not commit or pack unless combined with `/push` / `/pack`.

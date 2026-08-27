@@ -8,7 +8,7 @@
 
 本儲存庫在 Hopkins 的 [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) 外掛基礎上繼續開發與維護。
 
-**目前版本：3.12.0** · 適用於 Calibre 6.0 及以上 · 類型：**主書庫工具列動作**
+**目前版本：3.13.0** · 適用於 Calibre 6.0 及以上 · 類型：**主書庫工具列動作**
 
 ---
 
@@ -117,3 +117,4 @@ source scripts/caldbg.fish
 - 外掛程式碼：[GPL v3](LICENSE)
 - OpenCC 資料與 opencc-python 元件：Apache License 2.0（見 `resources/opencc_python/`）
 - 可選 Jieba 分詞：MIT（精簡內建副本見 `resources/jieba/`，基於 [fxsjy/jieba](https://github.com/fxsjy/jieba) v0.42.1）
+- 簡繁判定演算法來自 [hanzidentifier](https://github.com/tsroten/hanzidentifier)（MIT）；字表使用已綑綁的 OpenCC STCharacters。

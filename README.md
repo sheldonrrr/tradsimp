@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese ebooks locally with built-in **OpenCC
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.12.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.13.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -118,3 +118,4 @@ source scripts/caldbg.fish
 - Plugin code: [GPL v3](LICENSE)
 - OpenCC data and opencc-python components: Apache License 2.0 (see `resources/opencc_python/`)
 - Optional Jieba segmentation: MIT (vendored slim copy under `resources/jieba/`, based on [fxsjy/jieba](https://github.com/fxsjy/jieba) v0.42.1)
+- Script detection follows [hanzidentifier](https://github.com/tsroten/hanzidentifier) (MIT); character sets come from bundled OpenCC STCharacters.

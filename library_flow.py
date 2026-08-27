@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 
 from calibre_plugins.chinese_text_conversion.__init__ import (
-    PLUGIN_RELEASE_THREAD_URL, PLUGIN_SAFE_NAME)
+    PLUGIN_RELEASE_THREAD_URL, PLUGIN_SAFE_NAME, PLUGIN_VERSION)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, translate, UI_LANG_ZH_CN, UI_LANG_ZH_HK, UI_LANG_ZH_TW)
 
@@ -640,16 +640,25 @@ def format_progress_enrichment(local_done, local_total, book_started_at, convert
     return ' · '.join(part for part in parts if part)
 
 
-def format_opencc_dict_version_label():
+def format_opencc_dict_version_label(lang=None):
     '''Read-only OpenCC pin plus local override summary.'''
     from calibre_plugins.chinese_text_conversion.resources.user_dicts import (
         bundled_opencc_pin, overridden_dict_names)
     _commit, tag = bundled_opencc_pin()
     names = overridden_dict_names()
     if not names:
-        return _('OpenCC dictionary version: {}').format(tag)
-    return _('OpenCC dictionary version with local: {0} + {1} files ({2})').format(
-        tag, len(names), ', '.join(names))
+        return translate('OpenCC dictionary version: {}', lang).format(tag)
+    return translate(
+        'OpenCC dictionary version with local: {0} + {1} files ({2})',
+        lang).format(tag, len(names), ', '.join(names))
+
+
+def format_conversion_version_lines(lang=None):
+    '''Plugin version and OpenCC dictionary pin for logs and Comments.'''
+    return [
+        translate('Plugin version: {}', lang).format(PLUGIN_VERSION),
+        format_opencc_dict_version_label(lang=lang),
+    ]
 
 
 def format_local_opencc_dicts_log():
@@ -740,6 +749,9 @@ def format_conversion_info_comment_lines(stats, lang=None):
         lang = comments_template_language(conversion_type, output_locale)
     lines = [
         translate('Comments conversion info header', lang),
+    ]
+    lines.extend(format_conversion_version_lines(lang=lang))
+    lines.extend([
         translate('Conversion stats total characters: {}', lang).format(
             '{:,}'.format(int(stats.get('chars_processed', 0) or 0))),
         translate('Conversion stats converted characters: {}', lang).format(
@@ -748,7 +760,7 @@ def format_conversion_info_comment_lines(stats, lang=None):
             '{:,}'.format(int(stats.get('replacement_hits', 0) or 0))),
         translate('Conversion stats process time: {}', lang).format(
             format_elapsed_duration(stats.get('elapsed_seconds', 0))),
-    ]
+    ])
     suffix_tag = stats.get('suffix_tag')
     generated_at = stats.get('generated_at')
     if suffix_tag:

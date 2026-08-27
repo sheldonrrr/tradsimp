@@ -26,7 +26,7 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     format_book_tag_log_lines,
     format_conversion_direction_label,
     format_conversion_stats_log, format_elapsed_duration,
-    format_progress_status_fields, format_local_opencc_dicts_log,
+    format_progress_status_fields, format_conversion_version_lines,
     import_converted_book_as_new, log_phase_header, log_section,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     format_replacement_stats_log, format_conversion_diagnostics_log,
@@ -265,8 +265,10 @@ class ChineseTextAction(InterfaceAction):
         apply_ui_language_from_prefs(prefs)
         apply_action_icon(self.qaction, PLUGIN_NAME)
         apply_action_icon(self.menuless_qaction, PLUGIN_NAME)
+        # Shortcut is registered on menuless_qaction, which Calibre already
+        # connects to qaction.trigger(). Connecting convert here as well would
+        # open ConversionDialog a second time after the first closes.
         self.qaction.triggered.connect(self.convert_selected_books)
-        self.menuless_qaction.triggered.connect(self.convert_selected_books)
         self._action_menu = QMenu(self.gui)
         self._convert_menu_action = self._action_menu.addAction('')
         self._convert_menu_action.triggered.connect(self.convert_selected_books)
@@ -474,6 +476,8 @@ class ChineseTextAction(InterfaceAction):
             status_dlg, 1, 3, _('Log phase prepare'), blank_after=False)
         status_dlg.log_processing(
             _('New books will be added to the library; original files are not modified.'))
+        for line in format_conversion_version_lines():
+            status_dlg.log_processing(line)
         if skipped:
             status_dlg.log_processing(
                 _('Skipped (no EPUB/AZW3):') + ' ' + ', '.join(skipped))
@@ -816,9 +820,7 @@ class ChineseTextAction(InterfaceAction):
         summary.append(
             _('Segmentation: Jieba') if use_jieba else _('Segmentation: OpenCC mmseg')
         )
-        local_dicts = format_local_opencc_dicts_log()
-        if local_dicts:
-            summary.append(local_dicts)
+        summary.extend(format_conversion_version_lines())
         use_mediawiki = (
             criteria is not None
             and len(criteria) > USE_MEDIAWIKI_ZHCONV
