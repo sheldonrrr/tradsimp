@@ -60,6 +60,17 @@ def _collect_names(container, predicate):
     ]
 
 
+def embedded_font_filenames(container):
+    """Basenames of embedded font files still in the container."""
+    names = []
+    for name, mt in list(container.mime_map.items()):
+        if _is_font_item(name, mt):
+            base = os.path.basename(name or '')
+            if base:
+                names.append(base)
+    return sorted(set(names), key=lambda item: item.lower())
+
+
 def _strip_font_face_from_sheet(sheet):
     removals = []
     for rule in sheet:

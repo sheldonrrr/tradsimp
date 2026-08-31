@@ -126,6 +126,13 @@ function caldbg-tsc-pag
     caldbg-tsc-p
 end
 
+# Underscore aliases (same as hyphenated names).
+function caldbg_env; caldbg-env $argv; end
+function caldbg_tsc; caldbg-tsc $argv; end
+function caldbg_tsc_ag; caldbg-tsc-ag $argv; end
+function caldbg_tsc_p; caldbg-tsc-p $argv; end
+function caldbg_tsc_pag; caldbg-tsc-pag $argv; end
+
 echo "tradsimp — source scripts/caldbg.fish"
 echo "  soufish         重新 source 本文件"
 echo "  caldbg-env      显示本机调试路径"

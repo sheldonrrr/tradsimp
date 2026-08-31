@@ -8,7 +8,7 @@ Convert Simplified and Traditional Chinese ebooks locally with built-in **OpenCC
 
 This repository continues development and maintenance of Hopkins’s [Chinese Text Conversion](https://www.mobileread.com/forums/showthread.php?t=275572) plugin for Calibre.
 
-**Current version: 3.13.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
+**Current version: 3.14.0** · Requires Calibre 6.0 or later · Type: **Main library toolbar action**
 
 ---
 
@@ -41,7 +41,7 @@ Then install again via **Load plugin from file**.
 - Process **EPUB / AZW3** books in the library: conversion **adds a new book** and **does not modify** the original file
 - UI languages: **English**, **简体中文**, **繁体中文（台湾）**, **繁体中文（香港）**
 - Conversion uses smarter word segmentation (**Jieba**) by default. Uncheck **Smarter word segmentation** to use **OpenCC mmseg** (dictionary longest-match, faster). Jieba can improve phrase-level accuracy for some texts (e.g. avoiding wrong cuts like 王后; first use may be a bit slower).
-- **Forced conversion (coverage first)** normalizes mixed Simplified/Traditional text through a Simplified pivot before rebuilding the selected Traditional form. It uses only the bundled OpenCC rules and can convert more text at the cost of regional-wording precision. It is not typo proofreading. The option requires bilingual annotation so the original remains visible below; both options default to enabled for new installations.
+- **Forced conversion (coverage first)** normalizes mixed Simplified/Traditional text through a Simplified pivot before rebuilding the selected Traditional form. It uses only the bundled OpenCC rules and can convert more text at the cost of regional-wording precision. It is not typo proofreading. The option requires bilingual annotation so the original remains visible below. Bilingual annotation is off by default.
 - Generated library books receive an identifying title suffix by default, such as `_繁體中文_香港_双语标注_07-29_21-34`. The ending records the local month, day, hour, and minute; books generated in the same minute receive `_2`, `_3`, and so on. The suffix can be disabled in Advanced options.
 - **Advanced options** use clearer grouping with live **example previews** when you change quotation marks or bilingual modes
 - Optional **Lighter output**: remove embedded font files and/or all images (including the cover) for a smaller, faster, near text-only book

@@ -1736,6 +1736,25 @@ class ConversionDialog(Dialog):
         self.store_conversion_info_in_comments_help_row.setVisible(
             self.force_entire_book)
 
+        self.create_zh_script_column_btn = QPushButton()
+        self.create_zh_script_column_btn.setText(_('Create Chinese script column'))
+        self.create_zh_script_column_btn.clicked.connect(
+            self._create_zh_script_column_clicked)
+        advanced_group_box_layout.addWidget(self.create_zh_script_column_btn)
+        self.create_zh_script_column_help = QLabel()
+        self.create_zh_script_column_help.setWordWrap(True)
+        self.create_zh_script_column_help.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Maximum)
+        style_help_label(self.create_zh_script_column_help)
+        self.create_zh_script_column_help_row = help_text_row(
+            self, self.create_zh_script_column_help)
+        self.create_zh_script_column_help_row.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Maximum)
+        advanced_group_box_layout.addWidget(
+            self.create_zh_script_column_help_row)
+        self.create_zh_script_column_btn.setVisible(self.force_entire_book)
+        self.create_zh_script_column_help_row.setVisible(self.force_entire_book)
+
         # --- Bilingual annotation ---
         self.bilingual_heading = QLabel(_('Bilingual annotation section'))
         style_subheading_label(self.bilingual_heading, section_break=True)
@@ -2178,6 +2197,7 @@ class ConversionDialog(Dialog):
             self._selected_conversion_type(),
             max(0, self.input_combo.currentIndex()),
             max(0, self.output_combo.currentIndex()),
+            use_target_phrases=self.use_target_phrases.isChecked(),
         )
         self.store_conversion_info_in_comments_help.setText(text)
         self.store_conversion_info_in_comments.setToolTip('')
@@ -2185,6 +2205,41 @@ class ConversionDialog(Dialog):
         style_help_label(
             self.store_conversion_info_in_comments_help,
             enabled=self.store_conversion_info_in_comments.isChecked())
+
+    def _create_zh_script_column_clicked(self):
+        from calibre_plugins.chinese_text_conversion.custom_columns import (
+            create_zh_script_column)
+        db = getattr(self.parent, 'current_db', None)
+        if db is None:
+            error_dialog(
+                self,
+                _('Create Chinese script column'),
+                _('Chinese script column no library'),
+                show=True)
+            return
+        try:
+            result = create_zh_script_column(db)
+        except Exception as err:
+            error_dialog(
+                self,
+                _('Create Chinese script column'),
+                _('Chinese script column create failed: {}').format(err),
+                show=True)
+            return
+        if result == 'exists':
+            message = _('Chinese script column exists')
+        elif result == 'renamed':
+            from calibre_plugins.chinese_text_conversion.custom_columns import (
+                script_column_heading)
+            message = _('Chinese script column renamed').format(
+                script_column_heading())
+        else:
+            message = _('Chinese script column created')
+        info_dialog(
+            self,
+            _('Create Chinese script column'),
+            message,
+            show=True)
 
     def _update_advanced_help_and_examples(self):
         self.quotation_marks_help.setText(_('Quotation marks help'))
@@ -2197,6 +2252,10 @@ class ConversionDialog(Dialog):
             'Use conversion date for new book help'))
         self.use_conversion_date.setToolTip('')
         self._update_conversion_info_comments_preview()
+        self.create_zh_script_column_btn.setText(_('Create Chinese script column'))
+        self.create_zh_script_column_help.setText(_(
+            'Create Chinese script column help'))
+        self.create_zh_script_column_btn.setToolTip('')
         self.bilingual_annotation_help.setText(_('Bilingual annotation help'))
         self.bilingual_annotation.setToolTip('')
         self.bilingual_mode_label.setText(_('Bilingual original mode'))
@@ -2599,6 +2658,7 @@ class ConversionDialog(Dialog):
         self.use_conversion_date.setText(_('Use conversion date for new book'))
         self.store_conversion_info_in_comments.setText(_(
             'Store conversion info in Comments'))
+        self.create_zh_script_column_btn.setText(_('Create Chinese script column'))
         self.bilingual_heading.setText(_('Bilingual annotation section'))
         self.bilingual_annotation.setText(_('Bilingual annotation'))
         self.bilingual_mode_full_button.setText(

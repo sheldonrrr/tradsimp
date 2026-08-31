@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 28 Aug, 2026',
-        '发布：2026年8月28日',
-        '發佈：2026年8月28日'),
+        'Released: 31 Aug, 2026',
+        '发布：2026年8月31日',
+        '發佈：2026年8月31日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -736,6 +736,76 @@ _MESSAGES = {
         'Append a short conversion summary to Comments for the new book.',
         '在简介里追加本次转换摘要。',
         '在簡介裡追加本次轉換摘要。'),
+    'Comments script tags: {}': _T(
+        'Script: {}',
+        '脚本：{}',
+        '腳本：{}'),
+    'Comments image count: {}': _T(
+        'Images: {}',
+        '图片数：{}',
+        '圖片數：{}'),
+    'Comments embedded fonts: {}': _T(
+        'Embedded fonts: {}',
+        '嵌入字体：{}',
+        '嵌入字體：{}'),
+    'Comments embedded fonts none': _T(
+        'none',
+        '无',
+        '無'),
+    'Comments ebook version: {}': _T(
+        'Format version: {}',
+        '电子书版本：{}',
+        '電子書版本：{}'),
+    'Create Chinese script column': _T(
+        'Create Script column',
+        '创建书写系统列',
+        '建立書寫系統欄'),
+    'Create Chinese script column help': _T(
+        'Creates one library column. The heading follows Calibre’s language: '
+        'Script (English), 书写系统 (Simplified), or 書寫系統 (Traditional). '
+        'Each book gets BCP-47 script (zh-Hans / zh-Hant), a locale '
+        '(zh_CN / zh_TW / zh_HK), and the Chinese label. Restart Calibre after creating it.',
+        '在书库中创建一列。栏名跟随 Calibre 界面语言：英文为 Script，简体为「书写系统」，'
+        '繁体为「書寫系統」。每本书写入 BCP-47 书写系统（zh-Hans / zh-Hant）、'
+        '地区码（zh_CN / zh_TW / zh_HK）和中文标记。创建后请重启 Calibre。',
+        '在書庫中建立一欄。欄名跟隨 Calibre 介面語言：英文為 Script，簡體為「书写系统」，'
+        '繁體為「書寫系統」。每本書寫入 BCP-47 書寫系統（zh-Hans / zh-Hant）、'
+        '地區碼（zh_CN / zh_TW / zh_HK）和中文標記。建立後請重啟 Calibre。'),
+    'Chinese script column name': _T(
+        'Script',
+        '书写系统',
+        '書寫系統'),
+    'Chinese script column description': _T(
+        'BCP-47 script (zh-Hans / zh-Hant), locale (zh_CN / zh_TW / zh_HK), '
+        'and the matching Chinese label.',
+        'BCP-47 书写系统（zh-Hans / zh-Hant）、地区码（zh_CN / zh_TW / zh_HK）及对应中文标记。',
+        'BCP-47 書寫系統（zh-Hans / zh-Hant）、地區碼（zh_CN / zh_TW / zh_HK）及對應中文標記。'),
+    'Chinese script column exists': _T(
+        'This library already has the Script column.',
+        '当前书库已有书写系统列。',
+        '目前書庫已有書寫系統欄。'),
+    'Chinese script column created': _T(
+        'Created the Script column. Restart Calibre, then convert again '
+        'so new books receive the tags.',
+        '已创建书写系统列。请重启 Calibre，然后再转换，新书才会写入标记。',
+        '已建立書寫系統欄。請重啟 Calibre，然後再轉換，新書才會寫入標記。'),
+    'Chinese script column renamed': _T(
+        'Updated the column heading to “{}”. Restart Calibre if the book list still shows the old name.',
+        '已将栏名更新为「{}」。若书单仍显示旧名称，请重启 Calibre。',
+        '已將欄名更新為「{}」。若書單仍顯示舊名稱，請重啟 Calibre。'),
+    'Chinese script column create failed: {}': _T(
+        'Could not create the Script column: {}',
+        '无法创建书写系统列：{}',
+        '無法建立書寫系統欄：{}'),
+    'Chinese script column missing': _T(
+        'No Script column in this library. Create it in the conversion '
+        'dialog, then restart Calibre.',
+        '当前书库没有书写系统列。请在转换对话框中创建，然后重启 Calibre。',
+        '目前書庫沒有書寫系統欄。請在轉換對話框中建立，然後重啟 Calibre。'),
+    'Chinese script column no library': _T(
+        'Open a Calibre library first.',
+        '请先打开一个 Calibre 书库。',
+        '請先開啟一個 Calibre 書庫。'),
     'Bilingual annotation': _T(
         'Bilingual annotation (show original below)',
         '双语批注（原文显示在下方）',

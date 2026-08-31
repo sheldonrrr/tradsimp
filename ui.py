@@ -20,14 +20,17 @@ from calibre.ebooks.oeb.polish.container import get_container
 from calibre_plugins.chinese_text_conversion import PLUGIN_NAME
 from calibre_plugins.chinese_text_conversion.icons import apply_action_icon
 from calibre_plugins.chinese_text_conversion.i18n import _, ngettext, apply_ui_language_from_prefs
+from calibre_plugins.chinese_text_conversion.custom_columns import (
+    sync_script_column_heading, write_zh_script_tokens)
 from calibre_plugins.chinese_text_conversion.library_flow import (
     make_conversion_suffix, make_converted_title_suffix,
-    collect_generated_book_time_codes,
+    collect_comment_book_facts, collect_generated_book_time_codes,
     format_book_tag_log_lines,
     format_conversion_direction_label,
     format_conversion_stats_log, format_elapsed_duration,
     format_progress_status_fields, format_conversion_version_lines,
     import_converted_book_as_new, log_phase_header, log_section,
+    script_column_tokens,
     text_preview_from_changes, ocr_preview_from_samples, convert_book_to_temp_copy,
     format_replacement_stats_log, format_conversion_diagnostics_log,
     format_jieba_samples_log, ocr_summary_line,
@@ -37,12 +40,15 @@ from calibre_plugins.chinese_text_conversion.library_flow import (
     SUFFIX_TIMESTAMP_DEFAULT, normalize_suffix_timestamp_format,
     confirm_and_open_release_notes,
 )
+from calibre_plugins.chinese_text_conversion.script_tags import (
+    metadata_language_codes, short_script_tag)
 from calibre_plugins.chinese_text_conversion.main import (
     PUNC_OMITS, _h2v_master_dict, getPrefs, prepare_prefs, build_criteria,
     get_configuration, get_language_code, get_resource_file, ENABLE_VISION_OCR,
     INCLUDE_METADATA, INPUT_LOCALE, USE_JIEBA_SEGMENTATION,
     CONVERSION_TYPE, OUTPUT_LOCALE, BILINGUAL_ANNOTATION,
     APPEND_CONVERSION_SUFFIX, STORE_CONVERSION_INFO_IN_COMMENTS,
+    USE_TARGET_PHRASES,
     USE_CONVERSION_DATE,
     SUFFIX_TIMESTAMP_FORMAT,
     HTML_TextProcessor, OpenCC, apply_converter_segmentation,
@@ -284,6 +290,33 @@ class ChineseTextAction(InterfaceAction):
         self._whats_new_menu_action.triggered.connect(self.open_release_notes)
         self.qaction.setMenu(self._action_menu)
         self._update_action_translations()
+
+    def initialization_complete(self):
+        self._sync_script_column_heading()
+
+    def library_changed(self, db):
+        self._sync_script_column_heading(db)
+
+    def _sync_script_column_heading(self, db=None):
+        try:
+            if db is None:
+                db = getattr(self.gui, 'current_db', None)
+            if not sync_script_column_heading(db):
+                return
+            details = getattr(self.gui, 'book_details', None)
+            if details is not None and hasattr(details, 'refresh'):
+                details.refresh()
+            elif hasattr(self.gui, 'refresh_book_details'):
+                self.gui.refresh_book_details()
+            view = getattr(self.gui, 'library_view', None)
+            model = view.model() if view is not None else None
+            if model is not None and hasattr(model, 'refresh'):
+                model.refresh()
+            tags = getattr(self.gui, 'tags_view', None)
+            if tags is not None and hasattr(tags, 'recount'):
+                tags.recount()
+        except Exception:
+            pass
 
     def _update_action_translations(self):
         if getattr(self, '_convert_menu_action', None) is not None:
@@ -649,6 +682,23 @@ class ChineseTextAction(InterfaceAction):
                 and len(criteria) > USE_CONVERSION_DATE
             ):
                 use_conversion_date = bool(criteria[USE_CONVERSION_DATE])
+            use_target_phrases = True
+            if (
+                criteria is not None
+                and len(criteria) > USE_TARGET_PHRASES
+            ):
+                use_target_phrases = bool(criteria[USE_TARGET_PHRASES])
+            script_tokens = script_column_tokens(
+                criteria[CONVERSION_TYPE],
+                criteria[INPUT_LOCALE],
+                criteria[OUTPUT_LOCALE],
+                use_target_phrases=use_target_phrases)
+            language_codes = metadata_language_codes(short_script_tag(
+                criteria[CONVERSION_TYPE],
+                criteria[INPUT_LOCALE],
+                criteria[OUTPUT_LOCALE],
+                use_target_phrases=use_target_phrases))
+            book_facts = collect_comment_book_facts(container, fmt)
             conversion_stats = {
                 'chars_processed': chars_processed,
                 'chars_converted': chars_converted,
@@ -660,13 +710,20 @@ class ChineseTextAction(InterfaceAction):
                 'input_locale': criteria[INPUT_LOCALE],
                 'output_locale': criteria[OUTPUT_LOCALE],
                 'direction_label': _library_direction_label(criteria),
+                'script_tokens': script_tokens,
+                'image_count': book_facts.get('image_count', 0),
+                'embedded_fonts': book_facts.get('embedded_fonts') or [],
+                'ebook_version': book_facts.get('ebook_version') or '',
             }
             new_id, new_title = import_converted_book_as_new(
                 db, result['book_id'], temp_path, fmt, result['suffix'],
                 converter=meta_converter, title_suffix=title_suffix,
                 conversion_stats=conversion_stats,
                 store_conversion_info=store_info,
-                use_conversion_date=use_conversion_date)
+                use_conversion_date=use_conversion_date,
+                language_codes=language_codes)
+            wrote_script_column = write_zh_script_tokens(
+                db, new_id, script_tokens)
             state['new_book_ids'].append(new_id)
             state['created'].append(new_title)
             saved_path = db.format_abspath(new_id, fmt, index_is_id=True)
@@ -674,6 +731,8 @@ class ChineseTextAction(InterfaceAction):
                 title, new_title, new_id, fmt)
             book_info = book_info + '\n' + format_book_tag_log_lines(
                 result['suffix'], result['generated_at'])
+            if script_tokens and not wrote_script_column:
+                book_info = book_info + '\n' + _('Chinese script column missing')
             if saved_path:
                 book_info = book_info + '\n' + _('Saved file name: {}').format(
                     os.path.basename(saved_path))

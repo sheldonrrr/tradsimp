@@ -32,6 +32,8 @@ PLUGIN_FILES = [
     '__init__.py',
     'ui.py',
     'library_flow.py',
+    'script_tags.py',
+    'custom_columns.py',
     'icons.py',
     'ui_style.py',
     'dialogs.py',

@@ -965,54 +965,14 @@ def getPrefs():
 def get_language_code(criteria):
     """
     :param criteria: the description of the desired conversion
-    :return: 'zh-CN', 'zh-TW', 'zh-HK', or 'None'
+    :return: 'zh-Hans-CN', 'zh-Hant-TW', 'zh-Hant-HK', or 'None'
     """
-    conversion_mode = criteria[CONVERSION_TYPE]
-    input_type = criteria[INPUT_LOCALE]
-    output_type = criteria[OUTPUT_LOCALE]
-
-    # Return 'None' if Japan locale is used so that no language changes are made
-    language_code = 'None'
-
-    if conversion_mode == 1:
-        #trad to simp
-        if output_type == 0:
-            language_code = 'zh-Hans-CN'
-
-    elif conversion_mode == 2:
-        #simp to trad, (we don't support Macau yet zh-MO)
-        if output_type == 0:
-            language_code = 'zh-Hant-CN'
-        elif output_type == 1:
-            language_code = 'zh-Hant-HK'
-        else:
-            language_code = 'zh-Hant-TW'
-
-    elif conversion_mode == 3:
-        #trad to trad, (we don't support Macau yet zh-MO)
-        if input_type == 0:
-            if output_type == 1:
-                language_code = 'zh-Hant-HK'
-            elif output_type == 2:
-                language_code = 'zh-Hant-TW'
-            else:
-                #mainland trad -> mainland trad does nothing
-                language_code = 'None'
-        elif input_type == 1:
-            if output_type == 0:
-                language_code = 'zh-Hant-CN'
-            elif output_type == 2:
-                language_code = 'zh-Hant-TW'
-            else:
-                language_code = 'None'
-        elif input_type == 2:
-            if output_type == 0:
-                language_code = 'zh-Hant-CN'
-            elif output_type == 1:
-                language_code = 'zh-Hant-HK'
-            else:
-                language_code = 'None'
-    return language_code
+    from calibre_plugins.chinese_text_conversion.script_tags import (
+        conversion_language_code)
+    return conversion_language_code(
+        criteria[CONVERSION_TYPE],
+        criteria[INPUT_LOCALE],
+        criteria[OUTPUT_LOCALE]) or 'None'
 
 
 def maybe_enrich_images_with_vision_ocr(container, criteria, converter, progress_callback=None):

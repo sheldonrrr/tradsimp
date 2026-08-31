@@ -13,6 +13,8 @@ from calibre_plugins.chinese_text_conversion.__init__ import (
     PLUGIN_RELEASE_THREAD_URL, PLUGIN_SAFE_NAME, PLUGIN_VERSION)
 from calibre_plugins.chinese_text_conversion.i18n import (
     _, translate, UI_LANG_ZH_CN, UI_LANG_ZH_HK, UI_LANG_ZH_TW)
+from calibre_plugins.chinese_text_conversion.script_tags import (
+    english_filter_tokens)
 
 
 def confirm_and_open_release_notes(parent):
@@ -549,6 +551,64 @@ def title_suffix_target_label(conversion_type, output_locale):
         conversion_type, output_locale)])
 
 
+def script_column_tokens(
+        conversion_type, input_locale, output_locale, use_target_phrases=True):
+    """Filter tokens: BCP-47 script, locale, plus the stable Chinese suffix."""
+    tokens = list(english_filter_tokens(
+        conversion_type, input_locale, output_locale,
+        use_target_phrases=use_target_phrases))
+    if not tokens:
+        return []
+    chinese = title_suffix_target_token(conversion_type, output_locale)
+    if chinese and chinese not in tokens:
+        tokens.append(chinese)
+    return tokens
+
+
+def ebook_format_version(container, fmt=None):
+    """OPF package version (e.g. 3.0), or azw3 for Kindle books."""
+    fmt_name = (fmt or '').strip().upper()
+    if fmt_name == 'AZW3':
+        return 'azw3'
+    version = ''
+    try:
+        opf = getattr(container, 'opf', None)
+        if opf is not None:
+            version = (opf.get('version') or '').strip()
+    except Exception:
+        version = ''
+    return version
+
+
+def collect_comment_book_facts(container, fmt=None):
+    """Image count, embedded font filenames, and ebook version for Comments."""
+    from calibre_plugins.chinese_text_conversion.resources.strip_resources import (
+        embedded_font_filenames)
+    image_count = 0
+    fonts = []
+    version = ''
+    if container is not None:
+        try:
+            image_count = int(count_image_resources(container) or 0)
+        except Exception:
+            image_count = 0
+        try:
+            fonts = list(embedded_font_filenames(container) or [])
+        except Exception:
+            fonts = []
+        try:
+            version = ebook_format_version(container, fmt)
+        except Exception:
+            version = ''
+    elif (fmt or '').strip().upper() == 'AZW3':
+        version = 'azw3'
+    return {
+        'image_count': image_count,
+        'embedded_fonts': fonts,
+        'ebook_version': version,
+    }
+
+
 def make_converted_title_suffix(
         conversion_type, output_locale, bilingual=False, enabled=None,
         time_code=None, generated_at=None, used_time_codes=None,
@@ -779,11 +839,37 @@ def format_conversion_info_comment_lines(stats, lang=None):
     if direction:
         lines.append(translate('Comments conversion direction: {}', lang).format(
             direction))
+    script_tokens = [
+        str(token).strip()
+        for token in (stats.get('script_tokens') or [])
+        if str(token).strip()
+    ]
+    if script_tokens:
+        lines.append(translate('Comments script tags: {}', lang).format(
+            ', '.join(script_tokens)))
+    if 'image_count' in stats:
+        lines.append(translate('Comments image count: {}', lang).format(
+            '{:,}'.format(int(stats.get('image_count', 0) or 0))))
+    if 'embedded_fonts' in stats:
+        fonts = [
+            str(name).strip()
+            for name in (stats.get('embedded_fonts') or [])
+            if str(name).strip()
+        ]
+        font_text = ', '.join(fonts) if fonts else translate(
+            'Comments embedded fonts none', lang)
+        lines.append(translate('Comments embedded fonts: {}', lang).format(
+            font_text))
+    ebook_version = str(stats.get('ebook_version') or '').strip()
+    if ebook_version:
+        lines.append(translate('Comments ebook version: {}', lang).format(
+            ebook_version))
     return lines
 
 
 def preview_conversion_info_comment_text(
-        conversion_type=0, input_locale=0, output_locale=0):
+        conversion_type=0, input_locale=0, output_locale=0,
+        use_target_phrases=True):
     '''Settings preview of the Comments conversion-info block about to be written.'''
     # Sample runtime fields so the template matches a real write; language
     # follows the conversion target (Traditional templates for Traditional output).
@@ -800,6 +886,12 @@ def preview_conversion_info_comment_text(
         'output_locale': output_locale,
         'direction_label': format_conversion_direction_label(
             conversion_type, input_locale, output_locale, lang=lang),
+        'script_tokens': script_column_tokens(
+            conversion_type, input_locale, output_locale,
+            use_target_phrases=use_target_phrases),
+        'image_count': 8,
+        'embedded_fonts': ['SourceHanSerif.otf'],
+        'ebook_version': '3.0',
     }
     return '\n'.join(format_conversion_info_comment_lines(stats, lang=lang))
 
@@ -864,6 +956,18 @@ _PLUGIN_COMMENT_MARKERS = (
     'Comments conversion direction',
     '转换方向',
     '轉換方向',
+    'Comments script tags',
+    '脚本：',
+    '腳本：',
+    'Comments image count',
+    '图片数：',
+    '圖片數：',
+    'Comments embedded fonts',
+    '嵌入字体：',
+    '嵌入字體：',
+    'Comments ebook version',
+    '电子书版本：',
+    '電子書版本：',
 )
 
 
@@ -1021,17 +1125,19 @@ def _conversion_utcnow():
 def import_converted_book_as_new(
         db, source_book_id, converted_path, fmt, suffix_tag=None,
         converter=None, title_suffix='', conversion_stats=None,
-        store_conversion_info=False, use_conversion_date=True):
+        store_conversion_info=False, use_conversion_date=True,
+        language_codes=None):
     '''
     Add a new library entry with converted file; does not modify the source book.
     When converter is provided, OpenCC-converts title/authors/tags/publisher/comments
     (简介) and sort fields. title_suffix identifies the generated target form.
     After conversion,
     Comments get a short plugin promo note (with ---- separator when prior comments
-    exist). When store_conversion_info is True, a compact conversion stats summary
+    exist).     When store_conversion_info is True, a compact conversion stats summary
     is appended under the promo. When use_conversion_date is True (default), the
     new book's Date / last_modified follow conversion time so sorting by Date
-    finds the new entry; pubdate is left unchanged. suffix_tag is unused (kept
+    finds the new entry; pubdate is left unchanged. language_codes replaces the
+    copied source languages when provided. suffix_tag is unused (kept
     for call-site compat).
     Returns (new_book_id, new_title).
     '''
@@ -1049,6 +1155,8 @@ def import_converted_book_as_new(
         new_mi.title += title_suffix
         if getattr(new_mi, 'title_sort', None):
             new_mi.title_sort = new_mi.title_sort.rstrip() + title_suffix
+    if language_codes:
+        new_mi.languages = list(language_codes)
     new_mi.comments = append_library_conversion_comments(
         new_mi.comments,
         build_library_conversion_comments_note(
