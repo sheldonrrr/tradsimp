@@ -1,5 +1,5 @@
 ---
-description: High-frequency slash commands /push /pack /upgrade-version
+description: High-frequency slash commands /push /pack /build /upgrade-version
 alwaysApply: true
 ---
 
@@ -9,6 +9,7 @@ alwaysApply: true
 |---------|--------|
 | `/push` | **Default:** commit all current local project work, then push (usually `main` → `origin/main`). Do not push-only while leaving uncommitted changes. |
 | `/pack` | Run `bash scripts/package.sh` → `dist/chinese_text_conversion-X.Y.Z.zip` |
+| `/build` | Same zip as `/pack`: `bash scripts/package.sh` → `dist/chinese_text_conversion-X.Y.Z.zip` |
 | `/upgrade-version` | Bump version per `.cursor/rules/version-update.mdc` |
 
 When the user invokes one of these (via slash command or by saying the same intent), follow the matching prompt in `.cursor/commands/<name>.md` exactly.

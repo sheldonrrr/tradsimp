@@ -564,7 +564,12 @@ def build_about_identity():
     version_label.setObjectName(BRAND_SUBTITLE_ID)
     version_label.setAlignment(Qt.AlignHCenter)
     layout.addWidget(version_label)
-    return header, title_label, version_label
+
+    latest_label = QLabel()
+    latest_label.setAlignment(Qt.AlignHCenter)
+    latest_label.setWordWrap(True)
+    layout.addWidget(latest_label)
+    return header, title_label, version_label, latest_label
 
 
 def build_brand_header(title, subtitle):

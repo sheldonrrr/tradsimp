@@ -48,7 +48,7 @@ MAJOR = breaking · MINOR = features · PATCH = fixes
 ## Slash command
 
 Invoke with `/upgrade-version` (optional `X.Y.Z` argument). See `.cursor/commands/upgrade-version.md`.
-Related: `/pack` packages; `/push` commits and pushes.
+Related: `/build` and `/pack` package the plugin zip; `/push` commits and pushes.
 
 ## Never
 

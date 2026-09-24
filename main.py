@@ -742,6 +742,7 @@ def prepare_prefs(prefs):
     prefs.defaults['profile_ui_language'] = prefs.defaults['ui_language']
     prefs.defaults['has_user_preferences'] = False
     prefs.defaults['about_shown'] = True
+    prefs.defaults['about_latest_update_seen_version'] = ''
 
     # Legacy migration: older versions defaulted this to False.
     # Run once so existing users align with new default behavior.
@@ -1234,6 +1235,9 @@ def set_flow_direction(container, criteria, changed_files, converter):
                 changed_files.append(container.opf_name)
 
     addedCSSRules = False
+    # Class selector is not affected by @namespace. A type selector such as
+    # body is serialized as |body (no namespace) and misses XHTML <body>.
+    orientation_selector = u'.calibre-chinese_text'
 
     # Loop through all the files in the ebook looking for CSS style sheets
     # Update the CSS .calibre class if this was a Calibre converted file
@@ -1245,15 +1249,23 @@ def set_flow_direction(container, criteria, changed_files, converter):
             rules = (rule for rule in sheet if rule.type == rule.STYLE_RULE)
             for rule in rules:
                 for selector in rule.selectorList:
-                    if selector.selectorText == u'body.calibre-chinese_text':
+                    sel_text = selector.selectorText
+                    if sel_text in (orientation_selector, u'body.calibre-chinese_text'):
                         addedCSSRules = True
                         if add_flow_direction_properties(rule, orientation, break_rule):
                             fileChanged = True
                             changed_files.append(name)
                             container.dirty(name)
                         break
+                    if _selector_targets_document_element(sel_text):
+                        if add_flow_direction_properties(rule, orientation, break_rule):
+                            fileChanged = True
+                            changed_files.append(name)
+                            container.dirty(name)
+                        break
 
-    # If no 'body.calibre-chinese_text' selector rule is found in any css file, add one to every css file
+    # If no orientation override is found in any css file, add one to every css file.
+    # Use a class selector so a default @namespace cannot rewrite it to |body.
     if not addedCSSRules:
         for name, mt in container.mime_map.items():
             if mt in OEB_STYLES:
@@ -1262,7 +1274,7 @@ def set_flow_direction(container, criteria, changed_files, converter):
                 # Create a style rule for body.
                 styleEntry = css.CSSStyleDeclaration()
                 styleEntry['writing-mode'] = orientation
-                styleRule = css.CSSStyleRule(selectorText=u'body.calibre-chinese_text', style=styleEntry)
+                styleRule = css.CSSStyleRule(selectorText=orientation_selector, style=styleEntry)
                 sheet.add(styleRule)
                 styleRule.style['-epub-writing-mode'] = orientation
                 styleRule.style['-webkit-writing-mode'] = orientation
@@ -1272,6 +1284,21 @@ def set_flow_direction(container, criteria, changed_files, converter):
                 changed_files.append(name)
                 container.dirty(name)
     return fileChanged
+
+
+def _selector_targets_document_element(selector_text):
+    """True when the selector subject is html or body in the default namespace.
+
+    Descendant subjects (body img) and class-only rules (.hori) are left alone.
+    A leading | marks the null namespace, which does not match XHTML elements.
+    """
+    text = (selector_text or u'').strip()
+    if not text or u'*' in text or text.startswith(u'|'):
+        return False
+    subject = re.split(r'\s*[>+~]\s*|\s+', text)[-1]
+    if subject.startswith(u'|'):
+        return False
+    return bool(re.match(r'^(html|body)(?=$|[.#:\[])', subject))
 
 
 def _find_stylesheet_rule(sheet, selector_text):

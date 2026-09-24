@@ -69,9 +69,9 @@ _MESSAGES = {
         'Sheldon（Hopkins1 社区分支维护）',
         'Sheldon（Hopkins1 社群分支維護）'),
     'Plugin catalog released': _T(
-        'Released: 31 Aug, 2026',
-        '发布：2026年8月31日',
-        '發佈：2026年8月31日'),
+        'Released: 24 Sep, 2026',
+        '发布：2026年9月24日',
+        '發佈：2026年9月24日'),
     'Plugin catalog calibre requirement': _T(
         'Requires calibre 6.0.0 or later',
         '需要 calibre 6.0.0 或更高版本',
@@ -1598,6 +1598,14 @@ _MESSAGES = {
         '關於 Chinese Conversion · 簡繁轉換'),
     'Version {}': _T('Version {}', '版本 {}', '版本 {}'),
     'Version: {}': _T('Version: {}', '版本：{}', '版本：{}'),
+    'About latest update': _T(
+        'Latest update ({version}): {note}',
+        '最新更新（{version}）：{note}',
+        '最新更新（{version}）：{note}'),
+    'About whats new': _T(
+        'Stronger conversion from vertical layout to horizontal.',
+        '针对竖排转横排的增强。',
+        '針對直排轉橫排的增強。'),
     'Plugin description': _T(
         'Offline Simplified ↔ Traditional Chinese ebook conversion (OpenCC), plus an optional '
         'ZhConvert online short-text tool. Ebook conversion adds new books and leaves originals unchanged.',
@@ -1790,6 +1798,17 @@ _MESSAGES = {
         '在 calibre 內記錄簡單閱讀目標：維護正在閱讀的短書單、查看進度，並從閱讀器同步。',
         'Calibre 外掛 · Python\n'
         '在 calibre 內記錄簡單閱讀目標：維護正在閱讀的短書單、查看進度，並從閱讀器同步。'),
+    'About recommendation Booktoast title': _T(
+        'Booktoast (for calibre)',
+        'Booktoast（for calibre）',
+        'Booktoast（for calibre）'),
+    'About recommendation Booktoast desc': _T(
+        'Calibre plugin · Python\n'
+        'When calibre opens, briefly shows a highlight you once marked.',
+        'Calibre 插件 · Python\n'
+        '打开 calibre 时，短暂显示一条你曾经划过的重点。',
+        'Calibre 外掛 · Python\n'
+        '開啟 calibre 時，短暫顯示一則你曾經畫過的重點。'),
     'About recommendation Open button': _T(
         'MobileRead',
         'MobileRead',

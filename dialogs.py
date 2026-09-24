@@ -5,7 +5,7 @@ __license__   = 'GPL v3'
 import os, re
 
 try:
-    from qt.core import (Qt, QUrl, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
+    from qt.core import (Qt, QUrl, QEvent, QVBoxLayout, QLabel, QComboBox, QApplication, QSizePolicy,
                   QGroupBox, QButtonGroup, QRadioButton, QDialogButtonBox, QHBoxLayout,
                   QProgressDialog, QSize, QDialog, QCheckBox, QSpinBox, QScrollArea, QWidget,
                   QPushButton, QPlainTextEdit, QProgressBar, QObject, QThread, pyqtSignal,
@@ -18,7 +18,7 @@ except ImportError:
                           QPushButton, QPlainTextEdit, QProgressBar, QListWidget, QListWidgetItem,
                           QAbstractItemView, QTableWidget, QTableWidgetItem, QLineEdit,
                           QCompleter, QHeaderView)
-    from PyQt5.QtCore import QUrl, QObject, QThread, pyqtSignal, QStringListModel
+    from PyQt5.QtCore import QUrl, QEvent, QObject, QThread, pyqtSignal, QStringListModel
 
 from calibre.utils.config import config_dir
 
@@ -98,6 +98,8 @@ NOWTINY_PLUGIN_MARKDOWN_URL = 'https://www.mobileread.com/forums/showthread.php?
 NOWTINY_PLUGIN_ASKAI_URL = 'https://www.mobileread.com/forums/showthread.php?t=370613'
 NOWTINY_PLUGIN_SIMPLE_GOAL_URL = (
     'https://www.mobileread.com/forums/showthread.php?p=4602877')
+BOOKTOAST_PLUGIN_URL = (
+    'https://www.mobileread.com/forums/showthread.php?p=4610192#post4610192')
 XIAOHONGSHU_FEEDBACK_URL = 'http://xhslink.com/o/hdgQctdOte'
 
 # Cached OpenCC character markers for 简/繁 detection in symbol examples.
@@ -1057,7 +1059,8 @@ class PluginAboutDialog(QDialog):
         content_layout = QVBoxLayout(content)
         configure_layout(content_layout, 'sections')
 
-        identity, self.title_label, self.version_label = build_about_identity()
+        identity, self.title_label, self.version_label, self.latest_update_label = (
+            build_about_identity())
         content_layout.addWidget(identity)
 
         self.first_run_lang_row = QWidget()
@@ -1179,6 +1182,28 @@ class PluginAboutDialog(QDialog):
             self.recommend_simple_goal_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
         content_layout.addWidget(self.recommend_simple_goal_card)
 
+        self.recommend_booktoast_card = QWidget()
+        style_recommend_card(self.recommend_booktoast_card)
+        booktoast_layout = QHBoxLayout(self.recommend_booktoast_card)
+        booktoast_layout.setContentsMargins(12, 10, 12, 10)
+        booktoast_layout.setSpacing(12)
+        booktoast_text_layout = QVBoxLayout()
+        booktoast_text_layout.setContentsMargins(0, 0, 0, 0)
+        booktoast_text_layout.setSpacing(2)
+        self.recommend_booktoast_title = QLabel()
+        self.recommend_booktoast_title.setFont(feat_font)
+        booktoast_text_layout.addWidget(self.recommend_booktoast_title)
+        self.recommend_booktoast_desc = QLabel()
+        self.recommend_booktoast_desc.setWordWrap(True)
+        booktoast_text_layout.addWidget(self.recommend_booktoast_desc)
+        booktoast_layout.addLayout(booktoast_text_layout, 1)
+        self.recommend_booktoast_btn = QPushButton()
+        self.recommend_booktoast_btn.setCursor(Qt.PointingHandCursor)
+        self.recommend_booktoast_btn.clicked.connect(self._open_booktoast_plugin)
+        booktoast_layout.addWidget(
+            self.recommend_booktoast_btn, 0, Qt.AlignRight | Qt.AlignVCenter)
+        content_layout.addWidget(self.recommend_booktoast_card)
+
         self.recommend_note_label = QLabel()
         self.recommend_note_label.setWordWrap(True)
         content_layout.addWidget(self.recommend_note_label)
@@ -1209,6 +1234,8 @@ class PluginAboutDialog(QDialog):
         self.setWindowTitle(_('About Chinese Conversion · 简繁转换'))
         self.title_label.setText(_('Plugin catalog name'))
         self.version_label.setText(_('Version: {}').format(PLUGIN_VERSION))
+        self.latest_update_label.setText(_('About latest update').format(
+            version=PLUGIN_VERSION, note=_('About whats new')))
         self.first_run_ui_lang_label.setText(_('Interface Language:'))
         ui_lang_idx = self.first_run_ui_lang_combo.currentIndex()
         self.first_run_ui_lang_combo.blockSignals(True)
@@ -1238,6 +1265,12 @@ class PluginAboutDialog(QDialog):
             'About recommendation Simple Goal desc'))
         self.recommend_simple_goal_btn.setText(_(
             'About recommendation Open button'))
+        self.recommend_booktoast_title.setText(_(
+            'About recommendation Booktoast title'))
+        self.recommend_booktoast_desc.setText(_(
+            'About recommendation Booktoast desc'))
+        self.recommend_booktoast_btn.setText(_(
+            'About recommendation Open button'))
         self.recommend_note_label.setText(_('About MobileRead note'))
         self.recommend_site_link_label.setText(
             _('About recommendations site link').format(url=NOWTINY_SITE_URL))
@@ -1246,6 +1279,7 @@ class PluginAboutDialog(QDialog):
         style_recommend_card(self.recommend_markdown_card)
         style_recommend_card(self.recommend_askai_card)
         style_recommend_card(self.recommend_simple_goal_card)
+        style_recommend_card(self.recommend_booktoast_card)
         show_full_about = not self.first_run
         show_feedback_link = show_full_about and get_ui_language() == UI_LANG_ZH_CN
         self.first_run_lang_row.setVisible(self.first_run)
@@ -1258,12 +1292,18 @@ class PluginAboutDialog(QDialog):
         self.recommend_markdown_card.setVisible(show_full_about)
         self.recommend_askai_card.setVisible(show_full_about)
         self.recommend_simple_goal_card.setVisible(show_full_about)
+        self.recommend_booktoast_card.setVisible(show_full_about)
         self.recommend_note_label.setVisible(show_full_about)
         self.recommend_site_link_label.setVisible(show_full_about)
         self.feedback_link_label.setVisible(show_feedback_link)
         ok_btn = self.button_box.button(QDialogButtonBox.Ok)
         if ok_btn is not None:
             ok_btn.setText(_('Got it'))
+
+    def accept(self):
+        self.prefs['about_latest_update_seen_version'] = PLUGIN_VERSION
+        self.prefs.commit()
+        QDialog.accept(self)
 
     def _on_first_run_ui_language_changed(self, index):
         lang_index = normalize_ui_language(index)
@@ -1283,6 +1323,9 @@ class PluginAboutDialog(QDialog):
 
     def _open_simple_goal_plugin(self):
         open_url(QUrl(NOWTINY_PLUGIN_SIMPLE_GOAL_URL))
+
+    def _open_booktoast_plugin(self):
+        open_url(QUrl(BOOKTOAST_PLUGIN_URL))
 
     def mark_first_run_complete(self):
         if self.first_run:
@@ -1878,6 +1921,15 @@ class ConversionDialog(Dialog):
         configure_layout(footer_layout, 'footer')
         self.about_btn = QPushButton()
         self.about_btn.clicked.connect(self._show_about_dialog)
+        self.about_unread_dot = QLabel(self.about_btn)
+        self.about_unread_dot.setFixedSize(8, 8)
+        try:
+            transparent = Qt.WidgetAttribute.WA_TransparentForMouseEvents
+        except AttributeError:
+            transparent = Qt.WA_TransparentForMouseEvents
+        self.about_unread_dot.setAttribute(transparent, True)
+        self.about_unread_dot.raise_()
+        self.about_btn.installEventFilter(self)
         footer_layout.addWidget(self.about_btn)
         self.check_updates_btn = QPushButton()
         self.check_updates_btn.clicked.connect(self._open_release_thread)
@@ -1911,6 +1963,7 @@ class ConversionDialog(Dialog):
         dlg = PluginAboutDialog(self, self.prefs, first_run=first_run)
         dlg.exec_()
         dlg.mark_first_run_complete()
+        self.refresh_about_unread_dot()
         if first_run:
             # Sync main dialog after first-run UI language selection.
             lang = normalize_ui_language(
@@ -2683,10 +2736,54 @@ class ConversionDialog(Dialog):
         self.ui_lang_combo.blockSignals(False)
         self.about_btn.setText(_('About'))
         self.check_updates_btn.setText(_("What's new"))
+        self.refresh_about_unread_dot()
         self._translate_standard_buttons(self.button_box)
 
         if self.punctuation_dialog is not None:
             self.punctuation_dialog.apply_translations()
+
+    def _style_about_unread_dot(self):
+        if not hasattr(self, 'about_unread_dot'):
+            return
+        text_color = self.about_btn.palette().color(
+            self.about_btn.foregroundRole()).name()
+        self.about_unread_dot.setStyleSheet(
+            'background-color: {}; border-radius: 4px; border: none;'.format(
+                text_color))
+
+    def _position_about_unread_dot(self):
+        if not hasattr(self, 'about_unread_dot') or not hasattr(self, 'about_btn'):
+            return
+        dot = self.about_unread_dot
+        btn = self.about_btn
+        dot.move(max(0, btn.width() - dot.width() - 2), 2)
+
+    def refresh_about_unread_dot(self):
+        if not hasattr(self, 'about_unread_dot'):
+            return
+        seen = (self.prefs.get('about_latest_update_seen_version') or '').strip()
+        show = seen != PLUGIN_VERSION
+        self.about_unread_dot.setVisible(show)
+        if show:
+            self._style_about_unread_dot()
+            self._position_about_unread_dot()
+
+    def eventFilter(self, obj, event):
+        if obj is getattr(self, 'about_btn', None):
+            try:
+                resize_ev = QEvent.Type.Resize
+                show_ev = QEvent.Type.Show
+                palette_ev = QEvent.Type.PaletteChange
+            except AttributeError:
+                resize_ev = QEvent.Resize
+                show_ev = QEvent.Show
+                palette_ev = QEvent.PaletteChange
+            etype = event.type()
+            if etype in (resize_ev, show_ev, palette_ev):
+                if etype == palette_ev:
+                    self._style_about_unread_dot()
+                self._position_about_unread_dot()
+        return Dialog.eventFilter(self, obj, event)
 
     def _translate_standard_buttons(self, button_box):
         ok_btn = button_box.button(QDialogButtonBox.Ok)
